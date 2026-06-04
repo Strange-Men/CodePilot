@@ -15,7 +15,9 @@ class ReviewStore:
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.database_path)
+        conn = sqlite3.connect(self.database_path, timeout=10)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -78,4 +80,3 @@ class ReviewStore:
     @staticmethod
     def _now() -> str:
         return datetime.now(UTC).isoformat()
-

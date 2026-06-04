@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Github, Loader2, Play, RefreshCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ const orderedSections = [
   "Maintainability Issues",
   "Refactoring Suggestions"
 ];
+const terminalStatuses: ReviewStatus[] = ["completed", "failed"];
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
@@ -42,8 +43,9 @@ export default function Home() {
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const pollingTimerRef = useRef<number | null>(null);
 
-  const isRunning = review && !["completed", "failed"].includes(review.status);
+  const isRunning = review && !terminalStatuses.includes(review.status);
 
   useEffect(() => {
     const repoFromQuery = new URLSearchParams(window.location.search).get("repo_url");
@@ -53,6 +55,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    function clearPolling() {
+      if (pollingTimerRef.current !== null) {
+        window.clearInterval(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
+    }
+
+    clearPolling();
     if (!taskId) return;
 
     let cancelled = false;
@@ -64,6 +74,9 @@ export default function Home() {
         if (!cancelled) {
           setReview(data);
           setError(data.error);
+          if (terminalStatuses.includes(data.status)) {
+            clearPolling();
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Unable to fetch review status.");
@@ -71,10 +84,10 @@ export default function Home() {
     }
 
     poll();
-    const timer = window.setInterval(poll, 2000);
+    pollingTimerRef.current = window.setInterval(poll, 2000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      clearPolling();
     };
   }, [taskId]);
 

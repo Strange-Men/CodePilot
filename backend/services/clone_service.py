@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 import logging
+import os
+import stat
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -18,6 +20,11 @@ class CloneError(RuntimeError):
 class CloneService:
     def __init__(self, workspace_path: Path) -> None:
         self.workspace_path = workspace_path
+
+    def cleanup(self, task_id: str) -> None:
+        task_dir = self.workspace_path / task_id
+        if task_dir.exists():
+            shutil.rmtree(task_dir, onerror=self._remove_readonly)
 
     def clone(self, repo_url: str, task_id: str) -> Path:
         parsed = urlparse(repo_url)
@@ -104,3 +111,8 @@ class CloneService:
             "network is unreachable",
         ]
         return any(marker in lower_message for marker in transient_markers)
+
+    @staticmethod
+    def _remove_readonly(func, path: str, _exc_info) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
