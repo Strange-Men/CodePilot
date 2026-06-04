@@ -7,7 +7,6 @@ import httpx
 
 from backend.core.config import Settings
 
-
 REPORT_SECTIONS = [
     "Architecture Summary",
     "Code Smells",
@@ -26,16 +25,23 @@ class MockLLMClient:
         file_count_hint = self._extract_after(prompt, "Analyzed files:")
         return (
             "# Architecture Summary\n"
-            f"The repository appears to be a Python application composed of {file_count_hint or 'multiple'} analyzed modules. "
-            "The code is organized around module-level responsibilities, with classes and functions forming the main reviewable units. "
-            "The current structure is suitable for a portfolio review because entry points, services, and data definitions can be inspected separately.\n\n"
+            "The repository appears to be a Python application composed of "
+            f"{file_count_hint or 'multiple'} analyzed modules. "
+            "The code is organized around module-level responsibilities, with classes and functions forming the main "
+            "reviewable units. "
+            "The current structure is suitable for a portfolio review because entry points, services, and data "
+            "definitions can be inspected separately.\n\n"
             "# Code Smells\n"
-            "- Some modules may be carrying mixed responsibilities when API, parsing, and persistence logic appear close together.\n"
+            "- Some modules may be carrying mixed responsibilities when API, parsing, and persistence logic appear "
+            "close together.\n"
             "- Files with many functions should be checked for low cohesion and hidden orchestration logic.\n"
-            "- Missing or thin docstrings make it harder for a reviewer to understand intent from the code index alone.\n\n"
+            "- Missing or thin docstrings make it harder for a reviewer to understand intent from the code index "
+            "alone.\n\n"
             "# Maintainability Issues\n"
-            "- Error handling should stay explicit at repository boundaries such as cloning, file parsing, and LLM calls.\n"
-            "- Larger files should be split only when there is a clear domain boundary, not just to reduce line count.\n"
+            "- Error handling should stay explicit at repository boundaries such as cloning, file parsing, and LLM "
+            "calls.\n"
+            "- Larger files should be split only when there is a clear domain boundary, not just to reduce line "
+            "count.\n"
             "- Tests should cover parsing edge cases, failed clone flows, and deterministic mock review generation.\n\n"
             "# Refactoring Suggestions\n"
             "- Keep I/O operations in service modules and pure code analysis in parser or reviewer modules.\n"
@@ -87,4 +93,3 @@ def build_llm_client(settings: Settings) -> LLMClient:
     if settings.use_mock_llm:
         return MockLLMClient()
     return OpenAICompatibleClient(settings)
-

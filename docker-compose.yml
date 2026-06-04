@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      USE_MOCK_LLM: "true"
+      DATABASE_PATH: /app/backend/data/codepilot.db
+      WORKSPACE_PATH: /app/backend/workspace
+      REPORTS_PATH: /app/reports
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-data:/app/backend/data
+      - reports:/app/reports
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # worker:
+  # graph-service:
+  # agent-service:
+
+volumes:
+  backend-data:
+  reports:

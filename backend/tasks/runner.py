@@ -13,7 +13,6 @@ from backend.services.clone_service import CloneService
 from backend.services.indexer import RepositoryIndexer
 from backend.storage.sqlite import ReviewStore
 
-
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     handler = logging.StreamHandler()

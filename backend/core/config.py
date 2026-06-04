@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     database_path: Path = Field(default=ROOT_DIR / "backend" / "data" / "codepilot.db")
     workspace_path: Path = Field(default=ROOT_DIR / "backend" / "workspace")
     reports_path: Path = Field(default=ROOT_DIR / "reports")
+    cors_allow_origins: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000",
+        alias="CORS_ALLOW_ORIGINS",
+    )
+    cors_allow_origin_regex: str = Field(
+        default=r"https?://(localhost|127\.0\.0\.1):\d+",
+        alias="CORS_ALLOW_ORIGIN_REGEX",
+    )
     use_mock_llm: bool = Field(default=True, alias="USE_MOCK_LLM")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
@@ -20,6 +28,10 @@ class Settings(BaseSettings):
     max_files: int = 300
     max_file_size_bytes: int = 200 * 1024
     final_prompt_token_budget: int = 5000
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
 
 
 @lru_cache
@@ -29,4 +41,3 @@ def get_settings() -> Settings:
     settings.workspace_path.mkdir(parents=True, exist_ok=True)
     settings.reports_path.mkdir(parents=True, exist_ok=True)
     return settings
-

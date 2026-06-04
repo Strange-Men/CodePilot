@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
-import sys
 import logging
 import os
+import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
-
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,12 @@ class CloneService:
             if not self._is_transient_network_error(last_error) or attempt == 2:
                 break
 
-            logger.warning("Retrying git clone for task %s after transient failure (%s/3): %s", task_id, attempt + 2, last_error)
+            logger.warning(
+                "Retrying git clone for task %s after transient failure (%s/3): %s",
+                task_id,
+                attempt + 2,
+                last_error,
+            )
             if repo_dir.exists():
                 shutil.rmtree(repo_dir)
             task_dir.mkdir(parents=True, exist_ok=True)

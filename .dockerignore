@@ -1,0 +1,16 @@
+.git
+.github
+.next
+**/.next
+node_modules
+**/node_modules
+backend/data
+backend/workspace
+reports/*.md
+__pycache__
+**/__pycache__
+.pytest_cache
+.ruff_cache
+frontend/.next
+frontend/out
+frontend/node_modules

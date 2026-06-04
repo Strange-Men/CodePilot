@@ -4,7 +4,6 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-
 IGNORE_DIRS = {
     "node_modules",
     "dist",
@@ -103,7 +102,11 @@ class PythonParser:
             return ParsedPythonFile(relative_path, [], [], [], None)
 
         classes = [node.name for node in ast.walk(module) if isinstance(node, ast.ClassDef)]
-        functions = [node.name for node in ast.walk(module) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        functions = [
+            node.name
+            for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
         imports: list[str] = []
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
@@ -141,4 +144,3 @@ class PythonParser:
             return get_parser("python")
         except Exception:
             return None
-
