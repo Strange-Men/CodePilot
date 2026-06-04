@@ -6,6 +6,8 @@ CodePilot V1.1 keeps the V1.0 modular monolith intact: a Next.js frontend, a Fas
 
 Deploy `frontend/` to Vercel.
 
+Detailed Vercel guide: `docs/VERCEL_DEPLOYMENT.md`.
+
 Recommended Vercel settings:
 
 - Framework Preset: Next.js
