@@ -1,0 +1,47 @@
+from enum import StrEnum
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class ReviewStatus(StrEnum):
+    pending = "pending"
+    cloning = "cloning"
+    parsing = "parsing"
+    summarizing = "summarizing"
+    reviewing = "reviewing"
+    completed = "completed"
+    failed = "failed"
+
+
+class ReviewCreateRequest(BaseModel):
+    repo_url: HttpUrl = Field(description="GitHub repository URL to review")
+
+
+class ReviewCreateResponse(BaseModel):
+    task_id: str
+
+
+class ReviewStatusResponse(BaseModel):
+    task_id: str
+    repo_url: str
+    status: ReviewStatus
+    error: str | None = None
+    report_markdown: str | None = None
+    export_path: str | None = None
+
+
+class CodeFileSummary(BaseModel):
+    path: str
+    classes: list[str] = Field(default_factory=list)
+    functions: list[str] = Field(default_factory=list)
+    purpose: str
+    summary: str
+
+
+class RepositoryContext(BaseModel):
+    repo_url: str
+    total_python_files: int
+    analyzed_files: int
+    skipped_files: int
+    file_summaries: list[CodeFileSummary]
+    repository_summary: str
+
