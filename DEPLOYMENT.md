@@ -44,6 +44,7 @@ The backend requires Git at runtime because repositories are cloned with the Git
 Backend:
 
 ```powershell
+PYTHON_VERSION=3.11.11
 USE_MOCK_LLM=true
 DATABASE_PATH=/app/backend/data/codepilot.db
 WORKSPACE_PATH=/app/backend/workspace
@@ -99,7 +100,9 @@ Exposed ports:
 
 ## Render (Backend)
 
-Deploy the repository root to Render using `Dockerfile.backend`.
+CodePilot can deploy on Render Free either as a Docker service or as a Native Python service.
+
+Recommended path: deploy the repository root to Render using `Dockerfile.backend`.
 
 Recommended Render settings:
 
@@ -112,6 +115,7 @@ Recommended Render settings:
 Environment variables:
 
 ```powershell
+PYTHON_VERSION=3.11.11
 USE_MOCK_LLM=true
 DATABASE_PATH=/app/backend/data/codepilot.db
 WORKSPACE_PATH=/app/backend/workspace
@@ -123,6 +127,19 @@ FINAL_PROMPT_TOKEN_BUDGET=5000
 ```
 
 Note: Render Free tier has ephemeral storage. SQLite data is lost on restart/deploys.
+
+Native Python fallback:
+
+- Root Directory: repository root, or `backend`
+- Python Version: set `PYTHON_VERSION=3.11.11`
+- Build Command from repository root: `pip install -r backend/requirements.txt`
+- Start Command from repository root: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+- Build Command from `backend` root: `pip install -r requirements.txt`
+- Start Command from `backend` root: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+Render does not use `runtime.txt` for Python version selection. CodePilot includes `.python-version`
+files at both the repository root and `backend/`, but setting `PYTHON_VERSION=3.11.11` in Render is
+the most explicit option and takes precedence.
 
 ## Troubleshooting
 
