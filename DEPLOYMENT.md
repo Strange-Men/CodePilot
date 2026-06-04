@@ -97,6 +97,33 @@ Exposed ports:
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
 
+## Render (Backend)
+
+Deploy the repository root to Render using `Dockerfile.backend`.
+
+Recommended Render settings:
+
+- Runtime: Docker
+- Dockerfile Path: `./Dockerfile.backend`
+- Docker Context: `.`
+- Instance Type: Free
+- Public Port: Render injects `$PORT` automatically
+
+Environment variables:
+
+```powershell
+USE_MOCK_LLM=true
+DATABASE_PATH=/app/backend/data/codepilot.db
+WORKSPACE_PATH=/app/backend/workspace
+REPORTS_PATH=/app/reports
+CORS_ALLOW_ORIGINS=https://your-vercel-app.vercel.app
+MAX_FILES=300
+MAX_FILE_SIZE_BYTES=204800
+FINAL_PROMPT_TOKEN_BUDGET=5000
+```
+
+Note: Render Free tier has ephemeral storage. SQLite data is lost on restart/deploys.
+
 ## Troubleshooting
 
 Backend health check fails:
