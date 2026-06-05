@@ -1,41 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Github, Loader2, Play, RefreshCcw } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Github } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { ReportRenderer } from "@/components/ReportRenderer";
+import { ReviewStatusDisplay } from "@/components/ReviewStatusDisplay";
+import { ReviewSubmissionForm } from "@/components/ReviewSubmissionForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-
-type ReviewStatus = "pending" | "cloning" | "parsing" | "summarizing" | "reviewing" | "completed" | "failed";
-
-type ReviewResponse = {
-  task_id: string;
-  repo_url: string;
-  status: ReviewStatus;
-  error: string | null;
-  report_markdown: string | null;
-  export_path: string | null;
-};
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
-const STATUS_LABELS: Record<ReviewStatus, string> = {
-  pending: "Pending",
-  cloning: "Cloning",
-  parsing: "Parsing",
-  summarizing: "Summarizing",
-  reviewing: "Reviewing",
-  completed: "Completed",
-  failed: "Failed"
-};
-
-const orderedSections = [
-  "Architecture Summary",
-  "Code Smells",
-  "Maintainability Issues",
-  "Refactoring Suggestions"
-];
-const terminalStatuses: ReviewStatus[] = ["completed", "failed"];
+import { useReviewPolling } from "@/hooks/useReviewPolling";
+import { createReview } from "@/lib/api";
+import { terminalStatuses } from "@/lib/report";
+import type { ReviewResponse } from "@/lib/types";
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
@@ -43,9 +18,8 @@ export default function Home() {
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const pollingTimerRef = useRef<number | null>(null);
 
-  const isRunning = review && !terminalStatuses.includes(review.status);
+  const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
 
   useEffect(() => {
     const repoFromQuery = new URLSearchParams(window.location.search).get("repo_url");
@@ -54,44 +28,19 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    function clearPolling() {
-      if (pollingTimerRef.current !== null) {
-        window.clearInterval(pollingTimerRef.current);
-        pollingTimerRef.current = null;
-      }
-    }
+  const handleReview = useCallback((data: ReviewResponse) => {
+    setReview(data);
+  }, []);
 
-    clearPolling();
-    if (!taskId) return;
+  const handlePollingError = useCallback((message: string) => {
+    setError(message || null);
+  }, []);
 
-    let cancelled = false;
-    async function poll() {
-      try {
-        const response = await fetch(`${API_BASE}/api/reviews/${taskId}`);
-        if (!response.ok) throw new Error(await response.text());
-        const data = (await response.json()) as ReviewResponse;
-        if (!cancelled) {
-          setReview(data);
-          setError(data.error);
-          if (terminalStatuses.includes(data.status)) {
-            clearPolling();
-          }
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to fetch review status.");
-      }
-    }
-
-    poll();
-    pollingTimerRef.current = window.setInterval(poll, 2000);
-    return () => {
-      cancelled = true;
-      clearPolling();
-    };
-  }, [taskId]);
-
-  const sections = useMemo(() => parseReport(review?.report_markdown || ""), [review?.report_markdown]);
+  useReviewPolling({
+    taskId,
+    onReview: handleReview,
+    onError: handlePollingError
+  });
 
   async function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,13 +50,7 @@ export default function Home() {
     setTaskId(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/reviews`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo_url: repoUrl })
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const data = (await response.json()) as { task_id: string };
+      const data = await createReview(repoUrl);
       setTaskId(data.task_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start review.");
@@ -140,111 +83,21 @@ export default function Home() {
             <CardTitle>Repository Import</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="space-y-3" onSubmit={submitReview}>
-              <Input
-                aria-label="GitHub repository URL"
-                value={repoUrl}
-                onChange={(event) => setRepoUrl(event.target.value)}
-                placeholder="https://github.com/user/repo"
-              />
-              <Button className="w-full" disabled={submitting || Boolean(isRunning)} type="submit">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Start Review
-              </Button>
-            </form>
-
-            <div className="mt-5 space-y-3">
-              <StatusRow label="Task" value={taskId || "Not started"} />
-              <StatusRow label="Status" value={review ? STATUS_LABELS[review.status] : "Idle"} />
-              {isRunning ? <ProgressRail status={review.status} /> : null}
-              {error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
-              {review?.status === "completed" ? (
-                <Button asChild className="w-full" variant="outline">
-                  <a href={`${API_BASE}/api/reviews/${review.task_id}/export`}>
-                    <Download className="h-4 w-4" />
-                    Export Markdown
-                  </a>
-                </Button>
-              ) : null}
-            </div>
+            <ReviewSubmissionForm
+              isRunning={isRunning}
+              onRepoUrlChange={setRepoUrl}
+              onSubmit={submitReview}
+              repoUrl={repoUrl}
+              submitting={submitting}
+            />
+            <ReviewStatusDisplay error={error} isRunning={isRunning} review={review} taskId={taskId} />
           </CardContent>
         </Card>
 
         <div className="space-y-5">
-          {review?.report_markdown ? (
-            orderedSections.map((section) => (
-              <Card key={section}>
-                <CardHeader>
-                  <CardTitle>{section}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">{sections[section] || "No findings returned."}</div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Review Report</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-background p-8 text-center">
-                  {isRunning ? <RefreshCcw className="h-8 w-8 animate-spin text-primary" /> : <Github className="h-8 w-8 text-muted-foreground" />}
-                  <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                    {isRunning
-                      ? "CodePilot is cloning, parsing, summarizing, and reviewing the repository."
-                      : "Start a review to see the generated architecture, smell, maintainability, and refactoring sections here."}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <ReportRenderer isRunning={isRunning} reportMarkdown={review?.report_markdown} />
         </div>
       </section>
     </main>
   );
-}
-
-function StatusRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-medium">{value}</span>
-    </div>
-  );
-}
-
-function ProgressRail({ status }: { status: ReviewStatus }) {
-  const statuses: ReviewStatus[] = ["pending", "cloning", "parsing", "summarizing", "reviewing", "completed"];
-  const activeIndex = statuses.indexOf(status);
-  return (
-    <div className="grid grid-cols-6 gap-1" aria-label="Review progress">
-      {statuses.map((item, index) => (
-        <div
-          className={`h-2 rounded-sm ${index <= activeIndex ? "bg-primary" : "bg-muted"}`}
-          key={item}
-          title={STATUS_LABELS[item]}
-        />
-      ))}
-    </div>
-  );
-}
-
-function parseReport(markdown: string): Record<string, string> {
-  const sections: Record<string, string> = {};
-  let current = "";
-
-  for (const line of markdown.split("\n")) {
-    const heading = line.replace(/^#+\s*/, "").trim();
-    if (orderedSections.includes(heading)) {
-      current = heading;
-      sections[current] = "";
-      continue;
-    }
-    if (current) {
-      sections[current] = `${sections[current]}${line}\n`;
-    }
-  }
-
-  return sections;
 }
