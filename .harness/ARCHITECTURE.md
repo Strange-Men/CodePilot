@@ -43,7 +43,7 @@ Browser
 | API | `backend/api/reviews.py` | Review creation, polling, and export endpoints | Raises 404 for missing task and 409 for export before completion. |
 | Config | `backend/core/config.py` | Pydantic settings and path creation | Loads `.env`, ignores unknown vars, creates data/workspace/reports dirs. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
-| LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`. |
+| LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`; runner composes the selected client and injects it into the pipeline. |
 | Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py` | Parser protocol, registry, Python file discovery, and structure extraction | Python-only registered parser, tree-sitter with AST fallback. |
 | Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces four-section report format. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
@@ -162,7 +162,15 @@ Rationale: reduces coupling in the runner while preserving status transitions, S
 
 Decision log: `DECISION-019`.
 
-### 5. Fixed Four-Section Report Format
+### 5. Inject LLM Client at the Runner Boundary
+
+Decision: build or accept the LLMClient in ReviewTaskRunner and inject it into ReviewPipeline, which passes it to ReportGenerator.
+
+Rationale: keeps provider selection at the composition boundary while preserving mock behavior, OpenAI-compatible behavior, prompts, report normalization, and current execution flow.
+
+Decision log: `DECISION-020`.
+
+### 6. Fixed Four-Section Report Format
 
 Decision: normalize every review to Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions.
 
@@ -170,7 +178,7 @@ Rationale: stable UX and predictable export format even when LLM output varies.
 
 Decision log: `DECISION-005`.
 
-### 6. Mock Mode by Default
+### 7. Mock Mode by Default
 
 Decision: default `USE_MOCK_LLM=true`.
 
@@ -178,7 +186,7 @@ Rationale: no credentials needed for demos, CI, smoke testing, or local onboardi
 
 Decision log: `DECISION-003`.
 
-### 7. SQLite WAL Storage
+### 8. SQLite WAL Storage
 
 Decision: use SQLite with WAL mode and locking.
 
@@ -186,7 +194,7 @@ Rationale: zero database infrastructure and enough durability for the single-ins
 
 Decision log: `DECISION-002`.
 
-### 8. Windows-First Tooling
+### 9. Windows-First Tooling
 
 Decision: use PowerShell scripts and Windows CI.
 
@@ -194,7 +202,7 @@ Rationale: matches primary development environment while Docker covers Linux pro
 
 Decision log: `DECISION-001`.
 
-### 9. Render Docker Backend and Vercel Frontend
+### 10. Render Docker Backend and Vercel Frontend
 
 Decision: deploy backend to Render via Docker and frontend to Vercel.
 
@@ -202,7 +210,7 @@ Rationale: free-tier availability, easy Git integration, and Docker avoids build
 
 Decision logs: `DECISION-007`, `DECISION-008`, `DECISION-006`.
 
-### 10. Harness Engineering System v1.2
+### 11. Harness Engineering System v1.2
 
 Decision: install `.harness/` governance docs, workflow references, regression rules, evaluation harness, and automated audit enforcement.
 

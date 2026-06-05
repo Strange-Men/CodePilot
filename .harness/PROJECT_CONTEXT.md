@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V1.1 product state with V1.2 reliability harnessing and V1.3 foundation refactors in progress: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, and 50 collected tests.
+CodePilot is at V1.1 product state with V1.2 reliability harnessing and V1.3 foundation refactors in progress: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, LLM dependency injection foundation, and 50 collected tests.
 
 ## Release History
 
@@ -28,6 +28,7 @@ FastAPI backend
   -> orchestrate review lifecycle through ReviewPipeline
   -> discover parser-supported files through the Python parser registry entry
   -> build RepositoryContext
+  -> inject selected LLMClient into report generation
   -> generate normalized four-section report
   -> persist in SQLite
   -> export Markdown
@@ -37,7 +38,7 @@ Backend modules:
 
 - `backend/api` - Review routes.
 - `backend/core` - Settings and environment loading.
-- `backend/llm` - Mock and OpenAI-compatible LLM clients.
+- `backend/llm` - Mock and OpenAI-compatible LLM clients selected at the runner composition boundary.
 - `backend/models` - Pydantic schemas and review status enum.
 - `backend/parsers` - Parser protocol, parser registry, and registered Python parser/file discovery.
 - `backend/reviewers` - Prompt building, report normalization, Markdown export.

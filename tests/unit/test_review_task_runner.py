@@ -60,10 +60,13 @@ class FakeRepositoryIndexer:
 
 
 class FakeReportGenerator:
+    llm_clients: list[object] = []
+
     def __init__(self, llm_client, reports_path: Path, prompt_token_budget: int) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
         self.prompt_token_budget = prompt_token_budget
+        self.llm_clients.append(llm_client)
 
     def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
         export_path = self.reports_path / f"{task_id}.md"
@@ -86,11 +89,17 @@ class FakeParserRegistry:
         return self.parser
 
 
+class FakeLLMClient:
+    def generate_review(self, prompt: str) -> str:
+        return "# Architecture Summary\nDone.\n"
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_clone_service() -> None:
     FakeCloneService.instances = []
     FakeCloneService.fail_clone = False
     FakeRepositoryIndexer.parser_instances = []
+    FakeReportGenerator.llm_clients = []
 
 
 @pytest.fixture
@@ -98,7 +107,6 @@ def runner_dependencies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tupl
     monkeypatch.setattr(pipeline_module, "CloneService", FakeCloneService)
     monkeypatch.setattr(pipeline_module, "RepositoryIndexer", FakeRepositoryIndexer)
     monkeypatch.setattr(pipeline_module, "ReportGenerator", FakeReportGenerator)
-    monkeypatch.setattr(pipeline_module, "build_llm_client", lambda settings: object())
 
     settings = Settings(
         database_path=tmp_path / "reviews.db",
@@ -176,10 +184,12 @@ def test_run_records_status_progression(
 def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
     settings, store = runner_dependencies
     parser_registry = FakeParserRegistry()
-    runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry)
+    llm_client = FakeLLMClient()
+    runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry, llm_client=llm_client)
     store.create_review("task-1", "https://github.com/pallets/flask")
 
     runner._run("task-1", "https://github.com/pallets/flask")
 
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
+    assert FakeReportGenerator.llm_clients == [llm_client]

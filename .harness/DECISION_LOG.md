@@ -461,6 +461,24 @@ Keep ReviewTaskRunner as the in-process scheduler and delegate review lifecycle 
 
 This reduces coupling in task scheduling code without introducing Redis, Celery, Temporal, or any new infrastructure. The status lifecycle, API behavior, database schema, and cleanup behavior remain unchanged.
 
+## DECISION-020: Inject LLM Client Through Pipeline Boundary
+
+- Date: 2026-06-05
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+ReviewPipeline previously selected its LLM dependency internally by calling `build_llm_client`, tying orchestration to provider selection.
+
+### Decision
+
+Keep `build_llm_client` as the default composition helper, but call it from ReviewTaskRunner and inject the resulting `LLMClient` into ReviewPipeline.
+
+### Rationale
+
+This makes the pipeline depend on the LLM protocol instead of provider construction, while preserving mock mode, OpenAI-compatible mode, prompt text, report structure, and the current execution model.
+
 ## DECISION-003: Use Mock LLM Mode by Default
 
 - Date: V1.0

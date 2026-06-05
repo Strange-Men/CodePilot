@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backend.core.config import Settings
-from backend.llm.client import build_llm_client
+from backend.llm.client import LLMClient
 from backend.models.review import RepositoryContext, ReviewStatus
 from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.reviewers.report_generator import ReportGenerator
@@ -24,7 +24,6 @@ logger.propagate = False
 CloneServiceFactory = Callable[[Path], CloneService]
 IndexerFactory = Callable[..., RepositoryIndexer]
 ReportGeneratorFactory = Callable[..., ReportGenerator]
-LLMClientFactory = Callable[[Settings], object]
 
 
 class ReviewPipeline:
@@ -32,19 +31,19 @@ class ReviewPipeline:
         self,
         settings: Settings,
         store: ReviewStore,
+        llm_client: LLMClient,
         parser_registry: ParserRegistry | None = None,
         clone_service_factory: CloneServiceFactory | None = None,
         indexer_factory: IndexerFactory | None = None,
         report_generator_factory: ReportGeneratorFactory | None = None,
-        llm_client_factory: LLMClientFactory | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
+        self.llm_client = llm_client
         self.parser_registry = parser_registry or default_parser_registry
         self.clone_service_factory = clone_service_factory or CloneService
         self.indexer_factory = indexer_factory or RepositoryIndexer
         self.report_generator_factory = report_generator_factory or ReportGenerator
-        self.llm_client_factory = llm_client_factory or build_llm_client
 
     def run(self, task_id: str, repo_url: str) -> None:
         clone_service = self.clone_service_factory(self.settings.workspace_path)
@@ -92,7 +91,7 @@ class ReviewPipeline:
         self.store.update_status(task_id, ReviewStatus.reviewing)
         logger.info("event=review_started task_id=%s", task_id)
         report_generator = self.report_generator_factory(
-            self.llm_client_factory(self.settings),
+            self.llm_client,
             self.settings.reports_path,
             self.settings.final_prompt_token_budget,
         )
