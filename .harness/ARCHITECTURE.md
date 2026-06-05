@@ -27,9 +27,9 @@ Browser
 5. ReviewPipeline clones the repository using shallow git clone.
 6. ReviewPipeline resolves the registered Python parser and discovers eligible Python files.
 7. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
-8. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET.
+8. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET using the shared report-section contract.
 9. LLM client returns report text, or mock client returns deterministic output.
-10. ReportGenerator normalizes output to four required sections.
+10. ReportGenerator normalizes output to the four required contract sections.
 11. Store persists status, report, and export path.
 12. Frontend polls /api/reviews/{task_id} until completed or failed.
 13. User can download Markdown from /api/reviews/{task_id}/export.
@@ -41,11 +41,12 @@ Browser
 |--------|----------|----------------|-------------------|
 | Entry | `backend/main.py` | FastAPI app setup, CORS, router mounting, `/health` | Uses settings singleton and shared store/runner. |
 | API | `backend/api/reviews.py` | Review creation, polling, and export endpoints | Raises 404 for missing task and 409 for export before completion. |
-| Config | `backend/core/config.py` | Pydantic settings and path creation | Loads `.env`, ignores unknown vars, creates data/workspace/reports dirs. |
+| Core | `backend/core/config.py`, `backend/core/report_contract.py`, `backend/core/logging.py` | Settings, shared report contract loading, and logger setup | Loads `.env`, creates runtime paths, reads `contracts/report_sections.json`, and centralizes backend logger initialization. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
 | LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`; runner composes the selected client and injects it into the pipeline. |
-| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py` | Parser protocol, registry, Python file discovery, and structure extraction | Python-only registered parser, tree-sitter with AST fallback. |
-| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces four-section report format. |
+| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py` | Parser protocol, registry, Python file discovery, and structure extraction | Python-only registered parser explicitly inherits `SourceParser`, tree-sitter with AST fallback. |
+| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces the shared-contract four-section report format. |
+| Shared Contract | `contracts/report_sections.json` | Ordered report section contract consumed by backend and frontend | Defines the V1 report section IDs and titles without coupling either runtime to the other. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
 | Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates deterministic summaries before LLM review. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
@@ -55,12 +56,19 @@ Browser
 
 | Path | Responsibility |
 |------|----------------|
-| `frontend/app/page.tsx` | Single-page client UI: URL input, submit, status polling, report rendering, export link. |
+| `frontend/app/page.tsx` | Single-page client composition for submission, polling, status display, and report rendering. |
 | `frontend/app/layout.tsx` | Root layout and metadata. |
 | `frontend/app/globals.css` | Tailwind directives and theme variables. |
+| `frontend/components/ReviewSubmissionForm.tsx` | Review URL form and submit state. |
+| `frontend/components/ReviewStatusDisplay.tsx` | Review lifecycle and export link display. |
+| `frontend/components/ReportRenderer.tsx` | Report section rendering using the shared report contract. |
 | `frontend/components/ui/button.tsx` | Button primitive using class-variance-authority. |
 | `frontend/components/ui/card.tsx` | Card primitive. |
 | `frontend/components/ui/input.tsx` | Input primitive. |
+| `frontend/hooks/useReviewPolling.ts` | Polling lifecycle for review status. |
+| `frontend/lib/api.ts` | Frontend API client for review submission and polling. |
+| `frontend/lib/report.ts` | Status labels, terminal states, and shared-contract report parsing. |
+| `frontend/lib/types.ts` | Frontend review API types. |
 | `frontend/lib/utils.ts` | `cn()` helper using clsx and tailwind-merge. |
 
 ## API Contract
@@ -170,13 +178,13 @@ Rationale: keeps provider selection at the composition boundary while preserving
 
 Decision log: `DECISION-020`.
 
-### 6. Fixed Four-Section Report Format
+### 6. Shared Four-Section Report Contract
 
-Decision: normalize every review to Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions.
+Decision: normalize every review to Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions, with the ordered section titles loaded from `contracts/report_sections.json`.
 
-Rationale: stable UX and predictable export format even when LLM output varies.
+Rationale: stable UX and predictable export format even when LLM output varies, while avoiding independent backend and frontend section definitions.
 
-Decision log: `DECISION-005`.
+Decision logs: `DECISION-005`, `DECISION-021`.
 
 ### 7. Mock Mode by Default
 
@@ -226,7 +234,7 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 | Max file size | 204800 bytes | `backend/core/config.py` |
 | Prompt budget | 5000 words | `backend/core/config.py` |
 | Worker count | 2 | `backend/tasks/runner.py` |
-| Required report sections | 4 | `backend/reviewers/report_generator.py` |
+| Required report sections | 4 | `contracts/report_sections.json` |
 | Python runtime | 3.11.11 | `.python-version`, `runtime.txt` |
 | Node runtime | 20 | CI and Dockerfile |
 

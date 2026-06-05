@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.parsers.base import ParsedSourceFile
+from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.parsers.python_parser import PythonParser
 from backend.parsers.registry import ParserRegistry, build_default_parser_registry
 
@@ -26,6 +26,10 @@ def test_default_registry_registers_python_parser() -> None:
 
     assert isinstance(parser, PythonParser)
     assert registry.languages() == ("python",)
+
+
+def test_python_parser_explicitly_implements_source_parser() -> None:
+    assert SourceParser in PythonParser.__mro__
 
 
 def test_registry_normalizes_language_names() -> None:

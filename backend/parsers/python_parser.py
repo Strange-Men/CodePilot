@@ -4,7 +4,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.parsers.base import ParsedSourceFile
+from backend.parsers.base import ParsedSourceFile, SourceParser
 
 IGNORE_DIRS = {
     "node_modules",
@@ -24,7 +24,7 @@ class ParsedPythonFile(ParsedSourceFile):
     pass
 
 
-class PythonParser:
+class PythonParser(SourceParser):
     language = "python"
 
     def __init__(self) -> None:

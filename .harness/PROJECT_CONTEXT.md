@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V1.1 product state with V1.2 reliability harnessing and V1.3 foundation refactors in progress: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, LLM dependency injection foundation, evaluation metrics reliability, and 52 collected tests.
+CodePilot is at V1.4 release-freeze foundation state: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, LLM dependency injection foundation, evaluation metrics reliability, shared report-section contract, centralized backend logger setup, and 54 collected tests.
 
 ## Release History
 
@@ -29,7 +29,7 @@ FastAPI backend
   -> discover parser-supported files through the Python parser registry entry
   -> build RepositoryContext
   -> inject selected LLMClient into report generation
-  -> generate normalized four-section report
+  -> generate normalized shared-contract four-section report
   -> persist in SQLite
   -> export Markdown
 ```
@@ -37,7 +37,7 @@ FastAPI backend
 Backend modules:
 
 - `backend/api` - Review routes.
-- `backend/core` - Settings and environment loading.
+- `backend/core` - Settings, environment loading, shared report contract loading, and logger setup.
 - `backend/llm` - Mock and OpenAI-compatible LLM clients selected at the runner composition boundary.
 - `backend/models` - Pydantic schemas and review status enum.
 - `backend/parsers` - Parser protocol, parser registry, and registered Python parser/file discovery.
@@ -103,8 +103,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 52 tests on 2026-06-05.
-- Unit tests: 43 collected across clone service, parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
+- `pytest --collect-only -q` collected 54 tests on 2026-06-05.
+- Unit tests: 45 collected across clone service, parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
 - Integration tests: 8 collected for review API routes.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.

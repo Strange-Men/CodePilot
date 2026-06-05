@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from backend.core.config import Settings
+from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.review import RepositoryContext, ReviewStatus
 from backend.parsers.registry import ParserRegistry, default_parser_registry
@@ -14,13 +14,7 @@ from backend.services.clone_service import CloneService
 from backend.services.indexer import RepositoryIndexer
 from backend.storage.sqlite import ReviewStore
 
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-logger.propagate = False
+logger = get_logger(__name__)
 
 CloneServiceFactory = Callable[[Path], CloneService]
 IndexerFactory = Callable[..., RepositoryIndexer]

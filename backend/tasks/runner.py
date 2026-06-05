@@ -1,22 +1,16 @@
 from __future__ import annotations
 
-import logging
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 from backend.core.config import Settings
+from backend.core.logging import get_logger
 from backend.llm.client import LLMClient, build_llm_client
 from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.pipeline import ReviewPipeline, ReviewPipelineResult
 
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-logger.propagate = False
+logger = get_logger(__name__)
 
 
 class ReviewTaskRunner:

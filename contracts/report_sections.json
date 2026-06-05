@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "sections": [
+    {
+      "id": "architecture_summary",
+      "title": "Architecture Summary"
+    },
+    {
+      "id": "code_smells",
+      "title": "Code Smells"
+    },
+    {
+      "id": "maintainability_issues",
+      "title": "Maintainability Issues"
+    },
+    {
+      "id": "refactoring_suggestions",
+      "title": "Refactoring Suggestions"
+    }
+  ]
+}

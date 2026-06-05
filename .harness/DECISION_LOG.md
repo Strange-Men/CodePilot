@@ -4,6 +4,25 @@
 > Last updated: 2026-06-05
 > Format: newest first, one significant decision per entry.
 
+## DECISION-021: Share the V1 Report Section Contract
+
+- Date: 2026-06-05
+- Type: Architecture / Contract
+- Status: Approved
+- Deciders: User release-freeze request; Codex implementation
+
+### Context
+
+The V1.3 architecture audit left one high-ROI release-freeze issue: backend report normalization and frontend report rendering each carried their own ordered section definitions. That duplication made a future V2/V3 report extension riskier because one runtime could drift from the other.
+
+### Decision
+
+Add `contracts/report_sections.json` as the single source of truth for ordered report section IDs and titles. The backend loads it through `backend/core/report_contract.py`, and the frontend imports the same JSON through `frontend/lib/report.ts`.
+
+### Rationale
+
+The shared contract preserves current report output, API payloads, database schema, frontend appearance, and prompt behavior while removing duplicated definitions. It keeps the extension point neutral so future report changes do not require coupling the backend to frontend code or the frontend to backend code.
+
 ## DECISION-017: Automate Harness Drift Detection in CI
 
 - Date: 2026-06-05

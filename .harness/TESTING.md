@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 52 tests.
+`pytest --collect-only -q` collected 54 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 43 | 8 | Validate isolated backend services, parser, parser registry, report generator, evaluation metrics, storage, and task runner. |
+| Unit | 45 | 8 | Validate isolated backend services, parser, parser registry, report generator, evaluation metrics, storage, and task runner. |
 | Integration | 8 | 1 | Validate FastAPI review endpoints through HTTP request/response flow. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -23,8 +23,8 @@
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 1 | Evaluation dataset results preserve parser stats returned by the review pipeline. |
 | `tests/unit/test_python_parser.py` | 9 | Valid, syntax-error, empty files, discovery filters, max file handling, path format, non-ASCII parser edge. |
-| `tests/unit/test_parser_registry.py` | 3 | Default Python parser registration, language normalization, missing parser errors. |
-| `tests/unit/test_report_generator.py` | 8 | Mock generation, malformed LLM output, missing/extra sections, prompt budget, ordering, trailing newline. |
+| `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
+| `tests/unit/test_report_generator.py` | 9 | Mock generation, malformed LLM output, missing/extra sections, shared section contract, prompt budget, ordering, trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
 | `tests/unit/test_review_task_runner.py` | 5 | Submit behavior, successful run, failure path, status progression, parser registry handoff. |
 

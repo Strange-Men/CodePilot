@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.llm.client import REPORT_SECTIONS, LLMClient
+from backend.core.report_contract import REPORT_SECTIONS, numbered_report_section_lines
+from backend.llm.client import LLMClient
 from backend.models.review import RepositoryContext
 
 
@@ -25,10 +26,7 @@ class ReportGenerator:
             "Review this Python repository using only summarized repository context.",
             "Do not assume access to raw source code.",
             "Return markdown with exactly four top-level sections:",
-            "1. Architecture Summary",
-            "2. Code Smells",
-            "3. Maintainability Issues",
-            "4. Refactoring Suggestions",
+            *numbered_report_section_lines(),
             f"Repository URL: {context.repo_url}",
             f"Total Python files: {context.total_python_files}",
             f"Analyzed files: {context.analyzed_files}",

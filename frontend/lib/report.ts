@@ -1,5 +1,7 @@
 import type { ReviewStatus } from "@/lib/types";
 
+import reportContract from "../../contracts/report_sections.json";
+
 export const STATUS_LABELS: Record<ReviewStatus, string> = {
   pending: "Pending",
   cloning: "Cloning",
@@ -10,12 +12,7 @@ export const STATUS_LABELS: Record<ReviewStatus, string> = {
   failed: "Failed"
 };
 
-export const orderedSections = [
-  "Architecture Summary",
-  "Code Smells",
-  "Maintainability Issues",
-  "Refactoring Suggestions"
-];
+export const orderedSections = reportContract.sections.map((section) => section.title);
 
 export const terminalStatuses: ReviewStatus[] = ["completed", "failed"];
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from backend.core.report_contract import load_report_sections
 from backend.llm.client import REPORT_SECTIONS, MockLLMClient
 from backend.reviewers.report_generator import ReportGenerator
 
@@ -111,3 +112,7 @@ def test_report_ends_with_newline(tmp_path: Path, sample_context) -> None:
     )
 
     assert report.endswith("\n")
+
+
+def test_report_sections_are_loaded_from_shared_contract() -> None:
+    assert REPORT_SECTIONS == [section.title for section in load_report_sections()]

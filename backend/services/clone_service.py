@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 import stat
@@ -9,7 +8,9 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
+from backend.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class CloneError(RuntimeError):

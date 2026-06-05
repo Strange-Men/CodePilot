@@ -6,13 +6,7 @@ from typing import Protocol
 import httpx
 
 from backend.core.config import Settings
-
-REPORT_SECTIONS = [
-    "Architecture Summary",
-    "Code Smells",
-    "Maintainability Issues",
-    "Refactoring Suggestions",
-]
+from backend.core.report_contract import REPORT_SECTIONS, report_section_heading_list
 
 
 class LLMClient(Protocol):
@@ -23,27 +17,28 @@ class LLMClient(Protocol):
 class MockLLMClient:
     def generate_review(self, prompt: str) -> str:
         file_count_hint = self._extract_after(prompt, "Analyzed files:")
+        architecture, code_smells, maintainability, refactoring = REPORT_SECTIONS
         return (
-            "# Architecture Summary\n"
+            f"# {architecture}\n"
             "The repository appears to be a Python application composed of "
             f"{file_count_hint or 'multiple'} analyzed modules. "
             "The code is organized around module-level responsibilities, with classes and functions forming the main "
             "reviewable units. "
             "The current structure is suitable for a portfolio review because entry points, services, and data "
             "definitions can be inspected separately.\n\n"
-            "# Code Smells\n"
+            f"# {code_smells}\n"
             "- Some modules may be carrying mixed responsibilities when API, parsing, and persistence logic appear "
             "close together.\n"
             "- Files with many functions should be checked for low cohesion and hidden orchestration logic.\n"
             "- Missing or thin docstrings make it harder for a reviewer to understand intent from the code index "
             "alone.\n\n"
-            "# Maintainability Issues\n"
+            f"# {maintainability}\n"
             "- Error handling should stay explicit at repository boundaries such as cloning, file parsing, and LLM "
             "calls.\n"
             "- Larger files should be split only when there is a clear domain boundary, not just to reduce line "
             "count.\n"
             "- Tests should cover parsing edge cases, failed clone flows, and deterministic mock review generation.\n\n"
-            "# Refactoring Suggestions\n"
+            f"# {refactoring}\n"
             "- Keep I/O operations in service modules and pure code analysis in parser or reviewer modules.\n"
             "- Add small integration tests around the complete review workflow before expanding features.\n"
             "- Prefer concise file summaries and repository-level context over sending raw source to the LLM.\n"
@@ -74,8 +69,7 @@ class OpenAICompatibleClient:
                     "role": "system",
                     "content": (
                         "You are CodePilot, an AI code review agent. Return markdown with exactly these "
-                        "top-level headings: Architecture Summary, Code Smells, Maintainability Issues, "
-                        "Refactoring Suggestions. Do not add extra sections."
+                        f"top-level headings: {report_section_heading_list()}. Do not add extra sections."
                     ),
                 },
                 {"role": "user", "content": prompt},
