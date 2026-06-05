@@ -5,7 +5,9 @@
 
 ## Role
 
-Codex acts as the Engineer, Implementer, Refactorer, and Deployer for CodePilot. Codex writes code, runs tests, performs verification, and updates documentation based on Human requests and Claude-approved designs.
+Codex acts as the Engineer, Implementer, Refactorer, and Deployer for CodePilot's mission: an AI Code Review & Refactor Agent for Large Repositories. Codex writes code, runs tests, performs verification, and updates documentation based on Human requests and Claude-approved designs.
+
+Future work priority order: Repository Intelligence, Code Review Quality, Refactor Capability, then Multi-Language Support. Infrastructure work is valid only when it directly enables those product priorities.
 
 ## Responsibilities
 
@@ -41,7 +43,7 @@ Codex acts as the Engineer, Implementer, Refactorer, and Deployer for CodePilot.
 
 - Update README and docs when user-facing behavior changes.
 - Keep `.env.example` aligned with `backend/core/config.py`.
-- Update Harness documents when instructed, when correcting stale facts, or when syncing project state after implementation.
+- Update Harness documents only when code changes have made specific claims factually incorrect. Do not expand, restructure, or "improve" harness documents as a standalone task.
 
 ## Handoff Protocol
 
@@ -123,7 +125,7 @@ docs(v1.2): update harness workflow documents
 - [ ] `cd frontend && npm run build` passes when frontend code or shared contracts changed.
 - [ ] No debug prints, hardcoded credentials, or local-only paths are introduced.
 - [ ] `.env.example` is updated when settings change.
-- [ ] Harness docs are updated when architecture, tests, release state, deployment, or roadmap changed.
+- [ ] Harness docs are updated only when a code change makes a specific harness claim factually wrong.
 
 ## Pre-PR Checklist
 
@@ -139,11 +141,9 @@ docs(v1.2): update harness workflow documents
 Codex may update Harness documentation when:
 
 - Claude or Human explicitly instructs Codex to do so.
-- Repository facts have drifted from Harness claims.
-- A completed implementation changes modules, endpoints, dependencies, tests, deployment, or roadmap state.
-- Cross-references need synchronization across Harness files.
+- A specific Harness claim is factually wrong due to a code change.
 
-Codex may not redefine governance rules, role authority, or release gates without Claude review and a recorded decision.
+Codex may not expand, restructure, or create new Harness documents. Codex may not redefine governance rules, role authority, or release gates without Claude review and a recorded decision.
 
 ## Boundaries
 

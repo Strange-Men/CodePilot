@@ -29,19 +29,18 @@
 - [x] Python 3.11.11 runtime pinning.
 - [x] Smoke test script for backend pipeline.
 
-### Harness v1.1 - Engineering System
-
-- [x] Root `CLAUDE.md`.
-- [x] Complete `.harness/` governance documents.
-- [x] `WORKFLOW.md` for AI engineering lifecycle.
-- [x] `HARNESS_AUDIT_RULES.md` for drift detection.
-- [x] Claude scoped code-modification rights documented.
-- [x] Codex Harness-maintenance rights documented.
-- [x] Workflow references under `docs/workflows/`.
-
 ## In Progress
 
 No active product implementation is in progress at Harness install time.
+
+## Future Development Priorities
+
+1. Repository Intelligence.
+2. Code Review Quality.
+3. Refactor Capability.
+4. Multi-Language Support.
+
+Infrastructure work should only be planned when it directly enables these priorities.
 
 ## Planned - V1.2
 

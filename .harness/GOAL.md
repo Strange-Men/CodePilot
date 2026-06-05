@@ -5,7 +5,7 @@
 
 ## Mission
 
-Build and maintain a production-quality tool that helps developers automatically analyze GitHub repositories and generate professional code review reports using AI.
+Build and maintain an AI Code Review & Refactor Agent for Large Repositories: a production-quality tool that helps developers understand repositories, generate professional code review reports, and identify practical refactoring opportunities.
 
 ## Success Criteria
 
@@ -14,6 +14,8 @@ Build and maintain a production-quality tool that helps developers automatically
 3. The system handles real-world Python repositories up to 300 analyzed files without crashing or exceeding the configured prompt budget.
 4. The tool is deployable on free-tier infrastructure with a Vercel frontend and Render Docker backend after platform setup.
 5. Mock mode enables a complete end-to-end demo without API credentials.
+
+Future work is prioritized in this order: Repository Intelligence, Code Review Quality, Refactor Capability, then Multi-Language Support. Infrastructure work should only be performed when it directly enables those priorities.
 
 ## Non-Goals
 
@@ -34,7 +36,8 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.
 - Smoke test verifies clone, parse, review, store, and export flow.
-- Harness docs remain consistent with current repository state.
+
+Code review quality and refactor capability are the primary quality concerns. Harness docs are updated only when code changes make them factually stale — not as a routine activity.
 
 ## Cross-References
 

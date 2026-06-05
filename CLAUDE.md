@@ -2,11 +2,23 @@
 
 ## Project
 
-CodePilot is an AI-powered GitHub repository code review tool. It clones public GitHub repositories, analyzes Python source files, builds structured repository context, generates a four-section review report, displays it in a Next.js UI, and exports Markdown.
+CodePilot's mission is to be an AI Code Review & Refactor Agent for Large Repositories. It clones public GitHub repositories, analyzes source files, builds structured repository context, generates a four-section review report, displays it in a Next.js UI, and exports Markdown.
+
+## Priority Order
+
+Every session must prioritize in this order:
+
+1. **Repository Intelligence** - parsing, context building, and code understanding.
+2. **Code Review Quality** - accuracy, coverage, and actionability of review output.
+3. **Refactor Capability** - surfacing concrete improvement suggestions.
+4. **Multi-Language Support** - expanding repository intelligence beyond Python.
+5. Engineering hygiene (tests, lint, docs, harness) supports the above but never replaces it.
+
+Do not expand the harness, create new governance documents, or refactor documentation workflows unless the code-level work is already complete and the change is required to reflect reality.
 
 ## Harness System
 
-Project governance lives in `.harness/`. Treat the repository as the source of truth and update the Harness when project reality changes.
+Project governance lives in `.harness/`. Treat the repository as the source of truth and update Harness docs only when specific claims become factually wrong.
 
 Before making changes, consult:
 
@@ -55,7 +67,7 @@ powershell -File scripts/smoke-backend.ps1
 ## Guardrails
 
 - Do not change application logic, frontend behavior, backend behavior, API contracts, deployment configuration, tests, or dependencies unless the task explicitly requires it.
-- Keep Harness updates consistent across `GOAL.md`, `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`, `ROADMAP.md`, and `DECISION_LOG.md`.
+- Harness updates are a cleanup task, not a primary objective. Only update harness docs when code changes have made them factually wrong.
 - No raw source code is sent to the LLM review prompt; CodePilot sends structured context.
 - Mock mode must remain deterministic and usable without credentials.
 - Windows PowerShell remains the primary local workflow.
