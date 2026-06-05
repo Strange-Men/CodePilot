@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V1.1 product state with V1.2 reliability harnessing and V1.3 foundation refactors in progress: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, and 50 collected tests.
+CodePilot is at V1.1 product state with V1.2 reliability harnessing and V1.3 foundation refactors in progress: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, and 50 collected tests.
 
 ## Release History
 
@@ -25,6 +25,7 @@ Next.js frontend
   -> HTTP /api/reviews
 FastAPI backend
   -> clone public GitHub repo
+  -> orchestrate review lifecycle through ReviewPipeline
   -> discover parser-supported files through the Python parser registry entry
   -> build RepositoryContext
   -> generate normalized four-section report
@@ -42,7 +43,7 @@ Backend modules:
 - `backend/reviewers` - Prompt building, report normalization, Markdown export.
 - `backend/services` - Clone service and repository indexer.
 - `backend/storage` - SQLite review store using WAL mode.
-- `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)`.
+- `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
 
 ## Technology Stack
 
@@ -102,7 +103,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 ## Test State
 
 - `pytest --collect-only -q` collected 50 tests on 2026-06-05.
-- Unit tests: 41 collected across clone service, parser, parser registry, report generator, review store, and task runner.
+- Unit tests: 41 collected across clone service, parser, parser registry, report generator, review store, and task runner/pipeline delegation.
 - Integration tests: 8 collected for review API routes.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.

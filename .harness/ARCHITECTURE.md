@@ -23,15 +23,16 @@ Browser
 1. User submits a public GitHub repository URL.
 2. Frontend POSTs to /api/reviews.
 3. Backend creates a pending review row and schedules a background task.
-4. Task clones the repository using shallow git clone.
-5. Task resolves the registered Python parser and discovers eligible Python files.
-6. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
-7. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET.
-8. LLM client returns report text, or mock client returns deterministic output.
-9. ReportGenerator normalizes output to four required sections.
-10. Store persists status, report, and export path.
-11. Frontend polls /api/reviews/{task_id} until completed or failed.
-12. User can download Markdown from /api/reviews/{task_id}/export.
+4. ReviewTaskRunner schedules execution on the in-process worker pool.
+5. ReviewPipeline clones the repository using shallow git clone.
+6. ReviewPipeline resolves the registered Python parser and discovers eligible Python files.
+7. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
+8. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET.
+9. LLM client returns report text, or mock client returns deterministic output.
+10. ReportGenerator normalizes output to four required sections.
+11. Store persists status, report, and export path.
+12. Frontend polls /api/reviews/{task_id} until completed or failed.
+13. User can download Markdown from /api/reviews/{task_id}/export.
 ```
 
 ## Backend Module Map
@@ -48,7 +49,7 @@ Browser
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
 | Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates deterministic summaries before LLM review. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
-| Tasks | `backend/tasks/runner.py` | Background review pipeline | `ThreadPoolExecutor(max_workers=2)`. |
+| Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
 
 ## Frontend Module Map
 
@@ -153,7 +154,15 @@ Rationale: decouples task orchestration and indexing from the concrete Python pa
 
 Decision log: `DECISION-018`.
 
-### 4. Fixed Four-Section Report Format
+### 4. Decompose Review Pipeline From Task Scheduling
+
+Decision: keep ReviewTaskRunner responsible for task creation and worker-pool scheduling, and move clone/parse/summarize/review/cleanup orchestration into ReviewPipeline.
+
+Rationale: reduces coupling in the runner while preserving status transitions, SQLite schema, API behavior, workspace cleanup, and the in-process ThreadPoolExecutor execution model.
+
+Decision log: `DECISION-019`.
+
+### 5. Fixed Four-Section Report Format
 
 Decision: normalize every review to Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions.
 
@@ -161,7 +170,7 @@ Rationale: stable UX and predictable export format even when LLM output varies.
 
 Decision log: `DECISION-005`.
 
-### 5. Mock Mode by Default
+### 6. Mock Mode by Default
 
 Decision: default `USE_MOCK_LLM=true`.
 
@@ -169,7 +178,7 @@ Rationale: no credentials needed for demos, CI, smoke testing, or local onboardi
 
 Decision log: `DECISION-003`.
 
-### 6. SQLite WAL Storage
+### 7. SQLite WAL Storage
 
 Decision: use SQLite with WAL mode and locking.
 
@@ -177,7 +186,7 @@ Rationale: zero database infrastructure and enough durability for the single-ins
 
 Decision log: `DECISION-002`.
 
-### 7. Windows-First Tooling
+### 8. Windows-First Tooling
 
 Decision: use PowerShell scripts and Windows CI.
 
@@ -185,7 +194,7 @@ Rationale: matches primary development environment while Docker covers Linux pro
 
 Decision log: `DECISION-001`.
 
-### 8. Render Docker Backend and Vercel Frontend
+### 9. Render Docker Backend and Vercel Frontend
 
 Decision: deploy backend to Render via Docker and frontend to Vercel.
 
@@ -193,7 +202,7 @@ Rationale: free-tier availability, easy Git integration, and Docker avoids build
 
 Decision logs: `DECISION-007`, `DECISION-008`, `DECISION-006`.
 
-### 9. Harness Engineering System v1.2
+### 10. Harness Engineering System v1.2
 
 Decision: install `.harness/` governance docs, workflow references, regression rules, evaluation harness, and automated audit enforcement.
 

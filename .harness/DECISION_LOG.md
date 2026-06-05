@@ -443,6 +443,24 @@ Introduce a parser protocol and registry, register only the existing Python pars
 
 This preserves Python behavior, report output, and API contracts while creating a stable extension point for later language support.
 
+## DECISION-019: Decompose Review Pipeline From Runner
+
+- Date: 2026-06-05
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+ReviewTaskRunner owned task creation, worker scheduling, clone orchestration, parsing, summarization status, report generation, persistence, and workspace cleanup.
+
+### Decision
+
+Keep ReviewTaskRunner as the in-process scheduler and delegate review lifecycle execution to ReviewPipeline.
+
+### Rationale
+
+This reduces coupling in task scheduling code without introducing Redis, Celery, Temporal, or any new infrastructure. The status lifecycle, API behavior, database schema, and cleanup behavior remain unchanged.
+
 ## DECISION-003: Use Mock LLM Mode by Default
 
 - Date: V1.0

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import backend.tasks.runner as runner_module
+import backend.tasks.pipeline as pipeline_module
 from backend.core.config import Settings
 from backend.models.review import RepositoryContext, ReviewStatus
 from backend.storage.sqlite import ReviewStore
@@ -95,10 +95,10 @@ def reset_fake_clone_service() -> None:
 
 @pytest.fixture
 def runner_dependencies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Settings, ReviewStore]:
-    monkeypatch.setattr(runner_module, "CloneService", FakeCloneService)
-    monkeypatch.setattr(runner_module, "RepositoryIndexer", FakeRepositoryIndexer)
-    monkeypatch.setattr(runner_module, "ReportGenerator", FakeReportGenerator)
-    monkeypatch.setattr(runner_module, "build_llm_client", lambda settings: object())
+    monkeypatch.setattr(pipeline_module, "CloneService", FakeCloneService)
+    monkeypatch.setattr(pipeline_module, "RepositoryIndexer", FakeRepositoryIndexer)
+    monkeypatch.setattr(pipeline_module, "ReportGenerator", FakeReportGenerator)
+    monkeypatch.setattr(pipeline_module, "build_llm_client", lambda settings: object())
 
     settings = Settings(
         database_path=tmp_path / "reviews.db",
