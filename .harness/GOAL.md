@@ -1,6 +1,6 @@
 # CodePilot - Project Goal
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 
 ## Mission
@@ -29,7 +29,7 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 
 ## Quality Bar
 
-- 44 automated pytest tests pass.
+- 46 automated pytest tests pass.
 - Ruff linting is clean with zero warnings.
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.

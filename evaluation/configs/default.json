@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "description": "Default CodePilot evaluation configuration",
+  "runner": {
+    "use_mock_llm": true,
+    "timeout_per_repo_seconds": 300,
+    "max_retries": 0,
+    "parallel": false
+  },
+  "categories": {
+    "small": {
+      "max_runtime_seconds": 60,
+      "expected_status": "completed",
+      "description": "Repositories with fewer than 50 Python files"
+    },
+    "medium": {
+      "max_runtime_seconds": 120,
+      "expected_status": "completed",
+      "description": "Repositories with 50-200 Python files"
+    },
+    "large": {
+      "max_runtime_seconds": 300,
+      "expected_status": "completed",
+      "description": "Repositories with more than 200 Python files"
+    }
+  },
+  "language_expectations": {
+    "python": {
+      "min_python_files": 1,
+      "expected_parse_outcome": "files_found"
+    },
+    "javascript": {
+      "min_python_files": 0,
+      "expected_parse_outcome": "zero_files_graceful"
+    },
+    "mixed": {
+      "min_python_files": 1,
+      "expected_parse_outcome": "partial_files_found"
+    }
+  },
+  "health_expectations": {
+    "healthy": {
+      "should_complete": true,
+      "allow_user_friendly_failure": false
+    },
+    "problematic": {
+      "should_complete": true,
+      "allow_user_friendly_failure": true
+    }
+  },
+  "reporting": {
+    "output_dir": "evaluation/reports",
+    "json_filename_pattern": "eval-{timestamp}.json",
+    "markdown_filename_pattern": "eval-{timestamp}.md",
+    "include_raw_details": true
+  }
+}

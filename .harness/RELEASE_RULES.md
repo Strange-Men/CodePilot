@@ -1,6 +1,6 @@
 # CodePilot - Release Rules
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 
 ## Release Lifecycle
@@ -37,11 +37,12 @@ A release cannot ship unless every applicable hard gate passes.
 | Integration tests | `pytest tests/integration -v` | 100% pass |
 | Full test suite | `pytest` | 100% pass |
 | Ruff lint | `ruff check .` | 0 warnings |
+| Harness audit | `python scripts/audit_harness.py` | 0 critical drift findings |
 | Frontend build | `cd frontend && npm run build` | 0 errors |
 | Docker build | `docker-compose build` | 0 errors when runtime/deploy files changed |
 | Smoke test | `powershell -File scripts/smoke-backend.ps1` | Full pipeline pass before release |
 
-CI currently enforces `ruff check .`, `pytest`, and `npm run build`.
+CI currently enforces `ruff check .`, `pytest`, `python scripts/audit_harness.py --output harness-audit.json`, and `npm run build`.
 
 ## Soft Gates
 
@@ -61,6 +62,7 @@ CI currently enforces `ruff check .`, `pytest`, and `npm run build`.
 - [ ] `ROADMAP.md` has completed items marked and next work accurate.
 - [ ] `DECISION_LOG.md` includes all significant decisions.
 - [ ] `HARNESS_AUDIT_RULES.md` audit has no unresolved critical drift.
+- [ ] `python scripts/audit_harness.py` reports zero critical drift findings.
 - [ ] Hard gates pass.
 
 ## Release Checklist

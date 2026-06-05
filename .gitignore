@@ -8,4 +8,7 @@ frontend/.env.local
 __pycache__/
 *.pyc
 *.log
+evaluation/reports/*.json
+evaluation/reports/*.md
+.eval-work/
 

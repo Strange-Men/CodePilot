@@ -1,8 +1,211 @@
 # CodePilot - Decision Log
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 > Format: newest first, one significant decision per entry.
+
+## DECISION-017: Automate Harness Drift Detection in CI
+
+- Date: 2026-06-05
+- Type: Process / Automation
+- Status: Approved
+- Deciders: User approval; Codex implementation
+
+### Context
+
+Harness documents (PROJECT_CONTEXT.md, TESTING.md, RELEASE_RULES.md) can drift from repository reality as code evolves. Manual audits are error-prone and happen too infrequently to catch drift before it affects decisions.
+
+### Decision
+
+Add `scripts/audit_harness.py` as a machine-readable audit gate that runs in CI and checks:
+
+- Test count documented vs actual pytest collection.
+- Environment variables documented vs used in code.
+- CI gates documented vs present in workflow YAML.
+- Dependency versions documented vs pinned in requirements/package files.
+
+CI fails on critical drift findings.
+
+### Alternatives Considered
+
+- **Manual-only audits**: Lower cost but drift accumulates silently between Harness updates.
+- **LLM-based audit agent**: More flexible but non-deterministic, slow, and expensive for every CI run.
+- **YAML/schema validation only**: Would catch structural issues but not semantic drift (wrong version numbers, missing env vars).
+
+### Tradeoffs
+
+- AST-parsing `config.py` and regex-parsing markdown are fragile if file formats change significantly.
+- Adds ~2s to CI for pytest collection and file parsing.
+- Only checks a defined subset of drift; does not verify architecture claims or API contracts.
+
+### Rationale
+
+Automated detection catches drift at commit time, making the Harness a living document rather than stale documentation. The script is deterministic, fast, and runs on every PR.
+
+## DECISION-016: Add Regression Harness for Production Bug Fixes
+
+- Date: 2026-06-05
+- Type: Quality / Process
+- Status: Approved
+- Deciders: User approval; Codex implementation
+
+### Context
+
+Production bugs that are fixed can return if no test locks the fix. The V1.0 tree-sitter non-ASCII IndexError (Regression-001) demonstrated the need for a formal regression workflow.
+
+### Decision
+
+Create `tests/regressions/` with:
+
+- Numbered test files: `test_regression_<N>_<name>.py`.
+- Numbered entries in `.harness/REGRESSION_RULES.md` with root cause and verification evidence.
+- Workflow: Bug → Reproduce → Regression Test → Fix → Verify.
+- Regressions use local fixtures, not real network or LLM calls.
+
+### Alternatives Considered
+
+- **Inline regression tests in unit test files**: Simpler but regression tests serve a different purpose (lock specific bugs, not validate general behavior) and benefit from separate tracking.
+- **Snapshot/golden file testing**: Would catch output changes but not the root cause patterns that regressions target.
+
+### Tradeoffs
+
+- Adds a third test directory alongside `tests/unit` and `tests/integration`.
+- Regression entries require manual maintenance in REGRESSION_RULES.md.
+- Small local fixtures may not fully reproduce production conditions (documented as acceptable gap).
+
+### Rationale
+
+Separating regression tests from unit tests makes their purpose explicit: they exist to prevent specific historical failures from returning, not to validate general correctness. The numbered registry provides traceability from bug to fix to test.
+
+## DECISION-015: Add Evaluation Harness for Pipeline Validation
+
+- Date: 2026-06-05
+- Type: Quality / Infrastructure
+- Status: Approved
+- Deciders: User approval; Codex implementation
+
+### Context
+
+CodePilot's review pipeline must work across diverse repository shapes (small/large, Python/JS/mixed, healthy/problematic). Manual testing against a few repos does not catch category-specific failures.
+
+### Decision
+
+Create `evaluation/` harness with:
+
+- Structured dataset: `evaluation/datasets/repos.json` with 18 repos across size/language/health dimensions.
+- Configuration: `evaluation/configs/default.json` with per-category expectations.
+- Metrics: `evaluation/metrics.py` computing success rate, failure rates, report completeness, and average runtime by category.
+- Runner: `evaluation/run_eval.py` executing the full pipeline with `USE_MOCK_LLM=true` and producing JSON + Markdown reports.
+- Legacy mode: `--repos` flag for backward-compatible flat repo list.
+
+### Alternatives Considered
+
+- **Expand pytest integration tests**: Would keep everything in one framework but 18 real repos are too slow and network-dependent for unit/integration test runs.
+- **Manual testing checklist**: Lower automation cost but non-repeatable and does not produce metrics over time.
+- **Standalone evaluation service**: More infrastructure but overkill for V1.x single-instance deployment.
+
+### Tradeoffs
+
+- Requires network access to clone public GitHub repos; not runnable in air-gapped environments.
+- Mock LLM mode means evaluation tests pipeline mechanics, not LLM output quality.
+- 18 repos take significant wall-clock time; not suitable for per-commit CI (reserved for pre-release and manual runs).
+
+### Rationale
+
+The evaluation harness provides repeatable, metrics-driven validation of the full pipeline across repository categories. It catches regressions that unit and integration tests miss because those tests use small fixtures, not real-world repository shapes.
+
+## DECISION-014: Choose tree-sitter for Python Parsing
+
+- Date: V1.0
+- Type: Technical
+- Status: Approved
+
+### Context
+
+CodePilot needs to extract structural information (classes, functions, imports) from Python files. The parser must handle real-world code including syntax errors and non-ASCII content.
+
+### Decision
+
+Use `tree-sitter` with `tree-sitter-language-pack` as the primary parser, falling back to Python's `ast` module when tree-sitter fails.
+
+### Alternatives Considered
+
+- **ast module only**: Built-in, no dependencies, but fails on syntax errors and does not provide byte-offset precision for error recovery.
+- **libcst**: Concrete syntax tree preserves formatting but is heavier and focused on code transformation, not structural extraction.
+- **jedi**: Designed for IDE completion, not bulk structural analysis.
+- **ANTLR Python grammar**: Powerful but requires grammar maintenance and a Java-like toolchain.
+
+### Tradeoffs
+
+- `tree-sitter` adds a C dependency and `tree-sitter-language-pack` pins grammar versions.
+- Byte-offset handling requires careful UTF-8/decoded-string coordination (root cause of Regression-001).
+- AST fallback provides graceful degradation but produces less detailed output.
+
+### Rationale
+
+tree-sitter provides fast, error-tolerant parsing with byte-level precision, which is critical for extracting structure from arbitrary public repositories that may contain syntax errors. The AST fallback ensures the pipeline does not crash when tree-sitter cannot parse a file.
+
+## DECISION-013: Use FastAPI as Backend Framework
+
+- Date: V1.0
+- Type: Technical
+- Status: Approved
+
+### Context
+
+CodePilot needs a Python web framework for its REST API that supports async request handling, Pydantic validation, and straightforward background task integration.
+
+### Decision
+
+Use FastAPI with Uvicorn as the ASGI server.
+
+### Alternatives Considered
+
+- **Flask**: Mature and simple but lacks native async, Pydantic integration, and OpenAPI schema generation.
+- **Django**: Full-featured but heavyweight for a four-endpoint API; ORM and admin are unnecessary with SQLite direct access.
+- **Litestar**: Modern alternative to FastAPI but smaller ecosystem and less community adoption at decision time.
+
+### Tradeoffs
+
+- FastAPI's async model is partially used; background tasks run in `ThreadPoolExecutor`, not native async.
+- Pydantic v2 validation adds a dependency but provides strong request/response contracts.
+- OpenAPI auto-documentation is a bonus but not a primary decision driver.
+
+### Rationale
+
+FastAPI provides Pydantic-validated request/response models, automatic OpenAPI docs, and a lightweight footprint that fits a four-endpoint API. The async model is not heavily leveraged but does not impose overhead.
+
+## DECISION-012: Use In-Process ThreadPoolExecutor for Background Tasks
+
+- Date: V1.0
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+Review tasks (clone, parse, review) take seconds to minutes and must not block the HTTP request thread. The system needs background execution without external infrastructure.
+
+### Decision
+
+Use `ThreadPoolExecutor(max_workers=2)` from Python's standard library, running inside the FastAPI process.
+
+### Alternatives Considered
+
+- **Celery + Redis**: Production-grade task queue but adds two infrastructure dependencies and operational complexity for a single-instance MVP.
+- **FastAPI BackgroundTasks**: Runs after response but in the same async loop; long-running tasks would block other requests.
+- **asyncio.create_task**: Native async but clone and file I/O are synchronous; would require rewriting all blocking calls.
+- **subprocess**: Heavy process-per-task overhead for short-lived work.
+
+### Tradeoffs
+
+- Limited to 2 concurrent reviews; additional submissions queue.
+- No task persistence: if the process restarts, in-progress tasks are lost.
+- Thread safety requires explicit locking in SQLite store (WAL + busy timeout + thread lock).
+- No retry, dead-letter, or priority queue capabilities.
+
+### Rationale
+
+In-process execution is the simplest approach that works for a single-instance MVP. Two workers prevent resource exhaustion from concurrent clones while keeping latency acceptable. The tradeoff is no task durability, which is acceptable because reviews are idempotent and can be resubmitted.
 
 ## DECISION-011: Install Harness Engineering System v1.1
 
@@ -115,9 +318,22 @@ The backend needs free-tier hosting with reliable Python runtime behavior and su
 
 Use Render Free Tier with Docker deployment via `Dockerfile.backend`.
 
+### Alternatives Considered
+
+- **Railway**: Similar free tier but smaller community and less mature Python support at decision time.
+- **Fly.io**: Good Docker support but requires `flyctl` CLI setup and has a more complex deployment model.
+- **Heroku**: Familiar but no longer offers a meaningful free tier.
+- **AWS/GCP free tier**: More infrastructure complexity for an MVP.
+
+### Tradeoffs
+
+- Free tier has cold starts (~30s) and ephemeral local filesystem (SQLite data lost on redeploy).
+- No `render.yaml` IaC; deployment configured in dashboard, not version-controlled.
+- Docker build adds CI time but eliminates buildpack version drift.
+
 ### Rationale
 
-Docker avoids platform buildpack ambiguity and lets the project pin Python consistently.
+Docker avoids platform buildpack ambiguity and lets the project pin Python consistently. Render's free tier and Docker support fit the single-instance MVP deployment model.
 
 ## DECISION-007: Deploy Frontend on Vercel
 
@@ -133,9 +349,22 @@ The frontend is a Next.js app and needs free-tier hosting with simple Git integr
 
 Use Vercel Free Tier for frontend deployment.
 
+### Alternatives Considered
+
+- **Netlify**: Good for static sites but less optimized for Next.js SSR/ISR features.
+- **Cloudflare Pages**: Fast edge deployment but Next.js support was less mature at decision time.
+- **Self-hosted on Render**: Would consolidate hosting but Render's Node.js support adds cold-start latency for frontend requests.
+- **Docker on any VPS**: Full control but operational overhead for a static/SSR frontend.
+
+### Tradeoffs
+
+- No `vercel.json`; deployment configured in Vercel dashboard, not version-controlled.
+- Vercel free tier has bandwidth and build-minute limits.
+- Tight coupling to Vercel's Next.js optimization; migration would require testing SSR behavior on another platform.
+
 ### Rationale
 
-Vercel is optimized for Next.js and supports straightforward Git-connected deployment.
+Vercel is optimized for Next.js and supports straightforward Git-connected deployment. The free tier is sufficient for the MVP frontend, and Vercel's build pipeline handles Next.js-specific optimizations (ISR, image optimization) without configuration.
 
 ## DECISION-006: Pin Python Runtime to 3.11.11
 

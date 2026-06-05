@@ -1,12 +1,12 @@
 # CodePilot - Project Context
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 > Repository reality checked: 2026-06-05
 
 ## Current Version
 
-CodePilot is at V1.1: a production-ready MVP plus engineering hardening, CI, deployment documentation, Docker support, and 44 collected tests.
+CodePilot is at V1.1 product state with V1.2 reliability harnessing: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, and 46 collected tests.
 
 ## Release History
 
@@ -14,6 +14,7 @@ CodePilot is at V1.1: a production-ready MVP plus engineering hardening, CI, dep
 |---------|------|--------------|------------|
 | V1.0 | Recorded before Harness install | `bd83f28` to `627dba4` | MVP clone -> parse -> context -> review -> export pipeline |
 | V1.1 | 2026-06-05 | `9fb290d` to `544d4d4` | 44 tests, ruff, Windows CI, Docker Compose, Vercel frontend, Render Docker backend |
+| Harness V1.2 | 2026-06-05 | In progress | Evaluation harness, regression harness, Harness audit enforcement |
 
 ## Architecture Summary
 
@@ -94,14 +95,16 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 4. Run `ruff check .`.
 5. Run `pytest`.
 6. Set up Node 20 with npm cache.
-7. Run `npm ci` in `frontend`.
-8. Run `npm run build` in `frontend`.
+7. Run `python scripts/audit_harness.py --output harness-audit.json`.
+8. Run `npm ci` in `frontend`.
+9. Run `npm run build` in `frontend`.
 
 ## Test State
 
-- `pytest --collect-only -q` collected 44 tests on 2026-06-05.
-- Unit tests: 36 collected across clone service, parser, report generator, review store, and task runner.
+- `pytest --collect-only -q` collected 46 tests on 2026-06-05.
+- Unit tests: 37 collected across clone service, parser, report generator, review store, and task runner.
 - Integration tests: 8 collected for review API routes.
+- Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
 ## Environment Variables

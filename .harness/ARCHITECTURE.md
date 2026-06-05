@@ -1,6 +1,6 @@
 # CodePilot - Architecture
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 > Repository reality checked: 2026-06-05
 
@@ -185,13 +185,13 @@ Rationale: free-tier availability, easy Git integration, and Docker avoids build
 
 Decision logs: `DECISION-007`, `DECISION-008`, `DECISION-006`.
 
-### 8. Harness Engineering System v1.1
+### 8. Harness Engineering System v1.2
 
-Decision: install `.harness/` governance docs plus workflow references.
+Decision: install `.harness/` governance docs, workflow references, regression rules, evaluation harness, and automated audit enforcement.
 
-Rationale: preserve architecture intent, quality gates, agent roles, and reality-first audit behavior.
+Rationale: preserve architecture intent, quality gates, agent roles, regression coverage, evaluation evidence, and reality-first audit behavior.
 
-Decision log: `DECISION-011`.
+Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 
 ## Invariants
 

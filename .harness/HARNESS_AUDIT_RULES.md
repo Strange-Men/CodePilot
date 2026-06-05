@@ -1,6 +1,6 @@
 # CodePilot - Harness Audit Rules
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 
 ## Purpose
@@ -23,6 +23,16 @@ Before any significant Harness update:
 4. Correct stale docs.
 5. Record significant drift in `DECISION_LOG.md`.
 6. Verify cross-references after edits.
+
+## Automated Enforcement
+
+Run the lightweight audit script before release and in CI:
+
+```powershell
+python scripts/audit_harness.py --output harness-audit.json
+```
+
+The script emits machine-readable JSON and exits with status `1` when it finds critical Harness drift. CI treats that exit code as a hard gate.
 
 ## What to Check
 
@@ -100,6 +110,12 @@ During Harness v1.1 installation on 2026-06-05:
 - Stale role rules in `CLAUDE.md` and `AGENTS.md` were corrected to match approved v1.1 design.
 
 No unresolved critical drift remains from this install.
+
+During Harness v1.2 enforcement on 2026-06-05:
+
+- `scripts/audit_harness.py` was added as the machine-readable audit gate.
+- CI was updated to run the audit and fail on critical Harness drift.
+- `pytest --collect-only -q` collected 46 tests after regression harness installation.
 
 ## Cross-References
 

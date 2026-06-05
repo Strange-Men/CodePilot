@@ -1,0 +1,312 @@
+{
+  "version": "1.0",
+  "description": "CodePilot V1.2 evaluation repository dataset",
+  "repos": [
+    {
+      "id": "click",
+      "url": "https://github.com/pallets/click.git",
+      "name": "pallets/click",
+      "categories": {
+        "size": "small",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["cli", "well-structured"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 10,
+        "max_python_files": 60
+      },
+      "notes": "CLI framework with clean structure."
+    },
+    {
+      "id": "black",
+      "url": "https://github.com/psf/black.git",
+      "name": "psf/black",
+      "categories": {
+        "size": "small",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["formatter", "modern-python"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 10,
+        "max_python_files": 60
+      },
+      "notes": "Code formatter, modern Python patterns."
+    },
+    {
+      "id": "httpx",
+      "url": "https://github.com/encode/httpx.git",
+      "name": "encode/httpx",
+      "categories": {
+        "size": "small",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["http-client", "async"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 20,
+        "max_python_files": 60
+      },
+      "notes": "HTTP client with async patterns."
+    },
+    {
+      "id": "rich",
+      "url": "https://github.com/Textualize/rich.git",
+      "name": "Textualize/rich",
+      "categories": {
+        "size": "small",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["terminal-ui", "formatting"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 20,
+        "max_python_files": 60
+      },
+      "notes": "Terminal formatting library."
+    },
+    {
+      "id": "flask",
+      "url": "https://github.com/pallets/flask.git",
+      "name": "pallets/flask",
+      "categories": {
+        "size": "medium",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["web", "wsgi", "well-known"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 30,
+        "max_python_files": 120
+      },
+      "notes": "Web framework, well-known test target."
+    },
+    {
+      "id": "pydantic",
+      "url": "https://github.com/pydantic/pydantic.git",
+      "name": "pydantic/pydantic",
+      "categories": {
+        "size": "medium",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["data-validation", "type-hints"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 50,
+        "max_python_files": 200
+      },
+      "notes": "Data validation with heavy type hint usage."
+    },
+    {
+      "id": "uvicorn",
+      "url": "https://github.com/encode/uvicorn.git",
+      "name": "encode/uvicorn",
+      "categories": {
+        "size": "medium",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["asgi", "server", "async"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 20,
+        "max_python_files": 100
+      },
+      "notes": "ASGI server with async patterns."
+    },
+    {
+      "id": "fastapi",
+      "url": "https://github.com/tiangolo/fastapi.git",
+      "name": "tiangolo/fastapi",
+      "categories": {
+        "size": "medium",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["web", "api", "decorators"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 30,
+        "max_python_files": 150
+      },
+      "notes": "Web framework with decorators and type hints."
+    },
+    {
+      "id": "django",
+      "url": "https://github.com/django/django.git",
+      "name": "django/django",
+      "categories": {
+        "size": "large",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["web", "full-stack", "massive"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 200,
+        "max_python_files": 5000
+      },
+      "notes": "Full web framework, 2000+ Python files, tests max_files cap."
+    },
+    {
+      "id": "sphinx",
+      "url": "https://github.com/sphinx-doc/sphinx.git",
+      "name": "sphinx-doc/sphinx",
+      "categories": {
+        "size": "large",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["documentation", "complex-modules"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 200,
+        "max_python_files": 800
+      },
+      "notes": "Documentation tool with complex module structure."
+    },
+    {
+      "id": "scrapy",
+      "url": "https://github.com/scrapy/scrapy.git",
+      "name": "scrapy/scrapy",
+      "categories": {
+        "size": "large",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["scraping", "plugin-architecture"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 200,
+        "max_python_files": 600
+      },
+      "notes": "Web scraping framework with plugin architecture."
+    },
+    {
+      "id": "ansible",
+      "url": "https://github.com/ansible/ansible.git",
+      "name": "ansible/ansible",
+      "categories": {
+        "size": "large",
+        "language": "python",
+        "health": "problematic"
+      },
+      "tags": ["massive", "unusual-layout"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 100,
+        "max_python_files": 10000
+      },
+      "notes": "Massive repo, Python under lib/ansible/."
+    },
+    {
+      "id": "express",
+      "url": "https://github.com/expressjs/express.git",
+      "name": "expressjs/express",
+      "categories": {
+        "size": "small",
+        "language": "javascript",
+        "health": "healthy"
+      },
+      "tags": ["node", "zero-python"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 0,
+        "max_python_files": 0
+      },
+      "notes": "Zero Python files, tests graceful handling."
+    },
+    {
+      "id": "lodash",
+      "url": "https://github.com/lodash/lodash.git",
+      "name": "lodash/lodash",
+      "categories": {
+        "size": "small",
+        "language": "javascript",
+        "health": "healthy"
+      },
+      "tags": ["utility", "zero-python"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 0,
+        "max_python_files": 0
+      },
+      "notes": "JavaScript utility library, zero Python files."
+    },
+    {
+      "id": "nextjs",
+      "url": "https://github.com/vercel/next.js.git",
+      "name": "vercel/next.js",
+      "categories": {
+        "size": "large",
+        "language": "javascript",
+        "health": "healthy"
+      },
+      "tags": ["framework", "zero-python", "large-clone"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 0,
+        "max_python_files": 0
+      },
+      "notes": "Zero Python files, very large repo tests clone behavior."
+    },
+    {
+      "id": "jupyter",
+      "url": "https://github.com/jupyter/notebook.git",
+      "name": "jupyter/notebook",
+      "categories": {
+        "size": "medium",
+        "language": "mixed",
+        "health": "healthy"
+      },
+      "tags": ["python-backend", "js-frontend"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 10,
+        "max_python_files": 200
+      },
+      "notes": "Python backend + JavaScript frontend."
+    },
+    {
+      "id": "cookiecutter",
+      "url": "https://github.com/cookiecutter/cookiecutter.git",
+      "name": "cookiecutter/cookiecutter",
+      "categories": {
+        "size": "small",
+        "language": "mixed",
+        "health": "healthy"
+      },
+      "tags": ["templating", "jinja"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 5,
+        "max_python_files": 50
+      },
+      "notes": "Python with Jinja templates and non-Python content."
+    },
+    {
+      "id": "ansible-core",
+      "url": "https://github.com/ansible/ansible-core.git",
+      "name": "ansible/ansible-core",
+      "categories": {
+        "size": "large",
+        "language": "python",
+        "health": "problematic"
+      },
+      "tags": ["unusual-layout", "lib-directory"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 100,
+        "max_python_files": 10000
+      },
+      "notes": "Core subset of ansible, unusual package layout under lib/."
+    }
+  ]
+}

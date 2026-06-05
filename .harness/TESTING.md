@@ -1,17 +1,18 @@
 # CodePilot - Testing Strategy
 
-> Harness version: v1.1
+> Harness version: v1.2
 > Last updated: 2026-06-05
 > Verified with: `pytest --collect-only -q` on 2026-06-05
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 44 tests.
+`pytest --collect-only -q` collected 46 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 36 | 5 | Validate isolated backend services, parser, report generator, storage, and task runner. |
+| Unit | 37 | 5 | Validate isolated backend services, parser, report generator, storage, and task runner. |
 | Integration | 8 | 1 | Validate FastAPI review endpoints through HTTP request/response flow. |
+| Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
 
 ## Unit Tests
@@ -19,7 +20,7 @@
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
-| `tests/unit/test_python_parser.py` | 8 | Valid, syntax-error, empty files, discovery filters, max file handling, path format. |
+| `tests/unit/test_python_parser.py` | 9 | Valid, syntax-error, empty files, discovery filters, max file handling, path format, non-ASCII parser edge. |
 | `tests/unit/test_report_generator.py` | 8 | Mock generation, malformed LLM output, missing/extra sections, prompt budget, ordering, trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
 | `tests/unit/test_review_task_runner.py` | 4 | Submit behavior, successful run, failure path, status progression. |
@@ -29,6 +30,12 @@
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
 | `tests/integration/test_reviews_api.py` | 8 | Create review, invalid payload, query, missing task, export, export conflict, failed review response. |
+
+## Regression Tests
+
+| File | Collected Tests | Coverage |
+|------|-----------------|----------|
+| `tests/regressions/test_regression_001_tree_sitter_non_ascii.py` | 1 | Regression-001: tree-sitter byte offsets with non-ASCII text before import nodes. |
 
 ## Smoke Test
 
@@ -65,6 +72,9 @@ pytest tests/integration -v
 # Run lint
 ruff check .
 
+# Run Harness audit
+python scripts/audit_harness.py
+
 # Build frontend
 cd frontend
 npm run build
@@ -91,6 +101,7 @@ powershell -File scripts/smoke-backend.ps1
 | Integration tests | 100% pass | CI and release checklist |
 | Ruff | 0 warnings | CI and release checklist |
 | Frontend build | 0 errors | CI and release checklist |
+| Harness audit | 0 critical drift findings | CI and release checklist |
 | Smoke test | Pass before release | Manual release checklist |
 
 ## Known Test Gaps
