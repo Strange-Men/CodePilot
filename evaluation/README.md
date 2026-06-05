@@ -40,6 +40,8 @@ python evaluation/run_eval.py --repos evaluation/repos.txt
 - Per-health outcome expectations
 - Report output settings
 
+Dataset and language `min_source_files` / `max_source_files` thresholds are enforced in pass/fail logic.
+
 ## Metrics
 
 The harness computes:

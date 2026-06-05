@@ -26,15 +26,15 @@
   },
   "language_expectations": {
     "python": {
-      "min_python_files": 1,
+      "min_source_files": 1,
       "expected_parse_outcome": "files_found"
     },
     "javascript": {
-      "min_python_files": 1,
+      "min_source_files": 1,
       "expected_parse_outcome": "files_found"
     },
     "mixed": {
-      "min_python_files": 1,
+      "min_source_files": 1,
       "expected_parse_outcome": "partial_files_found"
     }
   },

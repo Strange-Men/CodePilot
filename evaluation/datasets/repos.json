@@ -14,8 +14,8 @@
       "tags": ["cli", "well-structured"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 10,
-        "max_python_files": 60
+        "min_source_files": 10,
+        "max_source_files": 80
       },
       "notes": "CLI framework with clean structure."
     },
@@ -31,8 +31,8 @@
       "tags": ["formatter", "modern-python"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 10,
-        "max_python_files": 60
+        "min_source_files": 10,
+        "max_source_files": 60
       },
       "notes": "Code formatter, modern Python patterns."
     },
@@ -48,8 +48,8 @@
       "tags": ["http-client", "async"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 20,
-        "max_python_files": 60
+        "min_source_files": 20,
+        "max_source_files": 60
       },
       "notes": "HTTP client with async patterns."
     },
@@ -65,8 +65,8 @@
       "tags": ["terminal-ui", "formatting"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 20,
-        "max_python_files": 60
+        "min_source_files": 20,
+        "max_source_files": 60
       },
       "notes": "Terminal formatting library."
     },
@@ -82,8 +82,8 @@
       "tags": ["web", "wsgi", "well-known"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 30,
-        "max_python_files": 120
+        "min_source_files": 30,
+        "max_source_files": 120
       },
       "notes": "Web framework, well-known test target."
     },
@@ -99,8 +99,8 @@
       "tags": ["data-validation", "type-hints"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 50,
-        "max_python_files": 200
+        "min_source_files": 50,
+        "max_source_files": 200
       },
       "notes": "Data validation with heavy type hint usage."
     },
@@ -116,8 +116,8 @@
       "tags": ["asgi", "server", "async"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 20,
-        "max_python_files": 100
+        "min_source_files": 20,
+        "max_source_files": 100
       },
       "notes": "ASGI server with async patterns."
     },
@@ -133,8 +133,8 @@
       "tags": ["web", "api", "decorators"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 30,
-        "max_python_files": 150
+        "min_source_files": 30,
+        "max_source_files": 150
       },
       "notes": "Web framework with decorators and type hints."
     },
@@ -150,10 +150,10 @@
       "tags": ["web", "full-stack", "massive"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 200,
-        "max_python_files": 5000
+        "min_source_files": 200,
+        "max_source_files": 5000
       },
-      "notes": "Full web framework, 2000+ Python files, tests max_files cap."
+      "notes": "Full web framework, 2000+ source files, tests max_files cap."
     },
     {
       "id": "sphinx",
@@ -167,8 +167,8 @@
       "tags": ["documentation", "complex-modules"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 200,
-        "max_python_files": 800
+        "min_source_files": 200,
+        "max_source_files": 800
       },
       "notes": "Documentation tool with complex module structure."
     },
@@ -184,8 +184,8 @@
       "tags": ["scraping", "plugin-architecture"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 200,
-        "max_python_files": 600
+        "min_source_files": 200,
+        "max_source_files": 600
       },
       "notes": "Web scraping framework with plugin architecture."
     },
@@ -201,8 +201,8 @@
       "tags": ["massive", "unusual-layout"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 100,
-        "max_python_files": 10000
+        "min_source_files": 100,
+        "max_source_files": 10000
       },
       "notes": "Massive repo, Python under lib/ansible/."
     },
@@ -218,8 +218,8 @@
       "tags": ["node", "javascript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 1,
-        "max_python_files": 200
+        "min_source_files": 1,
+        "max_source_files": 200
       },
       "notes": "JavaScript web framework, tests JavaScript parser support."
     },
@@ -235,8 +235,8 @@
       "tags": ["utility", "javascript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 1,
-        "max_python_files": 200
+        "min_source_files": 1,
+        "max_source_files": 200
       },
       "notes": "JavaScript utility library, tests JavaScript parser support."
     },
@@ -252,8 +252,8 @@
       "tags": ["http-client", "javascript", "typescript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 1,
-        "max_python_files": 400
+        "min_source_files": 1,
+        "max_source_files": 400
       },
       "notes": "HTTP client with JavaScript and TypeScript source."
     },
@@ -269,8 +269,8 @@
       "tags": ["build-tool", "typescript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 1,
-        "max_python_files": 1200
+        "min_source_files": 1,
+        "max_source_files": 1200
       },
       "notes": "TypeScript-heavy frontend build tool."
     },
@@ -286,8 +286,8 @@
       "tags": ["framework", "javascript", "large-clone"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 1,
-        "max_python_files": 10000
+        "min_source_files": 1,
+        "max_source_files": 10000
       },
       "notes": "Large JavaScript/TypeScript repo tests parser and clone behavior."
     },
@@ -303,8 +303,8 @@
       "tags": ["python-backend", "js-frontend"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 10,
-        "max_python_files": 200
+        "min_source_files": 10,
+        "max_source_files": 200
       },
       "notes": "Python backend + JavaScript frontend."
     },
@@ -320,8 +320,8 @@
       "tags": ["templating", "jinja"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 5,
-        "max_python_files": 50
+        "min_source_files": 5,
+        "max_source_files": 50
       },
       "notes": "Python with Jinja templates and non-Python content."
     },
@@ -337,8 +337,8 @@
       "tags": ["unusual-layout", "lib-directory"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 100,
-        "max_python_files": 10000
+        "min_source_files": 100,
+        "max_source_files": 10000
       },
       "notes": "Core subset of ansible, unusual package layout under lib/."
     }

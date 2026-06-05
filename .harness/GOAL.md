@@ -31,7 +31,7 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 
 ## Quality Bar
 
-- 60 automated pytest tests pass.
+- 66 automated pytest tests pass.
 - Ruff linting is clean with zero warnings.
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.

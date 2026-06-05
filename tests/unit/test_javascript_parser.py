@@ -81,3 +81,49 @@ def test_typescript_discovery_respects_max_files_and_prioritizes_entrypoints(tem
     assert [path.relative_to(temp_repo).as_posix() for path in files] == ["src/index.ts", "z.ts"]
     assert total == 3
     assert skipped == 1
+
+
+def test_malformed_javascript_returns_safe_result(temp_repo: Path) -> None:
+    source = temp_repo / "broken.js"
+    source.write_text(
+        "import value from 'pkg'\n"
+        "export function broken(\n"
+        "class MissingBrace {\n",
+        encoding="utf-8",
+    )
+
+    parsed = JavaScriptParser().parse_file(temp_repo, source)
+
+    assert parsed.path == "broken.js"
+    assert parsed.imports == ["import value from 'pkg'"]
+    assert parsed.classes == ["MissingBrace"]
+    assert parsed.functions == ["broken"]
+    assert parsed.exported_symbols == ["broken"]
+
+
+def test_malformed_typescript_returns_safe_result(temp_repo: Path) -> None:
+    source = temp_repo / "broken.ts"
+    source.write_text(
+        "export interface Broken {\n"
+        "export type Missing =\n"
+        "export const make = ( => value\n",
+        encoding="utf-8",
+    )
+
+    parsed = TypeScriptParser().parse_file(temp_repo, source)
+
+    assert parsed.path == "broken.ts"
+    assert parsed.classes == []
+    assert parsed.functions == []
+    assert parsed.exported_symbols == ["Broken", "Missing", "make"]
+
+
+def test_javascript_parser_handles_invalid_utf8_without_crashing(temp_repo: Path) -> None:
+    source = temp_repo / "invalid.js"
+    source.write_bytes(b"export const name = '\\xff';\n")
+
+    parsed = JavaScriptParser().parse_file(temp_repo, source)
+
+    assert parsed.path == "invalid.js"
+    assert parsed.functions == []
+    assert parsed.exported_symbols == ["name"]

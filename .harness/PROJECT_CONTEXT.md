@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V2.0 MVP parser expansion state: production-ready MVP foundation plus JavaScript/TypeScript parser support through the existing parser registry, automatic parser selection, evaluation harness coverage for Python and JS/TS repositories, and 60 collected tests.
+CodePilot is at V2.0.1 release-integrity state: production-ready MVP foundation plus JavaScript/TypeScript parser support through the existing parser registry, automatic parser selection, evaluation threshold enforcement, JS/TS malformed-source safety coverage, and 66 collected tests.
 
 ## Release History
 
@@ -103,8 +103,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 60 tests on 2026-06-05.
-- Unit tests: 50 collected across clone service, Python parser, JavaScript/TypeScript parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
+- `pytest --collect-only -q` collected 66 tests on 2026-06-05.
+- Unit tests: 56 collected across clone service, Python parser, JavaScript/TypeScript parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
 - Integration tests: 9 collected for review API routes and JS/TS review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
@@ -114,10 +114,12 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - V1.4.1 certification evaluation ran on 2026-06-05 against `pallets/click`, `pallets/flask`, `expressjs/express`, and `jupyter/notebook`.
 - Evaluation report artifacts were generated at `evaluation/reports/eval-20260605-135055.json` and `evaluation/reports/eval-20260605-135055.md`.
 - Result: 4/4 repositories passed, 0 failed, 100.0% success rate, 100.0% report completeness, 39.8s average runtime.
-- Per-repo parser/runtime evidence: click 63 Python files in 23.4s; flask 83 Python files in 21.4s; express 0 Python files in 11.2s; jupyter 11 Python files in 103.3s.
+- Per-repo parser/runtime evidence: click 63 source files in 23.4s; flask 83 source files in 21.4s; express 0 source files in 11.2s; jupyter 11 source files in 103.3s.
 - V2.0 parser evaluation ran on 2026-06-05 against `pallets/click`, `expressjs/express`, and `axios/axios`.
 - V2.0 evaluation report artifacts were generated at `evaluation/reports/eval-20260605-145119.json`, `evaluation/reports/eval-20260605-145119.md`, `evaluation/reports/eval-20260605-145113.json`, and `evaluation/reports/eval-20260605-145113.md`.
-- V2.0 result: click passed with 63 Python files; express passed with 141 JavaScript files; axios passed with 178 JavaScript files.
+- V2.0 result: click passed with 63 source files; express passed with 141 JavaScript files; axios passed with 178 JavaScript files.
+- V2.0.1 integrity evaluation ran on 2026-06-05 with enforced `min_source_files` thresholds against `pallets/click` and `expressjs/express`.
+- V2.0.1 result: click passed with 63 source files; express passed with 141 JavaScript files. Reports were generated at `evaluation/reports/eval-20260605-153358.*` and `evaluation/reports/eval-20260605-153343.*`.
 
 ## Environment Variables
 
@@ -133,7 +135,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `REPORTS_PATH` | `reports` | Markdown export directory. |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Explicit local frontend origins. |
 | `CORS_ALLOW_ORIGIN_REGEX` | `https?://(localhost|127\.0\.0\.1):\d+` | Local dev origin regex. |
-| `MAX_FILES` | `300` | Maximum Python files analyzed. |
+| `MAX_FILES` | `300` | Maximum source files analyzed. |
 | `MAX_FILE_SIZE_BYTES` | `204800` | Per-file size limit. |
 | `FINAL_PROMPT_TOKEN_BUDGET` | `5000` | Prompt word budget. |
 | `NEXT_PUBLIC_API_BASE` | `http://localhost:8000` | Frontend API base URL. |

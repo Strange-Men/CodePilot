@@ -229,6 +229,14 @@ def run_dataset_eval(
                     f"# {s}" in report_md for s in REPORT_SECTIONS
                 )
 
+        passed, details = apply_expectations(
+            entry,
+            config,
+            eval_result.passed,
+            eval_result.details,
+            eval_result.status,
+            total_py,
+        )
         repo_result = RepoResult(
             repo_id=repo_id,
             repo_url=repo_url,
@@ -236,8 +244,8 @@ def run_dataset_eval(
             categories=categories,
             tags=entry.get("tags", []),
             status=eval_result.status,
-            passed=eval_result.passed,
-            details=eval_result.details,
+            passed=passed,
+            details=details,
             runtime_seconds=elapsed,
             total_python_files=total_py,
             analyzed_files=analyzed,
@@ -247,10 +255,38 @@ def run_dataset_eval(
         )
         results.append(repo_result)
 
-        marker = "PASS" if eval_result.passed else "FAIL"
-        print(f"  {marker} [{eval_result.status}] {elapsed:.1f}s - {eval_result.details}")
+        marker = "PASS" if passed else "FAIL"
+        print(f"  {marker} [{eval_result.status}] {elapsed:.1f}s - {details}")
 
     return results
+
+
+def apply_expectations(
+    entry: dict,
+    config: dict,
+    passed: bool,
+    details: str,
+    status: str,
+    total_source_files: int,
+) -> tuple[bool, str]:
+    expected = entry.get("expected", {})
+    categories = entry.get("categories", {})
+    language = categories.get("language", "unknown")
+    language_expectations = config.get("language_expectations", {}).get(language, {})
+    min_source_files = expected.get("min_source_files", language_expectations.get("min_source_files"))
+    max_source_files = expected.get("max_source_files", language_expectations.get("max_source_files"))
+
+    if min_source_files is not None and status == "completed" and total_source_files < int(min_source_files):
+        return (
+            False,
+            f"parsed source file count {total_source_files} is below required minimum {min_source_files}",
+        )
+    if max_source_files is not None and status == "completed" and total_source_files > int(max_source_files):
+        return (
+            False,
+            f"parsed source file count {total_source_files} is above allowed maximum {max_source_files}",
+        )
+    return passed, details
 
 
 def apply_filters(
