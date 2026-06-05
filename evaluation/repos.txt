@@ -1,0 +1,2 @@
+https://github.com/Strange-Men/EnterpriseAiDataAgent.git
+https://github.com/pallets/flask.git

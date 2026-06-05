@@ -64,8 +64,9 @@ class PythonParser:
         return self._parse_with_ast(source, relative_path)
 
     def _parse_with_tree_sitter(self, source: str, relative_path: str) -> ParsedPythonFile | None:
+        source_bytes = source.encode("utf-8")
         try:
-            tree = self._tree_sitter_parser.parse(source.encode("utf-8"))
+            tree = self._tree_sitter_parser.parse(source_bytes)
             root = tree.root_node
         except Exception:
             return None
@@ -75,7 +76,7 @@ class PythonParser:
         imports: list[str] = []
 
         def text(node) -> str:
-            return source[node.start_byte : node.end_byte]
+            return source_bytes[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
 
         def walk(node) -> None:
             if node.type == "class_definition":
@@ -87,7 +88,9 @@ class PythonParser:
                 if name:
                     functions.append(text(name))
             elif node.type in {"import_statement", "import_from_statement"}:
-                imports.append(text(node).splitlines()[0][:120])
+                lines = text(node).splitlines()
+                if lines:
+                    imports.append(lines[0][:120])
             for child in node.children:
                 walk(child)
 
