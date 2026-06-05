@@ -109,6 +109,13 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
+## Release Certification Evidence
+
+- V1.4.1 certification evaluation ran on 2026-06-05 against `pallets/click`, `pallets/flask`, `expressjs/express`, and `jupyter/notebook`.
+- Evaluation report artifacts were generated at `evaluation/reports/eval-20260605-135055.json` and `evaluation/reports/eval-20260605-135055.md`.
+- Result: 4/4 repositories passed, 0 failed, 100.0% success rate, 100.0% report completeness, 39.8s average runtime.
+- Per-repo parser/runtime evidence: click 63 Python files in 23.4s; flask 83 Python files in 21.4s; express 0 Python files in 11.2s; jupyter 11 Python files in 103.3s.
+
 ## Environment Variables
 
 | Variable | Default | Purpose |
