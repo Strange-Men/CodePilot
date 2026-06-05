@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.models.review import CodeFileSummary, RepositoryContext
-from backend.parsers.python_parser import ParsedPythonFile, PythonParser
+from backend.parsers.base import ParsedSourceFile, SourceParser
 
 
 class RepositoryIndexer:
-    def __init__(self, parser: PythonParser, max_files: int, max_file_size_bytes: int) -> None:
+    def __init__(self, parser: SourceParser, max_files: int, max_file_size_bytes: int) -> None:
         self.parser = parser
         self.max_files = max_files
         self.max_file_size_bytes = max_file_size_bytes
@@ -27,7 +27,7 @@ class RepositoryIndexer:
             repository_summary=repo_summary,
         )
 
-    def _summarize_file(self, parsed: ParsedPythonFile) -> CodeFileSummary:
+    def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:
         purpose = self._infer_purpose(parsed)
         class_list = ", ".join(parsed.classes[:8]) or "none"
         function_list = ", ".join(parsed.functions[:12]) or "none"
@@ -51,7 +51,7 @@ class RepositoryIndexer:
         )
 
     @staticmethod
-    def _infer_purpose(parsed: ParsedPythonFile) -> str:
+    def _infer_purpose(parsed: ParsedSourceFile) -> str:
         lower_path = parsed.path.lower()
         if parsed.first_docstring:
             return " ".join(parsed.first_docstring.split())[:220]
@@ -75,4 +75,3 @@ class RepositoryIndexer:
         if len(words) <= limit:
             return text
         return " ".join(words[:limit]) + "..."
-

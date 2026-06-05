@@ -425,6 +425,24 @@ Parse repositories into structured summaries and send those summaries to the LLM
 
 Structured context improves signal, respects prompt budgets, and avoids executing untrusted code.
 
+## DECISION-018: Introduce Parser Registry Foundation
+
+- Date: 2026-06-05
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+The V1 pipeline directly instantiated the Python parser inside task orchestration, which made the parsing boundary concrete and Python-specific.
+
+### Decision
+
+Introduce a parser protocol and registry, register only the existing Python parser, and have the review runner resolve the Python parser through that registry.
+
+### Rationale
+
+This preserves Python behavior, report output, and API contracts while creating a stable extension point for later language support.
+
 ## DECISION-003: Use Mock LLM Mode by Default
 
 - Date: V1.0

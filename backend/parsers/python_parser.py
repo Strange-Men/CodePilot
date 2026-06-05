@@ -4,6 +4,8 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.parsers.base import ParsedSourceFile
+
 IGNORE_DIRS = {
     "node_modules",
     "dist",
@@ -18,15 +20,13 @@ IGNORE_DIRS = {
 
 
 @dataclass(frozen=True)
-class ParsedPythonFile:
-    path: str
-    classes: list[str]
-    functions: list[str]
-    imports: list[str]
-    first_docstring: str | None
+class ParsedPythonFile(ParsedSourceFile):
+    pass
 
 
 class PythonParser:
+    language = "python"
+
     def __init__(self) -> None:
         self._tree_sitter_parser = self._build_tree_sitter_parser()
 

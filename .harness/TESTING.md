@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 46 tests.
+`pytest --collect-only -q` collected 50 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 37 | 5 | Validate isolated backend services, parser, report generator, storage, and task runner. |
+| Unit | 41 | 6 | Validate isolated backend services, parser, parser registry, report generator, storage, and task runner. |
 | Integration | 8 | 1 | Validate FastAPI review endpoints through HTTP request/response flow. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -21,9 +21,10 @@
 |------|-----------------|----------|
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
 | `tests/unit/test_python_parser.py` | 9 | Valid, syntax-error, empty files, discovery filters, max file handling, path format, non-ASCII parser edge. |
+| `tests/unit/test_parser_registry.py` | 3 | Default Python parser registration, language normalization, missing parser errors. |
 | `tests/unit/test_report_generator.py` | 8 | Mock generation, malformed LLM output, missing/extra sections, prompt budget, ordering, trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
-| `tests/unit/test_review_task_runner.py` | 4 | Submit behavior, successful run, failure path, status progression. |
+| `tests/unit/test_review_task_runner.py` | 5 | Submit behavior, successful run, failure path, status progression, parser registry handoff. |
 
 ## Integration Tests
 

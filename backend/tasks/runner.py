@@ -7,7 +7,7 @@ from uuid import uuid4
 from backend.core.config import Settings
 from backend.llm.client import build_llm_client
 from backend.models.review import ReviewStatus
-from backend.parsers.python_parser import PythonParser
+from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.reviewers.report_generator import ReportGenerator
 from backend.services.clone_service import CloneService
 from backend.services.indexer import RepositoryIndexer
@@ -23,9 +23,15 @@ logger.propagate = False
 
 
 class ReviewTaskRunner:
-    def __init__(self, settings: Settings, store: ReviewStore) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        store: ReviewStore,
+        parser_registry: ParserRegistry | None = None,
+    ) -> None:
         self.settings = settings
         self.store = store
+        self.parser_registry = parser_registry or default_parser_registry
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="codepilot-review")
 
     def submit(self, repo_url: str) -> str:
@@ -46,7 +52,7 @@ class ReviewTaskRunner:
 
             self.store.update_status(task_id, ReviewStatus.parsing)
             logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
-            parser = PythonParser()
+            parser = self.parser_registry.create("python")
             indexer = RepositoryIndexer(parser, self.settings.max_files, self.settings.max_file_size_bytes)
             context = indexer.build_context(repo_dir, repo_url)
             logger.info(

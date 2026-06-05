@@ -24,8 +24,8 @@ Browser
 2. Frontend POSTs to /api/reviews.
 3. Backend creates a pending review row and schedules a background task.
 4. Task clones the repository using shallow git clone.
-5. Parser discovers eligible Python files and extracts structure.
-6. Indexer builds RepositoryContext with file summaries.
+5. Task resolves the registered Python parser and discovers eligible Python files.
+6. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
 7. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET.
 8. LLM client returns report text, or mock client returns deterministic output.
 9. ReportGenerator normalizes output to four required sections.
@@ -43,7 +43,7 @@ Browser
 | Config | `backend/core/config.py` | Pydantic settings and path creation | Loads `.env`, ignores unknown vars, creates data/workspace/reports dirs. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
 | LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`. |
-| Parser | `backend/parsers/python_parser.py` | Python file discovery and structure extraction | Python-only, tree-sitter with AST fallback. |
+| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py` | Parser protocol, registry, Python file discovery, and structure extraction | Python-only registered parser, tree-sitter with AST fallback. |
 | Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces four-section report format. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
 | Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates deterministic summaries before LLM review. |
@@ -145,7 +145,15 @@ Rationale: controls prompt size, improves signal, avoids sending large raw files
 
 Decision log: `DECISION-004`.
 
-### 3. Fixed Four-Section Report Format
+### 3. Parser Registry Before Multi-Language Expansion
+
+Decision: route parsing through a registry-backed parser protocol while registering only the existing Python parser.
+
+Rationale: decouples task orchestration and indexing from the concrete Python parser without changing API contracts, report output, or current Python behavior.
+
+Decision log: `DECISION-018`.
+
+### 4. Fixed Four-Section Report Format
 
 Decision: normalize every review to Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions.
 
@@ -153,7 +161,7 @@ Rationale: stable UX and predictable export format even when LLM output varies.
 
 Decision log: `DECISION-005`.
 
-### 4. Mock Mode by Default
+### 5. Mock Mode by Default
 
 Decision: default `USE_MOCK_LLM=true`.
 
@@ -161,7 +169,7 @@ Rationale: no credentials needed for demos, CI, smoke testing, or local onboardi
 
 Decision log: `DECISION-003`.
 
-### 5. SQLite WAL Storage
+### 6. SQLite WAL Storage
 
 Decision: use SQLite with WAL mode and locking.
 
@@ -169,7 +177,7 @@ Rationale: zero database infrastructure and enough durability for the single-ins
 
 Decision log: `DECISION-002`.
 
-### 6. Windows-First Tooling
+### 7. Windows-First Tooling
 
 Decision: use PowerShell scripts and Windows CI.
 
@@ -177,7 +185,7 @@ Rationale: matches primary development environment while Docker covers Linux pro
 
 Decision log: `DECISION-001`.
 
-### 7. Render Docker Backend and Vercel Frontend
+### 8. Render Docker Backend and Vercel Frontend
 
 Decision: deploy backend to Render via Docker and frontend to Vercel.
 
@@ -185,7 +193,7 @@ Rationale: free-tier availability, easy Git integration, and Docker avoids build
 
 Decision logs: `DECISION-007`, `DECISION-008`, `DECISION-006`.
 
-### 8. Harness Engineering System v1.2
+### 9. Harness Engineering System v1.2
 
 Decision: install `.harness/` governance docs, workflow references, regression rules, evaluation harness, and automated audit enforcement.
 

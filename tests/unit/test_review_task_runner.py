@@ -40,10 +40,13 @@ class FakeCloneService:
 
 
 class FakeRepositoryIndexer:
+    parser_instances: list[object] = []
+
     def __init__(self, parser, max_files: int, max_file_size_bytes: int) -> None:
         self.parser = parser
         self.max_files = max_files
         self.max_file_size_bytes = max_file_size_bytes
+        self.parser_instances.append(parser)
 
     def build_context(self, repo_dir: Path, repo_url: str) -> RepositoryContext:
         return RepositoryContext(
@@ -69,10 +72,25 @@ class FakeReportGenerator:
         return report, export_path
 
 
+class FakeParser:
+    language = "python"
+
+
+class FakeParserRegistry:
+    def __init__(self) -> None:
+        self.created_languages: list[str] = []
+        self.parser = FakeParser()
+
+    def create(self, language: str) -> FakeParser:
+        self.created_languages.append(language)
+        return self.parser
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_clone_service() -> None:
     FakeCloneService.instances = []
     FakeCloneService.fail_clone = False
+    FakeRepositoryIndexer.parser_instances = []
 
 
 @pytest.fixture
@@ -153,3 +171,15 @@ def test_run_records_status_progression(
     runner._run("task-1", "https://github.com/pallets/flask")
 
     assert statuses == ["cloning", "parsing", "summarizing", "reviewing", "completed"]
+
+
+def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
+    settings, store = runner_dependencies
+    parser_registry = FakeParserRegistry()
+    runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry)
+    store.create_review("task-1", "https://github.com/pallets/flask")
+
+    runner._run("task-1", "https://github.com/pallets/flask")
+
+    assert parser_registry.created_languages == ["python"]
+    assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
