@@ -23,12 +23,12 @@ class ReportGenerator:
 
     def _build_prompt(self, context: RepositoryContext) -> str:
         lines = [
-            "Review this Python repository using only summarized repository context.",
+            "Review this repository using only summarized repository context.",
             "Do not assume access to raw source code.",
             "Return markdown with exactly four top-level sections:",
             *numbered_report_section_lines(),
             f"Repository URL: {context.repo_url}",
-            f"Total Python files: {context.total_python_files}",
+            f"Total source files: {context.total_python_files}",
             f"Analyzed files: {context.analyzed_files}",
             f"Skipped files: {context.skipped_files}",
             f"Repository summary: {context.repository_summary}",

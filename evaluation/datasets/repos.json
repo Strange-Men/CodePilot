@@ -215,13 +215,13 @@
         "language": "javascript",
         "health": "healthy"
       },
-      "tags": ["node", "zero-python"],
+      "tags": ["node", "javascript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 0,
-        "max_python_files": 0
+        "min_python_files": 1,
+        "max_python_files": 200
       },
-      "notes": "Zero Python files, tests graceful handling."
+      "notes": "JavaScript web framework, tests JavaScript parser support."
     },
     {
       "id": "lodash",
@@ -232,13 +232,47 @@
         "language": "javascript",
         "health": "healthy"
       },
-      "tags": ["utility", "zero-python"],
+      "tags": ["utility", "javascript"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 0,
-        "max_python_files": 0
+        "min_python_files": 1,
+        "max_python_files": 200
       },
-      "notes": "JavaScript utility library, zero Python files."
+      "notes": "JavaScript utility library, tests JavaScript parser support."
+    },
+    {
+      "id": "axios",
+      "url": "https://github.com/axios/axios.git",
+      "name": "axios/axios",
+      "categories": {
+        "size": "medium",
+        "language": "javascript",
+        "health": "healthy"
+      },
+      "tags": ["http-client", "javascript", "typescript"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 1,
+        "max_python_files": 400
+      },
+      "notes": "HTTP client with JavaScript and TypeScript source."
+    },
+    {
+      "id": "vite",
+      "url": "https://github.com/vitejs/vite.git",
+      "name": "vitejs/vite",
+      "categories": {
+        "size": "medium",
+        "language": "javascript",
+        "health": "healthy"
+      },
+      "tags": ["build-tool", "typescript"],
+      "expected": {
+        "should_complete": true,
+        "min_python_files": 1,
+        "max_python_files": 1200
+      },
+      "notes": "TypeScript-heavy frontend build tool."
     },
     {
       "id": "nextjs",
@@ -249,13 +283,13 @@
         "language": "javascript",
         "health": "healthy"
       },
-      "tags": ["framework", "zero-python", "large-clone"],
+      "tags": ["framework", "javascript", "large-clone"],
       "expected": {
         "should_complete": true,
-        "min_python_files": 0,
-        "max_python_files": 0
+        "min_python_files": 1,
+        "max_python_files": 10000
       },
-      "notes": "Zero Python files, very large repo tests clone behavior."
+      "notes": "Large JavaScript/TypeScript repo tests parser and clone behavior."
     },
     {
       "id": "jupyter",

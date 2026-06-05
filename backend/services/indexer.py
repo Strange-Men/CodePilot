@@ -31,10 +31,11 @@ class RepositoryIndexer:
         purpose = self._infer_purpose(parsed)
         class_list = ", ".join(parsed.classes[:8]) or "none"
         function_list = ", ".join(parsed.functions[:12]) or "none"
-        summary = (
-            f"{parsed.path}: purpose={purpose}; classes={class_list}; "
-            f"functions={function_list}."
-        )
+        summary = f"{parsed.path}: purpose={purpose}; classes={class_list}; functions={function_list}"
+        exported_symbols = getattr(parsed, "exported_symbols", [])
+        if exported_symbols:
+            summary = f"{summary}; exports={', '.join(exported_symbols[:12])}"
+        summary = f"{summary}."
         return CodeFileSummary(
             path=parsed.path,
             classes=parsed.classes[:20],
@@ -45,13 +46,13 @@ class RepositoryIndexer:
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
         top_files = ", ".join(summary.path for summary in summaries[:20]) or "none"
+        language = self._language_label()
         return (
-            f"Python repository with {total} Python files; analyzed {len(summaries)} and skipped {skipped}. "
+            f"{language} repository with {total} {language} files; analyzed {len(summaries)} and skipped {skipped}. "
             f"Important files include: {top_files}."
         )
 
-    @staticmethod
-    def _infer_purpose(parsed: ParsedSourceFile) -> str:
+    def _infer_purpose(self, parsed: ParsedSourceFile) -> str:
         lower_path = parsed.path.lower()
         if parsed.first_docstring:
             return " ".join(parsed.first_docstring.split())[:220]
@@ -67,7 +68,15 @@ class RepositoryIndexer:
             return "Parses source code or input data."
         if parsed.functions:
             return "Provides reusable functions for application behavior."
-        return "Python module with limited top-level structure detected."
+        return f"{self._language_label()} module with limited top-level structure detected."
+
+    def _language_label(self) -> str:
+        labels = {
+            "python": "Python",
+            "javascript": "JavaScript",
+            "typescript": "TypeScript",
+        }
+        return labels.get(self.parser.language, self.parser.language.title())
 
     @staticmethod
     def _trim_words(text: str, limit: int) -> str:

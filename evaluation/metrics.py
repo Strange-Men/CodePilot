@@ -73,9 +73,7 @@ def detect_parse_issue(result: RepoResult, expected_language: str) -> bool:
     """Detect unexpected parse outcomes."""
     if result.status != "completed":
         return False
-    if expected_language == "javascript":
-        return False
-    if expected_language == "python" and result.total_python_files == 0:
+    if expected_language in {"javascript", "mixed", "python"} and result.total_python_files == 0:
         return True
     return False
 
@@ -256,7 +254,7 @@ def report_to_markdown(report: EvalReport) -> str:
     lines.append("\n## Per-Repository Results\n")
     lines.append(
         "| # | ID | Repository | Size/Lang/Health | Status | Passed "
-        "| Runtime | Python Files | Details |"
+        "| Runtime | Source Files | Details |"
     )
     lines.append(
         "|---|-----|-----------|-----------------|--------|--------"

@@ -76,17 +76,26 @@ class FakeReportGenerator:
 
 
 class FakeParser:
-    language = "python"
+    def __init__(self, language: str = "python", total_files: int = 1) -> None:
+        self.language = language
+        self.total_files = total_files
+
+    def discover_files(self, repo_dir: Path, max_files: int, max_file_size_bytes: int) -> tuple[list[Path], int, int]:
+        return [], self.total_files, 0
 
 
 class FakeParserRegistry:
-    def __init__(self) -> None:
+    def __init__(self, parsers: dict[str, FakeParser] | None = None) -> None:
         self.created_languages: list[str] = []
-        self.parser = FakeParser()
+        self.parsers = parsers or {"python": FakeParser()}
+        self.parser = self.parsers["python"]
+
+    def languages(self) -> tuple[str, ...]:
+        return tuple(self.parsers)
 
     def create(self, language: str) -> FakeParser:
         self.created_languages.append(language)
-        return self.parser
+        return self.parsers[language]
 
 
 class FakeLLMClient:
@@ -196,3 +205,22 @@ def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[S
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
     assert FakeReportGenerator.llm_clients == [llm_client]
+
+
+def test_run_selects_javascript_parser_when_js_files_are_detected(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    javascript_parser = FakeParser("javascript", total_files=3)
+    parser_registry = FakeParserRegistry(
+        {
+            "python": FakeParser("python", total_files=0),
+            "javascript": javascript_parser,
+        }
+    )
+    runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry, llm_client=FakeLLMClient())
+    store.create_review("task-1", "https://github.com/expressjs/express")
+
+    runner._run("task-1", "https://github.com/expressjs/express")
+
+    assert FakeRepositoryIndexer.parser_instances == [javascript_parser]

@@ -6,12 +6,12 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 54 tests.
+`pytest --collect-only -q` collected 60 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 45 | 8 | Validate isolated backend services, parser, parser registry, report generator, evaluation metrics, storage, and task runner. |
-| Integration | 8 | 1 | Validate FastAPI review endpoints through HTTP request/response flow. |
+| Unit | 50 | 9 | Validate isolated backend services, parsers, parser registry, report generator, evaluation metrics, storage, and task runner. |
+| Integration | 9 | 2 | Validate FastAPI review endpoints and JS/TS review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
 
@@ -22,16 +22,18 @@
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 1 | Evaluation dataset results preserve parser stats returned by the review pipeline. |
+| `tests/unit/test_javascript_parser.py` | 4 | JavaScript/TypeScript discovery, imports, classes, functions, exports, doc comments, and prioritization. |
 | `tests/unit/test_python_parser.py` | 9 | Valid, syntax-error, empty files, discovery filters, max file handling, path format, non-ASCII parser edge. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
 | `tests/unit/test_report_generator.py` | 9 | Mock generation, malformed LLM output, missing/extra sections, shared section contract, prompt budget, ordering, trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
-| `tests/unit/test_review_task_runner.py` | 5 | Submit behavior, successful run, failure path, status progression, parser registry handoff. |
+| `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
 
 ## Integration Tests
 
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
+| `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JS/TS repository review completes through the real pipeline using mock LLM. |
 | `tests/integration/test_reviews_api.py` | 8 | Create review, invalid payload, query, missing task, export, export conflict, failed review response. |
 
 ## Regression Tests
@@ -115,7 +117,7 @@ powershell -File scripts/smoke-backend.ps1
 | End-to-end browser tests | Low | No Playwright/Cypress setup. |
 | Real LLM client live tests | Low | Requires external credentials and may be flaky/costly. |
 | Performance tests | Low | V1.1 relies on functional and smoke coverage. |
-| Multi-language parser tests | Not applicable | Python-only is current product scope. |
+| Deep JS/TS parser coverage | Medium | V2 MVP covers common imports, functions, classes, and exports; framework-specific syntax remains future work. |
 
 ## Cross-References
 

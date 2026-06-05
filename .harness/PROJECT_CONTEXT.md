@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V1.4 release-freeze foundation state: production-ready MVP, engineering hardening, CI, deployment documentation, Docker support, evaluation harness, regression harness, frontend foundation extraction, parser registry foundation, review pipeline decomposition, LLM dependency injection foundation, evaluation metrics reliability, shared report-section contract, centralized backend logger setup, and 54 collected tests.
+CodePilot is at V2.0 MVP parser expansion state: production-ready MVP foundation plus JavaScript/TypeScript parser support through the existing parser registry, automatic parser selection, evaluation harness coverage for Python and JS/TS repositories, and 60 collected tests.
 
 ## Release History
 
@@ -26,7 +26,7 @@ Next.js frontend
 FastAPI backend
   -> clone public GitHub repo
   -> orchestrate review lifecycle through ReviewPipeline
-  -> discover parser-supported files through the Python parser registry entry
+  -> select a registered parser based on repository files
   -> build RepositoryContext
   -> inject selected LLMClient into report generation
   -> generate normalized shared-contract four-section report
@@ -40,7 +40,7 @@ Backend modules:
 - `backend/core` - Settings, environment loading, shared report contract loading, and logger setup.
 - `backend/llm` - Mock and OpenAI-compatible LLM clients selected at the runner composition boundary.
 - `backend/models` - Pydantic schemas and review status enum.
-- `backend/parsers` - Parser protocol, parser registry, and registered Python parser/file discovery.
+- `backend/parsers` - Parser protocol, parser registry, registered Python parser, and JavaScript/TypeScript parser/file discovery.
 - `backend/reviewers` - Prompt building, report normalization, Markdown export.
 - `backend/services` - Clone service and repository indexer.
 - `backend/storage` - SQLite review store using WAL mode.
@@ -103,9 +103,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 54 tests on 2026-06-05.
-- Unit tests: 45 collected across clone service, parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
-- Integration tests: 8 collected for review API routes.
+- `pytest --collect-only -q` collected 60 tests on 2026-06-05.
+- Unit tests: 50 collected across clone service, Python parser, JavaScript/TypeScript parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
+- Integration tests: 9 collected for review API routes and JS/TS review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
@@ -115,6 +115,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - Evaluation report artifacts were generated at `evaluation/reports/eval-20260605-135055.json` and `evaluation/reports/eval-20260605-135055.md`.
 - Result: 4/4 repositories passed, 0 failed, 100.0% success rate, 100.0% report completeness, 39.8s average runtime.
 - Per-repo parser/runtime evidence: click 63 Python files in 23.4s; flask 83 Python files in 21.4s; express 0 Python files in 11.2s; jupyter 11 Python files in 103.3s.
+- V2.0 parser evaluation ran on 2026-06-05 against `pallets/click`, `expressjs/express`, and `axios/axios`.
+- V2.0 evaluation report artifacts were generated at `evaluation/reports/eval-20260605-145119.json`, `evaluation/reports/eval-20260605-145119.md`, `evaluation/reports/eval-20260605-145113.json`, and `evaluation/reports/eval-20260605-145113.md`.
+- V2.0 result: click passed with 63 Python files; express passed with 141 JavaScript files; axios passed with 178 JavaScript files.
 
 ## Environment Variables
 

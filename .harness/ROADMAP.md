@@ -68,8 +68,8 @@ Infrastructure work should only be planned when it directly enables these priori
 
 ### Multi-Language Analysis
 
-- [ ] Add language-agnostic parser registry.
-- [ ] Add JavaScript/TypeScript parser support.
+- [x] Add language-agnostic parser registry.
+- [x] Add JavaScript/TypeScript parser support.
 - [ ] Add Go parser support.
 - [ ] Add Rust parser support.
 - [ ] Detect repository language mix.

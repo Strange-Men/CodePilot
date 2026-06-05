@@ -25,7 +25,7 @@ Browser
 3. Backend creates a pending review row and schedules a background task.
 4. ReviewTaskRunner schedules execution on the in-process worker pool.
 5. ReviewPipeline clones the repository using shallow git clone.
-6. ReviewPipeline resolves the registered Python parser and discovers eligible Python files.
+6. ReviewPipeline selects a registered parser based on repository files and discovers eligible source files.
 7. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
 8. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET using the shared report-section contract.
 9. LLM client returns report text, or mock client returns deterministic output.
@@ -44,7 +44,7 @@ Browser
 | Core | `backend/core/config.py`, `backend/core/report_contract.py`, `backend/core/logging.py` | Settings, shared report contract loading, and logger setup | Loads `.env`, creates runtime paths, reads `contracts/report_sections.json`, and centralizes backend logger initialization. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
 | LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`; runner composes the selected client and injects it into the pipeline. |
-| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py` | Parser protocol, registry, Python file discovery, and structure extraction | Python-only registered parser explicitly inherits `SourceParser`, tree-sitter with AST fallback. |
+| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py`, `backend/parsers/javascript_parser.py` | Parser protocol, registry, Python/JavaScript/TypeScript file discovery, and structure extraction | Python uses tree-sitter with AST fallback; JS/TS uses dependency-free structural extraction for imports, classes, functions, and exports. |
 | Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces the shared-contract four-section report format. |
 | Shared Contract | `contracts/report_sections.json` | Ordered report section contract consumed by backend and frontend | Defines the V1 report section IDs and titles without coupling either runtime to the other. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
@@ -122,7 +122,7 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
 `RepositoryContext` contains:
 
 - `repo_url`
-- `total_python_files`
+- `total_python_files` (legacy API-compatible field now populated with selected parser source-file count)
 - `analyzed_files`
 - `skipped_files`
 - `file_summaries`
@@ -156,9 +156,9 @@ Decision log: `DECISION-004`.
 
 ### 3. Parser Registry Before Multi-Language Expansion
 
-Decision: route parsing through a registry-backed parser protocol while registering only the existing Python parser.
+Decision: route parsing through a registry-backed parser protocol. V2 registers Python, JavaScript, and TypeScript parser entries.
 
-Rationale: decouples task orchestration and indexing from the concrete Python parser without changing API contracts, report output, or current Python behavior.
+Rationale: decouples task orchestration and indexing from concrete parser implementations without changing API contracts, report output, or current Python behavior.
 
 Decision log: `DECISION-018`.
 

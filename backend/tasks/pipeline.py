@@ -8,6 +8,7 @@ from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.review import RepositoryContext, ReviewStatus
+from backend.parsers.base import SourceParser
 from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.reviewers.report_generator import ReportGenerator
 from backend.services.clone_service import CloneService
@@ -79,17 +80,47 @@ class ReviewPipeline:
     def _build_context(self, task_id: str, repo_dir: Path, repo_url: str) -> RepositoryContext:
         self.store.update_status(task_id, ReviewStatus.parsing)
         logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
-        parser = self.parser_registry.create("python")
+        parser = self._select_parser(repo_dir)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
         context = indexer.build_context(repo_dir, repo_url)
         logger.info(
-            "event=parse_completed task_id=%s total_python_files=%s analyzed_files=%s skipped_files=%s",
+            "event=parse_completed task_id=%s language=%s total_source_files=%s analyzed_files=%s skipped_files=%s",
             task_id,
+            parser.language,
             context.total_python_files,
             context.analyzed_files,
             context.skipped_files,
         )
         return context
+
+    def _select_parser(self, repo_dir: Path) -> SourceParser:
+        fallback_parser: SourceParser | None = None
+        best_parser: SourceParser | None = None
+        first_parser: SourceParser | None = None
+        best_total = 0
+
+        for language in self.parser_registry.languages():
+            parser = self.parser_registry.create(language)
+            if first_parser is None:
+                first_parser = parser
+            _files, total, _skipped = parser.discover_files(
+                repo_dir,
+                self.settings.max_files,
+                self.settings.max_file_size_bytes,
+            )
+            if parser.language == "python":
+                fallback_parser = parser
+            if total > best_total or (total == best_total and total > 0 and parser.language == "python"):
+                best_parser = parser
+                best_total = total
+
+        if best_parser is not None:
+            return best_parser
+        if fallback_parser is not None:
+            return fallback_parser
+        if first_parser is not None:
+            return first_parser
+        return self.parser_registry.create("python")
 
     def _record_summarized(self, task_id: str, context: RepositoryContext) -> None:
         self.store.update_status(task_id, ReviewStatus.summarizing)

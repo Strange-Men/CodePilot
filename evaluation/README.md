@@ -3,7 +3,7 @@
 ## Overview
 
 The evaluation harness runs CodePilot's full review pipeline (clone, parse,
-index, review) against a curated dataset of 18 public repositories and
+index, review) against a curated dataset of 20 public repositories and
 produces structured metrics and reports.
 
 ## Quick Start
@@ -26,10 +26,10 @@ python evaluation/run_eval.py --repos evaluation/repos.txt
 
 ## Dataset
 
-`evaluation/datasets/repos.json` contains 18 repositories across three dimensions:
+`evaluation/datasets/repos.json` contains 20 repositories across three dimensions:
 
-- **Size**: small (<50 .py files), medium (50-200), large (200+)
-- **Language**: python, javascript (0 .py files), mixed
+- **Size**: small (<50 supported source files), medium (50-200), large (200+)
+- **Language**: python, javascript/TypeScript, mixed
 - **Health**: healthy (standard layout), problematic (unusual structure)
 
 ## Configuration
@@ -66,7 +66,7 @@ Reports are written to `evaluation/reports/` (gitignored):
 - Completed reviews include all four required report sections.
 - Failed reviews include non-empty, user-facing error text.
 - Failed reviews do not expose Python internals (tracebacks, IndexError).
-- JavaScript repos produce controlled outcomes (no crashes).
+- JavaScript and TypeScript repos produce parsed source summaries and controlled outcomes.
 - Large repos complete within timeout bounds.
 
 ## Dependencies

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.parsers.javascript_parser import JavaScriptParser, TypeScriptParser
 from backend.parsers.python_parser import PythonParser
 from backend.parsers.registry import ParserRegistry, build_default_parser_registry
 
@@ -22,10 +23,14 @@ class FakeParser:
 def test_default_registry_registers_python_parser() -> None:
     registry = build_default_parser_registry()
 
-    parser = registry.create("python")
+    python_parser = registry.create("python")
+    javascript_parser = registry.create("javascript")
+    typescript_parser = registry.create("typescript")
 
-    assert isinstance(parser, PythonParser)
-    assert registry.languages() == ("python",)
+    assert isinstance(python_parser, PythonParser)
+    assert isinstance(javascript_parser, JavaScriptParser)
+    assert isinstance(typescript_parser, TypeScriptParser)
+    assert registry.languages() == ("javascript", "python", "typescript")
 
 
 def test_python_parser_explicitly_implements_source_parser() -> None:

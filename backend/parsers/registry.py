@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from backend.parsers.base import SourceParser
+from backend.parsers.javascript_parser import JavaScriptParser, TypeScriptParser
 from backend.parsers.python_parser import PythonParser
 
 ParserFactory = Callable[[], SourceParser]
@@ -34,6 +35,8 @@ class ParserRegistry:
 def build_default_parser_registry() -> ParserRegistry:
     registry = ParserRegistry()
     registry.register(PythonParser.language, PythonParser)
+    registry.register(JavaScriptParser.language, JavaScriptParser)
+    registry.register(TypeScriptParser.language, TypeScriptParser)
     return registry
 
 

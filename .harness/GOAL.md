@@ -20,7 +20,7 @@ Future work is prioritized in this order: Repository Intelligence, Code Review Q
 ## Non-Goals
 
 - Private repository support; OAuth or token access is deferred to V2.0 or later.
-- Multi-language analysis beyond Python; parser abstraction is planned before new languages are added.
+- Language analysis beyond Python and JavaScript/TypeScript; additional languages are deferred to later V2/V3 work.
 - Real-time collaborative review or inline commenting.
 - IDE plugin or CLI-only mode.
 - Self-hosted LLM inference; CodePilot uses mock mode or an OpenAI-compatible API endpoint.
@@ -31,7 +31,7 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 
 ## Quality Bar
 
-- 54 automated pytest tests pass.
+- 60 automated pytest tests pass.
 - Ruff linting is clean with zero warnings.
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.

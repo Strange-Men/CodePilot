@@ -11,17 +11,17 @@
     "small": {
       "max_runtime_seconds": 60,
       "expected_status": "completed",
-      "description": "Repositories with fewer than 50 Python files"
+      "description": "Repositories with fewer than 50 supported source files"
     },
     "medium": {
       "max_runtime_seconds": 120,
       "expected_status": "completed",
-      "description": "Repositories with 50-200 Python files"
+      "description": "Repositories with 50-200 supported source files"
     },
     "large": {
       "max_runtime_seconds": 300,
       "expected_status": "completed",
-      "description": "Repositories with more than 200 Python files"
+      "description": "Repositories with more than 200 supported source files"
     }
   },
   "language_expectations": {
@@ -30,8 +30,8 @@
       "expected_parse_outcome": "files_found"
     },
     "javascript": {
-      "min_python_files": 0,
-      "expected_parse_outcome": "zero_files_graceful"
+      "min_python_files": 1,
+      "expected_parse_outcome": "files_found"
     },
     "mixed": {
       "min_python_files": 1,

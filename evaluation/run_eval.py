@@ -307,7 +307,7 @@ def generate_reports(
 def print_summary_table(report_obj) -> None:
     """Print a formatted summary to stdout."""
     print("\n" + "=" * 70)
-    print("CodePilot V1.2 Evaluation Report")
+    print("CodePilot Evaluation Report")
     print("=" * 70)
     print(f"Timestamp: {report_obj.timestamp}")
     print(
@@ -352,7 +352,7 @@ def print_summary_table(report_obj) -> None:
         )
         print(
             f"  {marker}  {r.repo_id:16s} ({cat_str:22s}) "
-            f"{r.runtime_seconds:6.1f}s  py={r.total_python_files:5d}  "
+            f"{r.runtime_seconds:6.1f}s  files={r.total_python_files:5d}  "
             f"{r.details}"
         )
     print("=" * 70)
