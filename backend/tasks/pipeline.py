@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from backend.core.config import Settings
@@ -26,6 +27,13 @@ IndexerFactory = Callable[..., RepositoryIndexer]
 ReportGeneratorFactory = Callable[..., ReportGenerator]
 
 
+@dataclass(frozen=True)
+class ReviewPipelineResult:
+    total_python_files: int = 0
+    analyzed_files: int = 0
+    skipped_files: int = 0
+
+
 class ReviewPipeline:
     def __init__(
         self,
@@ -45,13 +53,19 @@ class ReviewPipeline:
         self.indexer_factory = indexer_factory or RepositoryIndexer
         self.report_generator_factory = report_generator_factory or ReportGenerator
 
-    def run(self, task_id: str, repo_url: str) -> None:
+    def run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
         clone_service = self.clone_service_factory(self.settings.workspace_path)
+        result = ReviewPipelineResult()
         try:
             logger.info("event=task_started task_id=%s repo_url=%s", task_id, repo_url)
 
             repo_dir = self._clone_repository(clone_service, task_id, repo_url)
             context = self._build_context(task_id, repo_dir, repo_url)
+            result = ReviewPipelineResult(
+                total_python_files=context.total_python_files,
+                analyzed_files=context.analyzed_files,
+                skipped_files=context.skipped_files,
+            )
             self._record_summarized(task_id, context)
             report, export_path = self._generate_report(task_id, context)
             self._complete_review(task_id, report, export_path)
@@ -59,6 +73,7 @@ class ReviewPipeline:
             self._fail_review(task_id, repo_url, exc)
         finally:
             self._cleanup_workspace(clone_service, task_id)
+        return result
 
     def _clone_repository(self, clone_service: CloneService, task_id: str, repo_url: str) -> Path:
         self.store.update_status(task_id, ReviewStatus.cloning)

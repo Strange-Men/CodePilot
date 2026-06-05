@@ -71,6 +71,8 @@ def detect_clone_failure(details: str, status: str) -> bool:
 
 def detect_parse_issue(result: RepoResult, expected_language: str) -> bool:
     """Detect unexpected parse outcomes."""
+    if result.status != "completed":
+        return False
     if expected_language == "javascript":
         return False
     if expected_language == "python" and result.total_python_files == 0:
@@ -97,6 +99,9 @@ def compute_category_metrics(
         clone_failures = sum(
             1 for r in group if detect_clone_failure(r.details, r.status)
         )
+        parse_issues = sum(
+            1 for r in group if detect_parse_issue(r, r.categories.get("language", "unknown"))
+        )
         report_complete = sum(1 for r in completed if r.has_all_sections)
 
         metrics.append(
@@ -108,7 +113,7 @@ def compute_category_metrics(
                 failed_repos=failed,
                 review_success_rate=passed / total if total else 0.0,
                 clone_failure_count=clone_failures,
-                parse_failure_count=0,
+                parse_failure_count=parse_issues,
                 report_completeness_rate=(
                     report_complete / len(completed) if completed else 0.0
                 ),

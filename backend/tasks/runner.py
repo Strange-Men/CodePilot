@@ -8,7 +8,7 @@ from backend.core.config import Settings
 from backend.llm.client import LLMClient, build_llm_client
 from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.storage.sqlite import ReviewStore
-from backend.tasks.pipeline import ReviewPipeline
+from backend.tasks.pipeline import ReviewPipeline, ReviewPipelineResult
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -40,5 +40,5 @@ class ReviewTaskRunner:
         self.executor.submit(self._run, task_id, repo_url)
         return task_id
 
-    def _run(self, task_id: str, repo_url: str) -> None:
-        self.pipeline.run(task_id, repo_url)
+    def _run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
+        return self.pipeline.run(task_id, repo_url)

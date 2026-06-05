@@ -137,13 +137,16 @@ def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Sett
     runner = ReviewTaskRunner(settings, store)
     store.create_review("task-1", "https://github.com/pallets/flask")
 
-    runner._run("task-1", "https://github.com/pallets/flask")
+    result = runner._run("task-1", "https://github.com/pallets/flask")
 
     row = store.get_review("task-1")
     assert row["status"] == ReviewStatus.completed.value
     assert row["report_markdown"] == "# Architecture Summary\nDone.\n"
     assert Path(row["export_path"]).exists()
     assert FakeCloneService.instances[0].cleaned_task_ids == ["task-1"]
+    assert result.total_python_files == 1
+    assert result.analyzed_files == 1
+    assert result.skipped_files == 0
 
 
 def test_run_marks_task_failed_when_clone_raises(runner_dependencies: tuple[Settings, ReviewStore]) -> None:

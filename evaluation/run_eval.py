@@ -31,6 +31,9 @@ class EvalResult:
     status: str
     passed: bool
     details: str
+    total_python_files: int = 0
+    analyzed_files: int = 0
+    skipped_files: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +123,7 @@ def run_repo_eval(repo_url: str, base_dir: Path) -> EvalResult:
     runner = ReviewTaskRunner(settings, store)
     task_id = "eval"
     store.create_review(task_id, repo_url)
-    runner._run(task_id, repo_url)
+    pipeline_result = runner._run(task_id, repo_url)
     runner.executor.shutdown(wait=False, cancel_futures=True)
 
     row = store.get_review(task_id)
@@ -130,13 +133,45 @@ def run_repo_eval(repo_url: str, base_dir: Path) -> EvalResult:
     status = row["status"]
     if status == ReviewStatus.completed.value:
         if has_required_sections(row["report_markdown"]):
-            return EvalResult(repo_url, status, True, "completed with all required report sections")
-        return EvalResult(repo_url, status, False, "completed report is missing one or more required sections")
+            return EvalResult(
+                repo_url,
+                status,
+                True,
+                "completed with all required report sections",
+                pipeline_result.total_python_files,
+                pipeline_result.analyzed_files,
+                pipeline_result.skipped_files,
+            )
+        return EvalResult(
+            repo_url,
+            status,
+            False,
+            "completed report is missing one or more required sections",
+            pipeline_result.total_python_files,
+            pipeline_result.analyzed_files,
+            pipeline_result.skipped_files,
+        )
 
     if status == ReviewStatus.failed.value:
         if is_user_friendly_error(row["error"]):
-            return EvalResult(repo_url, status, True, f"controlled failure: {row['error']}")
-        return EvalResult(repo_url, status, False, f"unfriendly failure: {row['error']!r}")
+            return EvalResult(
+                repo_url,
+                status,
+                True,
+                f"controlled failure: {row['error']}",
+                pipeline_result.total_python_files,
+                pipeline_result.analyzed_files,
+                pipeline_result.skipped_files,
+            )
+        return EvalResult(
+            repo_url,
+            status,
+            False,
+            f"unfriendly failure: {row['error']!r}",
+            pipeline_result.total_python_files,
+            pipeline_result.analyzed_files,
+            pipeline_result.skipped_files,
+        )
 
     return EvalResult(repo_url, status, False, "review did not reach completed or failed state")
 
@@ -170,14 +205,14 @@ def run_dataset_eval(
         eval_result = run_repo_eval(repo_url, base_dir)
         elapsed = time.perf_counter() - start
 
-        # Read back the review row to extract parser stats
+        # Read back persisted report state; parser stats are returned from the in-memory pipeline result.
         safe_name = "".join(
             char if char.isalnum() else "-" for char in repo_url
         ).strip("-")[:80]
         run_dir = base_dir / safe_name
-        total_py = 0
-        analyzed = 0
-        skipped = 0
+        total_py = eval_result.total_python_files
+        analyzed = eval_result.analyzed_files
+        skipped = eval_result.skipped_files
         has_report = False
         has_all_sections = False
 
