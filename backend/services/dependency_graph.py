@@ -80,19 +80,31 @@ class DependencyGraph:
         paths: set[str],
         python_modules: dict[str, str],
     ) -> set[str]:
-        if self.language == "python":
+        source_language = self._source_language(source_path) if self.language == "mixed" else self.language
+        if source_language == "python":
             resolved_targets: set[str] = set()
             for module in self._python_import_candidates(import_spec):
                 resolved = self._resolve_python_module(source_path, module, python_modules)
                 if resolved:
                     resolved_targets.add(resolved)
             return resolved_targets
-        if self.language in {"javascript", "typescript"}:
+        if source_language in {"javascript", "typescript"}:
             specifier = self._script_import_specifier(import_spec)
             if specifier and specifier.startswith("."):
                 resolved = self._resolve_script_path(source_path, specifier, paths)
                 return {resolved} if resolved else set()
         return set()
+
+    @staticmethod
+    def _source_language(source_path: str) -> str:
+        suffix = PurePosixPath(source_path).suffix.lower()
+        if suffix == ".py":
+            return "python"
+        if suffix in {".js", ".jsx"}:
+            return "javascript"
+        if suffix in {".ts", ".tsx"}:
+            return "typescript"
+        return ""
 
     @staticmethod
     def _python_module_map(paths: set[str]) -> dict[str, str]:

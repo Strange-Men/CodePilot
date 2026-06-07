@@ -51,6 +51,21 @@ class CodeFileSummary(BaseModel):
     is_orphan: bool = False
 
 
+class RepositoryInsight(BaseModel):
+    title: str
+    explanation: str
+    files: list[str] = Field(default_factory=list)
+
+
+class RepositoryInsights(BaseModel):
+    repository_type: str = "Software repository"
+    major_components: list[str] = Field(default_factory=list)
+    architecture_overview: list[RepositoryInsight] = Field(default_factory=list)
+    risk_hotspots: list[RepositoryInsight] = Field(default_factory=list)
+    onboarding_guide: list[RepositoryInsight] = Field(default_factory=list)
+    refactoring_candidates: list[RepositoryInsight] = Field(default_factory=list)
+
+
 class RepositoryContext(BaseModel):
     repo_url: str
     total_python_files: int
@@ -68,4 +83,5 @@ class RepositoryContext(BaseModel):
     circular_dependencies: list[list[str]] = Field(default_factory=list)
     hub_files: list[str] = Field(default_factory=list)
     orphan_files: list[str] = Field(default_factory=list)
+    insights: RepositoryInsights = Field(default_factory=RepositoryInsights)
 

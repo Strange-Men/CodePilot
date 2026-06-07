@@ -85,3 +85,28 @@ def test_orphans_are_files_with_no_incoming_dependencies() -> None:
 
     assert graph.fan_out["entry.py"] == 1
     assert graph.orphan_files == ("entry.py",)
+
+
+def test_mixed_dependency_graph_resolves_javascript_to_typescript() -> None:
+    graph = DependencyGraph("mixed").build(
+        [
+            ParsedSourceFile(
+                path="src/index.js",
+                classes=[],
+                functions=[],
+                imports=[],
+                first_docstring=None,
+                dependency_imports=["./service"],
+            ),
+            ParsedSourceFile(
+                path="src/service.ts",
+                classes=[],
+                functions=[],
+                imports=[],
+                first_docstring=None,
+            ),
+        ]
+    )
+
+    assert graph.dependencies["src/index.js"] == ("src/service.ts",)
+    assert graph.fan_in["src/service.ts"] == 1

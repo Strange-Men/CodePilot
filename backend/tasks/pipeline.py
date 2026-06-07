@@ -9,6 +9,7 @@ from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.review import RepositoryContext, ReviewStatus
 from backend.parsers.base import SourceParser
+from backend.parsers.composite import CompositeSourceParser
 from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.reviewers.report_generator import ReportGenerator
 from backend.services.clone_service import CloneService
@@ -95,11 +96,16 @@ class ReviewPipeline:
 
     def _select_parser(self, repo_dir: Path) -> SourceParser:
         fallback_parser: SourceParser | None = None
+        matching_parsers: list[SourceParser] = []
         best_parser: SourceParser | None = None
         first_parser: SourceParser | None = None
         best_total = 0
 
-        for language in self.parser_registry.languages():
+        language_priority = {"python": 0, "javascript": 1, "typescript": 2}
+        for language in sorted(
+            self.parser_registry.languages(),
+            key=lambda item: (language_priority.get(item, 99), item),
+        ):
             parser = self.parser_registry.create(language)
             if first_parser is None:
                 first_parser = parser
@@ -110,10 +116,16 @@ class ReviewPipeline:
             )
             if parser.language == "python":
                 fallback_parser = parser
+            if total > 0:
+                matching_parsers.append(parser)
             if total > best_total or (total == best_total and total > 0 and parser.language == "python"):
                 best_parser = parser
                 best_total = total
 
+        if len(matching_parsers) > 1:
+            return CompositeSourceParser(matching_parsers)
+        if matching_parsers:
+            return matching_parsers[0]
         if best_parser is not None:
             return best_parser
         if fallback_parser is not None:

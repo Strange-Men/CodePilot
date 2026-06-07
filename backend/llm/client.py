@@ -30,10 +30,13 @@ class MockLLMClient:
         dependency_structure = self._extract_after(prompt, "- Dependency Structure:") or "no resolved graph"
         hubs = self._extract_after(prompt, "- Hub Files:") or "none detected"
         cycles = self._extract_after(prompt, "- Circular Dependencies:") or "none detected"
+        repository_type = self._extract_after(prompt, "- Repository Type:")
+        if not repository_type or repository_type == "Software repository":
+            repository_type = f"{language_hint} application"
         architecture, code_smells, maintainability, refactoring = REPORT_SECTIONS
         return (
             f"# {architecture}\n"
-            f"The repository appears to be a {language_hint} application composed of "
+            f"The repository appears to be a {repository_type} ({language_hint}) composed of "
             f"{file_count_hint or 'multiple'} analyzed modules. Entry points are {entry_points}. "
             f"Core modules are {core_modules}, while supporting modules are {supporting_modules}. "
             f"The dependency structure has {dependency_structure}. "

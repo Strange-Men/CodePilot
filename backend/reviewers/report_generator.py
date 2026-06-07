@@ -32,6 +32,7 @@ class ReportGenerator:
             "- Describe Entry Points, Core Modules, Supporting Modules, and Dependency Structure.",
             "- Explain how important dependency relationships shape control flow and change risk.",
             "- Use hub and cycle evidence in findings instead of listing file paths without interpretation.",
+            "- Explain why each risk or recommendation matters to maintainers and newcomers.",
             "Repository Summary:",
             f"Repository URL: {context.repo_url}",
             f"Repository language: {context.language}",
@@ -41,6 +42,7 @@ class ReportGenerator:
             f"Total lines: {context.total_lines}",
             f"Average complexity: {context.avg_complexity:.2f}",
             context.repository_summary,
+            *self._repository_insights_prompt(context),
             *self._architecture_summary_prompt(context),
             *self._architecture_graph_prompt(context),
         ]
@@ -93,6 +95,7 @@ class ReportGenerator:
             body = sections.get(section) or "No critical findings detected from the available repository summaries."
             output.append(f"# {section}\n{body.strip()}")
         if context is not None:
+            output.append(self._repository_insights_section(context))
             output.append(self._repository_metrics_section(context))
             output.append(self._architecture_graph_section(context))
         return "\n\n".join(output) + "\n"
@@ -122,6 +125,59 @@ class ReportGenerator:
         else:
             lines.append("| No analyzed files | 0 | 0 | 0.00 | Peripheral |")
         return "\n".join(lines)
+
+    @staticmethod
+    def _repository_insights_prompt(context: RepositoryContext) -> list[str]:
+        insights = context.insights
+        lines = [
+            "Repository Insights:",
+            f"- Repository Type: {insights.repository_type}",
+            f"- Major Components: {', '.join(insights.major_components) or 'None detected'}",
+            "Risk Hotspots:",
+        ]
+        lines.extend(
+            f"- {finding.title}: {finding.explanation}"
+            for finding in insights.risk_hotspots
+        )
+        lines.append("Recommended Reading Order:")
+        lines.extend(
+            f"- {finding.title}: {finding.explanation}"
+            for finding in insights.onboarding_guide
+        )
+        lines.append("Refactoring Candidates:")
+        lines.extend(
+            f"- {finding.title}: {finding.explanation}"
+            for finding in insights.refactoring_candidates
+        )
+        return lines
+
+    @staticmethod
+    def _repository_insights_section(context: RepositoryContext) -> str:
+        insights = context.insights
+        lines = [
+            "# Repository Insights",
+            "",
+            "## Architecture Overview",
+            f"- **Repository type:** {insights.repository_type}",
+        ]
+        if insights.major_components:
+            lines.append(f"- **Major components:** {', '.join(insights.major_components)}")
+        lines.extend(ReportGenerator._render_insight_findings(insights.architecture_overview))
+        lines.extend(["", "## Risk Hotspots"])
+        lines.extend(ReportGenerator._render_insight_findings(insights.risk_hotspots))
+        lines.extend(["", "## Onboarding Guide"])
+        lines.extend(ReportGenerator._render_insight_findings(insights.onboarding_guide))
+        lines.extend(["", "## Refactoring Candidates"])
+        lines.extend(ReportGenerator._render_insight_findings(insights.refactoring_candidates))
+        return "\n".join(lines)
+
+    @staticmethod
+    def _render_insight_findings(findings) -> list[str]:
+        lines: list[str] = []
+        for finding in findings:
+            files = f" Files: {', '.join(f'`{path}`' for path in finding.files)}." if finding.files else ""
+            lines.append(f"- **{finding.title}:** {finding.explanation}{files}")
+        return lines or ["- No insight available from the analyzed source files."]
 
     @staticmethod
     def _architecture_summary_prompt(context: RepositoryContext) -> list[str]:

@@ -38,6 +38,7 @@ def test_valid_report_generation_writes_markdown(tmp_path: Path, sample_context)
     assert export_path == tmp_path / "task-1.md"
     assert export_path.read_text(encoding="utf-8") == report
     assert "# Repository Metrics" in report
+    assert "# Repository Insights" in report
 
 
 def test_mock_mode_generates_required_sections(sample_context) -> None:
@@ -195,6 +196,8 @@ def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path,
     ).generate("task-1", sample_context)
 
     assert report.index("# Repository Metrics") > report.index("# Refactoring Suggestions")
+    assert report.index("# Repository Insights") > report.index("# Refactoring Suggestions")
+    assert report.index("# Repository Insights") < report.index("# Repository Metrics")
     assert "- Total lines: 150" in report
     assert "- Average complexity: 6.50" in report
     assert "## Top Files" in report

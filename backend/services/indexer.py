@@ -5,6 +5,7 @@ from pathlib import Path
 from backend.models.review import CodeFileSummary, RepositoryContext
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.dependency_graph import DependencyGraph
+from backend.services.insights import RepositoryInsightEngine
 from backend.services.scoring import ScoreInput, file_role, score_files
 
 
@@ -58,7 +59,7 @@ class RepositoryIndexer:
             else 0.0
         )
 
-        return RepositoryContext(
+        context = RepositoryContext(
             repo_url=repo_url,
             total_python_files=total,
             analyzed_files=len(summaries),
@@ -87,6 +88,8 @@ class RepositoryIndexer:
             hub_files=list(dependency_graph.hub_files),
             orphan_files=list(dependency_graph.orphan_files),
         )
+        context.insights = RepositoryInsightEngine().generate(context)
+        return context
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:
         purpose = self._infer_purpose(parsed)
@@ -179,6 +182,9 @@ class RepositoryIndexer:
             "javascript": "JavaScript",
             "typescript": "TypeScript",
         }
+        parser_languages = getattr(self.parser, "languages", ())
+        if parser_languages:
+            return " + ".join(labels.get(language, language.title()) for language in parser_languages)
         return labels.get(self.parser.language, self.parser.language.title())
 
     @staticmethod
