@@ -3,23 +3,26 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import PurePosixPath
 
-from backend.models.review import (
+from backend.models.context import (
     CodeFileSummary,
+    InsightReport,
     RepositoryContext,
     RepositoryInsight,
-    RepositoryInsights,
+    ReviewContext,
+    as_review_context,
 )
 
 
 class RepositoryInsightEngine:
-    def generate(self, context: RepositoryContext) -> RepositoryInsights:
+    def generate(self, context: ReviewContext | RepositoryContext) -> InsightReport:
+        context = as_review_context(context)
         ordered = sorted(
             context.file_summaries,
             key=lambda summary: (-summary.importance_score, summary.path),
         )
         components = self._major_components(ordered)
         repository_type = self._repository_type(context)
-        return RepositoryInsights(
+        return InsightReport(
             repository_type=repository_type,
             major_components=components,
             architecture_overview=self._architecture_overview(
@@ -34,7 +37,7 @@ class RepositoryInsightEngine:
 
     def _architecture_overview(
         self,
-        context: RepositoryContext,
+        context: ReviewContext,
         repository_type: str,
         components: list[str],
     ) -> list[RepositoryInsight]:
@@ -91,7 +94,7 @@ class RepositoryInsightEngine:
 
     def _risk_hotspots(
         self,
-        context: RepositoryContext,
+        context: ReviewContext,
         ordered: list[CodeFileSummary],
     ) -> list[RepositoryInsight]:
         findings: list[RepositoryInsight] = []
@@ -150,7 +153,7 @@ class RepositoryInsightEngine:
 
     def _onboarding_guide(
         self,
-        context: RepositoryContext,
+        context: ReviewContext,
         ordered: list[CodeFileSummary],
     ) -> list[RepositoryInsight]:
         summaries = {summary.path: summary for summary in ordered}
@@ -197,7 +200,7 @@ class RepositoryInsightEngine:
 
     def _refactoring_candidates(
         self,
-        context: RepositoryContext,
+        context: ReviewContext,
         ordered: list[CodeFileSummary],
     ) -> list[RepositoryInsight]:
         candidates: list[RepositoryInsight] = []
@@ -275,7 +278,7 @@ class RepositoryInsightEngine:
         ]
 
     @staticmethod
-    def _repository_type(context: RepositoryContext) -> str:
+    def _repository_type(context: ReviewContext) -> str:
         languages = {language.strip() for language in context.language.split("+")}
         lower_paths = [summary.path.lower() for summary in context.file_summaries]
         if len(languages) > 1 and "Python" in languages and languages & {"JavaScript", "TypeScript"}:
@@ -290,7 +293,7 @@ class RepositoryInsightEngine:
 
     @staticmethod
     def _overloaded_files(
-        context: RepositoryContext,
+        context: ReviewContext,
         ordered: list[CodeFileSummary],
     ) -> list[CodeFileSummary]:
         if not ordered:

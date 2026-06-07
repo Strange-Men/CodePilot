@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.models.review import CodeFileSummary, RepositoryContext
+from backend.models.context import (
+    CodeFileSummary,
+    DependencyStructure,
+    FileAnalysisBundle,
+    RepoMetadata,
+    RepositoryContext,
+    ReviewContext,
+)
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.dependency_graph import DependencyGraph
 from backend.services.insights import RepositoryInsightEngine
@@ -16,6 +23,9 @@ class RepositoryIndexer:
         self.max_file_size_bytes = max_file_size_bytes
 
     def build_context(self, repo_dir: Path, repo_url: str) -> RepositoryContext:
+        return RepositoryContext.from_review_context(self.build_review_context(repo_dir, repo_url))
+
+    def build_review_context(self, repo_dir: Path, repo_url: str) -> ReviewContext:
         files, total, skipped = self.parser.discover_files(repo_dir, self.max_files, self.max_file_size_bytes)
         parsed_files = [self.parser.parse_file(repo_dir, path) for path in files]
         summaries = [self._summarize_file(parsed) for parsed in parsed_files]
@@ -59,34 +69,40 @@ class RepositoryIndexer:
             else 0.0
         )
 
-        context = RepositoryContext(
-            repo_url=repo_url,
-            total_python_files=total,
-            analyzed_files=len(summaries),
-            skipped_files=skipped,
-            file_summaries=summaries,
-            repository_summary=repo_summary,
-            language=self._language_label(),
-            total_lines=total_lines,
-            avg_complexity=avg_complexity,
-            entry_points=[
-                summary.path for summary in summaries if summary.file_role == "Entry Point"
-            ],
-            core_modules=[
-                summary.path for summary in summaries if summary.file_role == "Core Module"
-            ],
-            supporting_modules=[
-                summary.path
-                for summary in summaries
-                if summary.file_role in {"Supporting File", "Supporting Module"}
-            ],
-            dependency_edges={
-                path: list(targets)
-                for path, targets in dependency_graph.dependencies.items()
-            },
-            circular_dependencies=[list(cycle) for cycle in dependency_graph.cycles],
-            hub_files=list(dependency_graph.hub_files),
-            orphan_files=list(dependency_graph.orphan_files),
+        context = ReviewContext(
+            metadata=RepoMetadata(
+                repo_url=repo_url,
+                total_source_files=total,
+                analyzed_files=len(summaries),
+                skipped_files=skipped,
+                repository_summary=repo_summary,
+                language=self._language_label(),
+                total_lines=total_lines,
+                avg_complexity=avg_complexity,
+            ),
+            files=FileAnalysisBundle(
+                summaries=summaries,
+                entry_points=[
+                    summary.path for summary in summaries if summary.file_role == "Entry Point"
+                ],
+                core_modules=[
+                    summary.path for summary in summaries if summary.file_role == "Core Module"
+                ],
+                supporting_modules=[
+                    summary.path
+                    for summary in summaries
+                    if summary.file_role in {"Supporting File", "Supporting Module"}
+                ],
+            ),
+            dependencies=DependencyStructure(
+                edges={
+                    path: list(targets)
+                    for path, targets in dependency_graph.dependencies.items()
+                },
+                circular_dependencies=[list(cycle) for cycle in dependency_graph.cycles],
+                hub_files=list(dependency_graph.hub_files),
+                orphan_files=list(dependency_graph.orphan_files),
+            ),
         )
         context.insights = RepositoryInsightEngine().generate(context)
         return context

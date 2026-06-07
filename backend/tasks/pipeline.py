@@ -7,7 +7,8 @@ from pathlib import Path
 from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
-from backend.models.review import RepositoryContext, ReviewStatus
+from backend.models.context import RepositoryContext, ReviewContext
+from backend.models.review import ReviewStatus
 from backend.parsers.base import SourceParser
 from backend.parsers.composite import CompositeSourceParser
 from backend.parsers.registry import ParserRegistry, default_parser_registry
@@ -78,12 +79,17 @@ class ReviewPipeline:
         logger.info("event=clone_completed task_id=%s repo_dir=%s", task_id, repo_dir)
         return repo_dir
 
-    def _build_context(self, task_id: str, repo_dir: Path, repo_url: str) -> RepositoryContext:
+    def _build_context(self, task_id: str, repo_dir: Path, repo_url: str) -> ReviewContext:
         self.store.update_status(task_id, ReviewStatus.parsing)
         logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
         parser = self._select_parser(repo_dir)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
-        context = indexer.build_context(repo_dir, repo_url)
+        build_review_context = getattr(indexer, "build_review_context", None)
+        if callable(build_review_context):
+            context = build_review_context(repo_dir, repo_url)
+        else:
+            legacy_context: RepositoryContext = indexer.build_context(repo_dir, repo_url)
+            context = legacy_context.to_review_context()
         logger.info(
             "event=parse_completed task_id=%s language=%s total_source_files=%s analyzed_files=%s skipped_files=%s",
             task_id,
@@ -134,12 +140,12 @@ class ReviewPipeline:
             return first_parser
         return self.parser_registry.create("python")
 
-    def _record_summarized(self, task_id: str, context: RepositoryContext) -> None:
+    def _record_summarized(self, task_id: str, context: ReviewContext) -> None:
         self.store.update_status(task_id, ReviewStatus.summarizing)
         logger.info("event=summarize_completed task_id=%s file_summaries=%s", task_id, len(context.file_summaries))
         # Summaries are deterministic and generated during indexing for the MVP.
 
-    def _generate_report(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
+    def _generate_report(self, task_id: str, context: ReviewContext) -> tuple[str, Path]:
         self.store.update_status(task_id, ReviewStatus.reviewing)
         logger.info("event=review_started task_id=%s", task_id)
         report_generator = self.report_generator_factory(
