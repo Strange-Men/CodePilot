@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.core.report_contract import REPORT_SECTIONS, numbered_report_section_lines
+from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
-from backend.models.review import CodeFileSummary, RepositoryContext
-from backend.services.token_counting import PromptTokenCounter
+from backend.models.context import CodeFileSummary, RepositoryContext, ReviewContext
+from backend.prompts import PromptRenderer
 
 
 class ReportGenerator:
@@ -18,10 +18,9 @@ class ReportGenerator:
     ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
-        self.prompt_token_budget = prompt_token_budget
-        self.token_counter = PromptTokenCounter(token_model)
+        self.prompt_renderer = PromptRenderer(prompt_token_budget, token_model)
 
-    def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
+    def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> tuple[str, Path]:
         prompt = self._build_prompt(context)
         raw_report = self.llm_client.generate_review(prompt)
         report = self._normalize_report(raw_report, context)
@@ -29,60 +28,14 @@ class ReportGenerator:
         export_path.write_text(report, encoding="utf-8")
         return report, export_path
 
-    def _build_prompt(self, context: RepositoryContext) -> str:
-        lines = [
-            "Review this repository using only summarized repository context.",
-            "Do not assume access to raw source code.",
-            "Return markdown with exactly four top-level sections:",
-            *numbered_report_section_lines(),
-            "Architecture Summary requirements:",
-            "- Describe Entry Points, Core Modules, Supporting Modules, and Dependency Structure.",
-            "- Explain how important dependency relationships shape control flow and change risk.",
-            "- Use hub and cycle evidence in findings instead of listing file paths without interpretation.",
-            "- Explain why each risk or recommendation matters to maintainers and newcomers.",
-            "Repository Summary:",
-            f"Repository URL: {context.repo_url}",
-            f"Repository language: {context.language}",
-            f"Total source files: {context.total_python_files}",
-            f"Analyzed files: {context.analyzed_files}",
-            f"Skipped files: {context.skipped_files}",
-            f"Total lines: {context.total_lines}",
-            f"Average complexity: {context.avg_complexity:.2f}",
-            context.repository_summary,
-            *self._repository_insights_prompt(context),
-            *self._architecture_summary_prompt(context),
-            *self._architecture_graph_prompt(context),
-        ]
-        detailed_paths = {
-            summary.path for summary in self._top_important_files(context, limit=10)
-        }
-        for roles, heading in (
-            ({"Entry Point"}, "Entry Points"),
-            ({"Core Module"}, "Core Modules"),
-            ({"Supporting File", "Supporting Module"}, "Supporting Modules"),
-            ({"Test File"}, "Test Files"),
-            ({"Documentation"}, "Documentation"),
-            ({"Configuration"}, "Configuration"),
-        ):
-            lines.extend(
-                self._prompt_file_group(
-                    heading,
-                    [
-                        summary
-                        for summary in context.file_summaries
-                        if summary.file_role in roles
-                    ],
-                    detailed_paths,
-                )
-            )
-
-        return self._fit_to_token_budget("\n".join(lines))
+    def _build_prompt(self, context: ReviewContext | RepositoryContext) -> str:
+        return self.prompt_renderer.render(context)
 
     def _fit_to_token_budget(self, prompt: str) -> str:
-        return self.token_counter.fit_complete_lines(prompt, self.prompt_token_budget)
+        return self.prompt_renderer.token_budgeter.fit(prompt)
 
     def _count_prompt_tokens(self, prompt: str) -> int:
-        return self.token_counter.count(prompt)
+        return self.prompt_renderer.token_budgeter.count(prompt)
 
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         sections = self._extract_sections(report)
@@ -123,31 +76,6 @@ class ReportGenerator:
         return "\n".join(lines)
 
     @staticmethod
-    def _repository_insights_prompt(context: RepositoryContext) -> list[str]:
-        insights = context.insights
-        lines = [
-            "Repository Insights:",
-            f"- Repository Type: {insights.repository_type}",
-            f"- Major Components: {', '.join(insights.major_components) or 'None detected'}",
-            "Risk Hotspots:",
-        ]
-        lines.extend(
-            f"- {finding.title}: {finding.explanation}"
-            for finding in insights.risk_hotspots
-        )
-        lines.append("Recommended Reading Order:")
-        lines.extend(
-            f"- {finding.title}: {finding.explanation}"
-            for finding in insights.onboarding_guide
-        )
-        lines.append("Refactoring Candidates:")
-        lines.extend(
-            f"- {finding.title}: {finding.explanation}"
-            for finding in insights.refactoring_candidates
-        )
-        return lines
-
-    @staticmethod
     def _repository_insights_section(context: RepositoryContext) -> str:
         insights = context.insights
         lines = [
@@ -174,64 +102,6 @@ class ReportGenerator:
             files = f" Files: {', '.join(f'`{path}`' for path in finding.files)}." if finding.files else ""
             lines.append(f"- **{finding.title}:** {finding.explanation}{files}")
         return lines or ["- No insight available from the analyzed source files."]
-
-    @staticmethod
-    def _architecture_summary_prompt(context: RepositoryContext) -> list[str]:
-        supporting_modules = context.supporting_modules or [
-            summary.path
-            for summary in context.file_summaries
-            if summary.file_role in {"Supporting File", "Supporting Module"}
-        ]
-        edge_count = sum(len(targets) for targets in context.dependency_edges.values())
-        return [
-            "Architecture Summary Context:",
-            f"- Entry Points: {', '.join(context.entry_points) or 'None detected'}",
-            f"- Core Modules: {', '.join(context.core_modules) or 'None detected'}",
-            f"- Supporting Modules: {', '.join(supporting_modules) or 'None detected'}",
-            (
-                f"- Dependency Structure: {edge_count} resolved internal relationships, "
-                f"{len(context.hub_files)} hubs, and {len(context.circular_dependencies)} cycles"
-            ),
-        ]
-
-    @classmethod
-    def _architecture_graph_prompt(cls, context: RepositoryContext) -> list[str]:
-        summaries = {summary.path: summary for summary in context.file_summaries}
-        hubs = ", ".join(
-            f"{path} (fan_in={summaries[path].fan_in})"
-            for path in context.hub_files
-            if path in summaries
-        ) or "None detected"
-        cycles = "; ".join(
-            " -> ".join([*cycle, cycle[0]])
-            for cycle in context.circular_dependencies
-            if cycle
-        ) or "None detected"
-        orphans = ", ".join(context.orphan_files) or "None detected"
-        lines = [
-            "Architecture Graph:",
-            f"- Hub Files: {hubs}",
-            f"- Circular Dependencies: {cycles}",
-            f"- Orphans: {orphans}",
-            "Important Dependency Relationships:",
-        ]
-        relationships = cls._important_dependency_relationships(context, limit=30)
-        lines.extend(f"- {source} -> {target}" for source, target in relationships)
-        if not relationships:
-            lines.append("- None resolved.")
-        lines.extend(
-            [
-                (
-                    "Hub Analysis Guidance: inspect high fan-in modules for broad change impact, "
-                    "unstable interfaces, and mixed responsibilities."
-                ),
-                (
-                    "Cycle Analysis Guidance: explain ownership and initialization risks in each cycle, "
-                    "then suggest the smallest dependency-breaking boundary."
-                ),
-            ]
-        )
-        return lines
 
     @staticmethod
     def _architecture_graph_section(context: RepositoryContext) -> str:
@@ -295,27 +165,11 @@ class ReportGenerator:
 
     @staticmethod
     def _important_dependency_relationships(
-        context: RepositoryContext,
+        context: ReviewContext | RepositoryContext,
         *,
         limit: int,
     ) -> list[tuple[str, str]]:
-        importance_scores = {
-            summary.path: summary.importance_score
-            for summary in context.file_summaries
-        }
-        relationships = [
-            (source, target)
-            for source, targets in context.dependency_edges.items()
-            for target in targets
-        ]
-        return sorted(
-            relationships,
-            key=lambda edge: (
-                -importance_scores.get(edge[0], 0.0),
-                -importance_scores.get(edge[1], 0.0),
-                edge,
-            ),
-        )[:limit]
+        return PromptRenderer.important_dependency_relationships(context, limit=limit)
 
     @staticmethod
     def _top_important_files(
@@ -327,34 +181,6 @@ class ReportGenerator:
             context.file_summaries,
             key=lambda summary: (-summary.importance_score, summary.path),
         )[:limit]
-
-    @staticmethod
-    def _prompt_file_group(
-        heading: str,
-        summaries: list[CodeFileSummary],
-        detailed_paths: set[str],
-    ) -> list[str]:
-        lines = [f"{heading}:"]
-        if not summaries:
-            return [*lines, "- None detected."]
-
-        ordered = sorted(summaries, key=lambda summary: (-summary.importance_score, summary.path))
-        detailed = [summary for summary in ordered if summary.path in detailed_paths]
-        remaining = [summary for summary in ordered if summary.path not in detailed_paths]
-        for summary in detailed:
-            lines.append(
-                f"- {summary.path} | score={summary.importance_score:.2f} "
-                f"({summary.importance_label}) | lines={summary.line_count} | "
-                f"functions={summary.function_count} | complexity={summary.complexity_estimate} | "
-                f"{summary.summary}"
-            )
-        if remaining:
-            compact = ", ".join(
-                f"{summary.path} [{summary.importance_score:.2f} {summary.importance_label}]"
-                for summary in remaining
-            )
-            lines.append(f"- Remaining summarized files: {compact}")
-        return lines
 
     @staticmethod
     def _extract_sections(report: str) -> dict[str, str]:
