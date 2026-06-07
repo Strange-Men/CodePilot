@@ -150,4 +150,4 @@ def test_indexer_propagates_graph_metrics_and_rescores_files(temp_repo: Path) ->
     assert summaries["src/target.py"].importance_score == 100
     assert summaries["src/caller.py"].importance_score < summaries["src/target.py"].importance_score
     assert context.hub_files == ["src/target.py"]
-    assert context.orphan_files == []
+    assert context.orphan_files == ["src/caller.py"]

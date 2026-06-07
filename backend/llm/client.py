@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import os
+import time
+from collections.abc import Callable
 from typing import Protocol
 
 import httpx
 
 from backend.core.config import Settings
 from backend.core.report_contract import REPORT_SECTIONS, report_section_heading_list
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY_SECONDS = 1.0
+RETRYABLE_STATUS_CODES = {408, 409, 429}
 
 
 class LLMClient(Protocol):
@@ -54,8 +60,13 @@ class MockLLMClient:
 
 
 class OpenAICompatibleClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.settings = settings
+        self.sleep = sleep
 
     def generate_review(self, prompt: str) -> str:
         api_key = self.settings.openai_api_key or os.getenv("OPENAI_API_KEY")
@@ -78,10 +89,28 @@ class OpenAICompatibleClient:
             "temperature": 0.2,
         }
         with httpx.Client(timeout=60) as client:
-            response = client.post(url, headers={"Authorization": f"Bearer {api_key}"}, json=payload)
-            response.raise_for_status()
-            data = response.json()
-        return data["choices"][0]["message"]["content"]
+            for retry_index in range(MAX_RETRIES + 1):
+                try:
+                    response = client.post(
+                        url,
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json=payload,
+                    )
+                    if not self._is_retryable_status(response.status_code):
+                        response.raise_for_status()
+                        data = response.json()
+                        return data["choices"][0]["message"]["content"]
+                    if retry_index == MAX_RETRIES:
+                        response.raise_for_status()
+                except httpx.RequestError:
+                    if retry_index == MAX_RETRIES:
+                        raise
+                self.sleep(RETRY_BASE_DELAY_SECONDS * (2**retry_index))
+        raise RuntimeError("LLM request failed without a response.")
+
+    @staticmethod
+    def _is_retryable_status(status_code: int) -> bool:
+        return status_code in RETRYABLE_STATUS_CODES or status_code >= 500
 
 
 def build_llm_client(settings: Settings) -> LLMClient:

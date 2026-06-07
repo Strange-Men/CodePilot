@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from backend.core.report_contract import load_report_sections
@@ -89,7 +90,18 @@ def test_prompt_budget_trims_large_context(tmp_path: Path, sample_context) -> No
 
     prompt = ReportGenerator(StaticLLM(""), tmp_path, prompt_token_budget=20)._build_prompt(sample_context)
 
-    assert len(prompt.split()) <= 15
+    assert len(re.findall(r"\w+|[^\w\s]", prompt)) <= 20
+    assert "\n" in prompt
+
+
+def test_prompt_budget_preserves_complete_prompt_when_it_fits(tmp_path: Path, sample_context) -> None:
+    generator = ReportGenerator(StaticLLM(""), tmp_path, prompt_token_budget=5000)
+
+    prompt = generator._build_prompt(sample_context)
+
+    assert "services/review.py: purpose=Implements review behavior; classes=none; functions=review." in prompt
+    assert prompt.endswith("Supporting Files:\n- None detected.")
+    assert "\nRepository Summary:\n" in prompt
 
 
 def test_prompt_groups_files_and_only_details_top_ten(tmp_path: Path, sample_context) -> None:

@@ -36,7 +36,7 @@ def test_python_dependency_graph_resolves_imports_and_calculates_metrics() -> No
     assert graph.fan_in["models/data.py"] == 1
     assert graph.cycles == (("services/helpers.py", "services/runner.py"),)
     assert graph.hub_files[0] == "services/runner.py"
-    assert graph.orphan_files == ("orphan.py",)
+    assert graph.orphan_files == ("app.py", "orphan.py")
 
 
 def test_python_dependency_graph_accepts_raw_absolute_and_relative_import_statements() -> None:
@@ -71,4 +71,17 @@ def test_typescript_dependency_graph_resolves_relative_files_and_index_modules()
     assert graph.dependencies["src/service.ts"] == ("src/utils/index.ts",)
     assert graph.dependencies["src/utils/index.ts"] == ("src/service.ts",)
     assert graph.cycles == (("src/service.ts", "src/utils/index.ts"),)
-    assert graph.orphan_files == ("src/orphan.ts",)
+    assert graph.orphan_files == ("src/main.ts", "src/orphan.ts")
+
+
+def test_orphans_are_files_with_no_incoming_dependencies() -> None:
+    graph = DependencyGraph("python").build(
+        [
+            parsed_file("entry.py", "service"),
+            parsed_file("service.py", "model"),
+            parsed_file("model.py"),
+        ]
+    )
+
+    assert graph.fan_out["entry.py"] == 1
+    assert graph.orphan_files == ("entry.py",)

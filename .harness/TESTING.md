@@ -1,16 +1,16 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
-> Verified with: `pytest --collect-only -q` on 2026-06-05
+> Last updated: 2026-06-07
+> Verified with: `pytest --collect-only -q` on 2026-06-07
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 66 tests.
+`pytest --collect-only -q` collected 115 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 56 | 9 | Validate isolated backend services, parsers, parser registry, report generator, evaluation metrics, storage, and task runner. |
+| Unit | 105 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
 | Integration | 9 | 2 | Validate FastAPI review endpoints and JS/TS review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -20,14 +20,18 @@
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
+| `tests/unit/test_dependency_graph.py` | 4 | Internal dependency resolution, fan-in/fan-out, hubs, fan-in-based orphans, and cycle detection for Python and TypeScript. |
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 4 | Evaluation dataset results preserve parser stats and enforce source-file thresholds. |
-| `tests/unit/test_javascript_parser.py` | 7 | JavaScript/TypeScript discovery, imports, classes, functions, exports, doc comments, prioritization, and malformed-source safety. |
-| `tests/unit/test_python_parser.py` | 9 | Valid, syntax-error, empty files, discovery filters, max file handling, path format, non-ASCII parser edge. |
+| `tests/unit/test_indexer.py` | 3 | Repository/file metric propagation, role propagation, graph metrics, and graph-aware rescoring. |
+| `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
+| `tests/unit/test_llm_client.py` | 12 | OpenAI-compatible requests, transient retries, exponential backoff, retry limits, permanent failures, credentials, and deterministic mock mode. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
-| `tests/unit/test_report_generator.py` | 9 | Mock generation, malformed LLM output, missing/extra sections, shared section contract, prompt budget, ordering, trailing newline. |
+| `tests/unit/test_python_parser.py` | 11 | Valid, syntax-error, empty files, metrics, dependency imports, discovery filters, max-file handling, path format, and non-ASCII parsing. |
+| `tests/unit/test_report_generator.py` | 12 | Mock generation, malformed output, shared contract, formatting-preserving budgets, role grouping, report appendices, ordering, and trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
 | `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
+| `tests/unit/test_scoring.py` | 23 | Importance labels, normalized scoring, path modifiers, entry-point detection, and dependency-aware importance. |
 
 ## Integration Tests
 

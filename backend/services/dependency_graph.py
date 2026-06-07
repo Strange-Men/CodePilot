@@ -62,7 +62,7 @@ class DependencyGraph:
         orphan_files = tuple(
             path
             for path in sorted(ordered_dependencies)
-            if fan_in[path] == 0 and fan_out[path] == 0
+            if fan_in[path] == 0
         )
         return DependencyGraphResult(
             dependencies=ordered_dependencies,

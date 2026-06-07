@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+import httpx
+import pytest
+
+from backend.core.config import Settings
+from backend.llm.client import MockLLMClient, OpenAICompatibleClient
+
+
+class FakeClient:
+    def __init__(self, outcomes: Iterable[httpx.Response | Exception]) -> None:
+        self.outcomes = iter(outcomes)
+        self.calls = 0
+
+    def __enter__(self) -> FakeClient:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
+        self.calls += 1
+        outcome = next(self.outcomes)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def response(status_code: int, content: str = "review") -> httpx.Response:
+    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
+    return httpx.Response(
+        status_code,
+        request=request,
+        json={"choices": [{"message": {"content": content}}]},
+    )
+
+
+def settings(**overrides: object) -> Settings:
+    values = {
+        "OPENAI_API_KEY": "test-key",
+        "OPENAI_BASE_URL": "https://example.test/v1",
+        **overrides,
+    }
+    return Settings(**values)
+
+
+def install_fake_client(monkeypatch: pytest.MonkeyPatch, fake: FakeClient) -> None:
+    monkeypatch.setattr("backend.llm.client.httpx.Client", lambda **_kwargs: fake)
+
+
+def test_openai_compatible_client_returns_review_without_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeClient([response(200, "complete review")])
+    install_fake_client(monkeypatch, fake)
+
+    result = OpenAICompatibleClient(settings(), sleep=lambda _delay: None).generate_review("prompt")
+
+    assert result == "complete review"
+    assert fake.calls == 1
+
+
+def test_openai_compatible_client_retries_request_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
+    fake = FakeClient([httpx.ConnectError("temporary", request=request), response(200)])
+    delays: list[float] = []
+    install_fake_client(monkeypatch, fake)
+
+    OpenAICompatibleClient(settings(), sleep=delays.append).generate_review("prompt")
+
+    assert fake.calls == 2
+    assert delays == [1.0]
+
+
+@pytest.mark.parametrize("status_code", [408, 409, 429, 500, 503])
+def test_openai_compatible_client_retries_transient_statuses(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+) -> None:
+    fake = FakeClient([response(status_code), response(200)])
+    install_fake_client(monkeypatch, fake)
+
+    OpenAICompatibleClient(settings(), sleep=lambda _delay: None).generate_review("prompt")
+
+    assert fake.calls == 2
+
+
+def test_openai_compatible_client_uses_exponential_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeClient([response(500), response(500), response(500), response(200)])
+    delays: list[float] = []
+    install_fake_client(monkeypatch, fake)
+
+    OpenAICompatibleClient(settings(), sleep=delays.append).generate_review("prompt")
+
+    assert delays == [1.0, 2.0, 4.0]
+    assert fake.calls == 4
+
+
+def test_openai_compatible_client_stops_after_three_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeClient([response(500), response(500), response(500), response(500)])
+    install_fake_client(monkeypatch, fake)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        OpenAICompatibleClient(settings(), sleep=lambda _delay: None).generate_review("prompt")
+
+    assert fake.calls == 4
+
+
+def test_openai_compatible_client_does_not_retry_non_transient_4xx(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeClient([response(400)])
+    install_fake_client(monkeypatch, fake)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        OpenAICompatibleClient(settings(), sleep=lambda _delay: None).generate_review("prompt")
+
+    assert fake.calls == 1
+
+
+def test_openai_compatible_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY is missing"):
+        OpenAICompatibleClient(settings(OPENAI_API_KEY=None)).generate_review("prompt")
+
+
+def test_mock_client_remains_deterministic() -> None:
+    first = MockLLMClient().generate_review("Repository language: Python\nAnalyzed files: 3")
+    second = MockLLMClient().generate_review("Repository language: Python\nAnalyzed files: 3")
+
+    assert first == second

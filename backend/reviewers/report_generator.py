@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from backend.core.report_contract import REPORT_SECTIONS, numbered_report_section_lines
@@ -54,12 +55,15 @@ class ReportGenerator:
                 )
             )
 
-        prompt = "\n".join(lines)
-        words = prompt.split()
-        max_words = int(self.prompt_token_budget * 0.75)
-        if len(words) > max_words:
-            prompt = " ".join(words[:max_words])
-        return prompt
+        return self._fit_to_token_budget("\n".join(lines))
+
+    def _fit_to_token_budget(self, prompt: str) -> str:
+        if self.prompt_token_budget <= 0:
+            return ""
+        tokens = list(re.finditer(r"\w+|[^\w\s]", prompt))
+        if len(tokens) <= self.prompt_token_budget:
+            return prompt
+        return prompt[: tokens[self.prompt_token_budget - 1].end()].rstrip()
 
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         sections = self._extract_sections(report)
