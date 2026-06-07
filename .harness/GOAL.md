@@ -1,7 +1,7 @@
 # CodePilot - Project Goal
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
+> Last updated: 2026-06-07
 
 ## Mission
 
@@ -11,11 +11,11 @@ Build and maintain an AI Code Review & Refactor Agent for Large Repositories: a 
 
 1. A developer pastes a public GitHub URL and receives a structured, actionable code review within 60 seconds for a typical 50-file Python repository.
 2. The review covers four fixed dimensions: Architecture Summary, Code Smells, Maintainability Issues, and Refactoring Suggestions.
-3. The system handles real-world Python repositories up to 300 analyzed files without crashing or exceeding the configured prompt budget.
+3. The system handles Python, JavaScript, TypeScript, and mixed repositories up to 300 analyzed files without crashing or exceeding the configured prompt token budget.
 4. The tool is deployable on free-tier infrastructure with a Vercel frontend and Render Docker backend after platform setup.
 5. Mock mode enables a complete end-to-end demo without API credentials.
 
-Future work is prioritized in this order: Repository Intelligence, Code Review Quality, Refactor Capability, then Multi-Language Support. Infrastructure work should only be performed when it directly enables those priorities.
+CodePilot V2.5 completes the 2.x MVP with repository insights, mixed-language analysis, review history, structured errors, and onboarding guidance. Further work belongs to separately approved V3 scope.
 
 ## Non-Goals
 
@@ -31,7 +31,7 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 
 ## Quality Bar
 
-- 66 automated pytest tests pass.
+- 167 automated pytest tests and 9 frontend tests pass.
 - Ruff linting is clean with zero warnings.
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.

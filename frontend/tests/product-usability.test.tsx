@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ReviewHistory } from "../components/ReviewHistory";
 import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
+import ErrorPage from "../app/error";
+import Loading from "../app/loading";
 import { CodePilotApiError, createReview, listReviews } from "../lib/api";
 import type { ReviewResponse } from "../lib/types";
 import { validateGitHubRepositoryUrl } from "../lib/validation";
@@ -127,4 +129,15 @@ test("frontend API client loads review history", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("renders route loading and error fallbacks", () => {
+  const loadingHtml = renderToStaticMarkup(<Loading />);
+  const errorHtml = renderToStaticMarkup(
+    <ErrorPage error={new Error("render failed")} reset={() => undefined} />
+  );
+
+  assert.match(loadingHtml, /Loading CodePilot/);
+  assert.match(errorHtml, /could not render this page/);
+  assert.match(errorHtml, /Retry/);
 });

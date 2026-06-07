@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V2.4 repository-intelligence hardening state: Python/JavaScript/TypeScript parsing, repository metrics, dependency graph analysis, calibrated file scoring, structural roles and purpose inference, graph-aware prompts, resilient LLM calls, rich Markdown rendering, and 131 collected tests.
+CodePilot is at V2.5, the completed 2.x MVP: deterministic architectural insights, mixed Python/JavaScript/TypeScript reviews, repository metrics, dependency graphs, calibrated scoring, onboarding guidance, review history, structured API errors, model-aware prompt budgets, resilient frontend states, and 167 collected backend tests.
 
 ## Release History
 
@@ -19,6 +19,7 @@ CodePilot is at V2.4 repository-intelligence hardening state: Python/JavaScript/
 | V2.2 | 2026-06-07 | `df36f77` | Scoring intelligence, entry-point detection, file roles, rich Markdown reports |
 | V2.3 | 2026-06-07 | `15a1121` | Internal dependency graph, fan-in/out, hubs, cycles, orphans, graph-aware scoring |
 | V2.4 | 2026-06-07 | `f8be650` onward | CI audit repair, LLM retries, structural architecture context, calibrated scoring, quality coverage |
+| V2.5 | 2026-06-07 | `8b6347e` onward | Insight engine, mixed-language reviews, history, structured errors, URL validation, exact token counting, frontend reliability |
 
 ## Architecture Summary
 
@@ -30,25 +31,25 @@ Next.js frontend
 FastAPI backend
   -> clone public GitHub repo
   -> orchestrate review lifecycle through ReviewPipeline
-  -> select a registered parser based on repository files
+  -> run every matching registered parser through direct or composite parsing
   -> calculate file metrics and dependency graph
   -> classify roles, infer purpose, and score files
-  -> build graph-aware RepositoryContext
+  -> build graph-aware RepositoryContext and deterministic repository insights
   -> inject selected LLMClient into report generation
-  -> generate normalized shared-contract four-section report
+  -> generate normalized shared-contract four-section report plus insight appendices
   -> persist in SQLite
   -> export Markdown
 ```
 
 Backend modules:
 
-- `backend/api` - Review routes.
+- `backend/api` - Review routes and structured error handlers.
 - `backend/core` - Settings, environment loading, shared report contract loading, and logger setup.
 - `backend/llm` - Mock and retrying OpenAI-compatible LLM clients selected at the runner composition boundary.
 - `backend/models` - Pydantic schemas and review status enum.
-- `backend/parsers` - Parser protocol, parser registry, registered Python parser, and JavaScript/TypeScript parser/file discovery.
-- `backend/reviewers` - Graph-aware prompt building, report normalization, metrics/architecture appendices, Markdown export.
-- `backend/services` - Clone service, repository indexer, dependency graph, and calibrated scoring.
+- `backend/parsers` - Parser protocol, registry, composite parser, and Python/JavaScript/TypeScript discovery and extraction.
+- `backend/reviewers` - Insight-aware prompt building, report normalization, insight/metrics/architecture appendices, Markdown export.
+- `backend/services` - Clone service, repository indexer, dependency graph, calibrated scoring, insight engine, and token counting.
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
 
@@ -65,6 +66,7 @@ Backend modules:
 | ASGI server | Uvicorn | 0.34.0 | `backend/requirements.txt` |
 | Validation | Pydantic / pydantic-settings | 2.10.4 / 2.7.1 | `backend/requirements.txt` |
 | HTTP client | httpx | 0.28.1 | `backend/requirements.txt` |
+| Tokenizer | tiktoken | 0.13.0 | `backend/requirements.txt` |
 | Parser | tree-sitter / tree-sitter-language-pack | 0.24.0 / 0.7.0 | `backend/requirements.txt` |
 | Test runner | pytest | 8.3.4 | `backend/requirements-dev.txt` |
 | Linter | ruff | 0.8.4 | `backend/requirements-dev.txt` |
@@ -78,6 +80,7 @@ Backend modules:
 |--------|------|---------|
 | `GET` | `/health` | Backend health check. |
 | `POST` | `/api/reviews` | Submit a public GitHub repository URL and receive a `task_id`. |
+| `GET` | `/api/reviews` | List persisted reviews newest first. |
 | `GET` | `/api/reviews/{task_id}` | Poll task status and retrieve the report once completed. |
 | `GET` | `/api/reviews/{task_id}/export` | Download completed report as Markdown. |
 
@@ -105,14 +108,16 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 6. Run `python scripts/audit_harness.py --output harness-audit.json`.
 7. Set up Node 20 with npm cache.
 8. Run `npm ci` in `frontend`.
-9. Run `npm run build` in `frontend`.
+9. Run `npm test` in `frontend`.
+10. Run `npm run build` in `frontend`.
 
 ## Test State
 
-- `pytest --collect-only -q` collected 131 tests on 2026-06-07.
-- Unit tests: 121 collected across clone service, parsers, parser registry, metrics, dependency graph, scoring, purpose inference, LLM retries, report generation, evaluation, storage, and task orchestration.
-- Integration tests: 9 collected for review API routes and JS/TS review pipeline completion.
+- `pytest --collect-only -q` collected 167 tests on 2026-06-07.
+- Unit tests: 147 collected across API errors, clone service, parsers, composite parsing, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
+- Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
 ## Release Certification Evidence
@@ -148,8 +153,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Known Constraints
 
-1. Each review selects one registered repository language; mixed-language analysis is not yet combined.
-2. Repository access is public GitHub HTTPS only.
+1. Mixed-language import resolution is static; Python-to-browser-language runtime relationships are not inferred.
+2. Repository access is canonical public GitHub HTTPS URLs only.
 3. Review execution is in-process with two worker threads.
 4. Cloned repositories are temporary and should be cleaned after each task.
 5. SQLite fits single-instance deployment, not multi-instance distributed writes.

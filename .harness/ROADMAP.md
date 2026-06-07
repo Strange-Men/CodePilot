@@ -29,7 +29,7 @@
 - [x] Python 3.11.11 runtime pinning.
 - [x] Smoke test script for backend pipeline.
 
-### V2.0-V2.4 - Repository Intelligence
+### V2.0-V2.5 - Repository Intelligence MVP
 
 - [x] Parser registry with Python, JavaScript, and TypeScript support.
 - [x] File and repository metrics.
@@ -38,18 +38,19 @@
 - [x] Graph-aware prompt context and architecture summary guidance.
 - [x] Deterministic rich Markdown report rendering.
 - [x] OpenAI-compatible retry handling with exponential backoff.
-- [x] 131 collected pytest tests and enforced Harness audit.
+- [x] Deterministic architecture overview, risk hotspots, onboarding guide, and refactoring candidates.
+- [x] Combined Python, JavaScript, and TypeScript repository reviews.
+- [x] Review history, structured API errors, and canonical GitHub URL validation.
+- [x] Model-aware token counting, frontend error/loading states, and CI frontend tests.
+- [x] 167 collected pytest tests and enforced Harness audit.
 
 ## In Progress
 
-V2.4 quality verification and release preparation.
+CodePilot 2.x MVP is complete at V2.5. No V3 implementation is in progress.
 
 ## Future Development Priorities
 
-1. Repository Intelligence.
-2. Code Review Quality.
-3. Refactor Capability.
-4. Multi-Language Support.
+Further product work requires a separately approved V3 plan.
 
 Infrastructure work should only be planned when it directly enables these priorities.
 
@@ -63,14 +64,14 @@ Infrastructure work should only be planned when it directly enables these priori
 
 ### Backend Hardening
 
-- [ ] Strengthen URL validation and user-facing error messages.
+- [x] Strengthen URL validation and user-facing error messages.
 - [ ] Add basic rate limiting.
 - [ ] Add cancellation support for in-progress reviews.
 - [ ] Improve common failure handling for private repos, network timeouts, and invalid branches.
 
 ### UI Enhancements
 
-- [ ] Add review history from persisted tasks.
+- [x] Add review history from persisted tasks.
 - [ ] Show more detailed progress states.
 - [ ] Add report comparison for repeated reviews.
 - [ ] Add dark mode if it fits the product direction.
@@ -83,7 +84,7 @@ Infrastructure work should only be planned when it directly enables these priori
 - [x] Add JavaScript/TypeScript parser support.
 - [ ] Add Go parser support.
 - [ ] Add Rust parser support.
-- [ ] Detect repository language mix.
+- [x] Detect repository language mix.
 
 ### Private Repository Support
 
@@ -133,7 +134,7 @@ Infrastructure work should only be planned when it directly enables these priori
 | Item | Priority | Notes |
 |------|----------|-------|
 | Frontend browser tests | Medium | Component rendering tests exist, but no Playwright/Cypress workflow is configured. |
-| Consistent API error schema | Medium | Current errors are FastAPI defaults. |
+| Cross-language dependency semantics | Medium | Static imports are merged, but runtime relationships between Python and browser code are not inferred. |
 | Database migrations | Low | Needed if SQLite schema evolves. |
 | `py.typed` marker | Low | Useful for downstream type-aware tooling. |
 | Frontend state management | Medium | Current page-level state is fine for MVP but will stretch with history/comparison. |

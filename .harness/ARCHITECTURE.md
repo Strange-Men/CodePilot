@@ -25,15 +25,15 @@ Browser
 3. Backend creates a pending review row and schedules a background task.
 4. ReviewTaskRunner schedules execution on the in-process worker pool.
 5. ReviewPipeline clones the repository using shallow git clone.
-6. ReviewPipeline selects a registered parser based on repository files and discovers eligible source files.
-7. Parser extracts structure, metrics, entry-point signals, and internal import candidates.
-8. Indexer builds DependencyGraph, calculates graph metrics, classifies file roles, infers purpose, and scores files.
-9. ReportGenerator builds a graph-aware prompt within FINAL_PROMPT_TOKEN_BUDGET using the shared report contract.
+6. ReviewPipeline discovers every matching registered parser; mixed repositories use CompositeSourceParser while single-language repositories keep their direct parser path.
+7. Parsers extract structure, metrics, entry-point signals, and internal import candidates into one analyzed file set.
+8. Indexer builds one DependencyGraph, calculates graph metrics, classifies file roles, infers purpose, scores files, and runs RepositoryInsightEngine.
+9. ReportGenerator builds an insight- and graph-aware prompt within FINAL_PROMPT_TOKEN_BUDGET using model-aware token counting and the shared report contract.
 10. LLM client returns report text; transient real-client failures receive three exponential-backoff retries, while mock mode remains deterministic.
-11. ReportGenerator normalizes output to the four required sections and appends metrics and architecture graph exports.
+11. ReportGenerator normalizes output to the four required sections and appends repository insights, metrics, and architecture graph exports.
 12. Store persists status, report, and export path.
-13. Frontend polls /api/reviews/{task_id} until completed or failed.
-14. User can download Markdown from /api/reviews/{task_id}/export.
+13. Frontend polls /api/reviews/{task_id} until completed or failed and can load persisted reviews from GET /api/reviews.
+14. User can read onboarding and risk guidance or download Markdown from /api/reviews/{task_id}/export.
 ```
 
 ## Backend Module Map
@@ -41,16 +41,18 @@ Browser
 | Module | Key File | Responsibility | Important Details |
 |--------|----------|----------------|-------------------|
 | Entry | `backend/main.py` | FastAPI app setup, CORS, router mounting, `/health` | Uses settings singleton and shared store/runner. |
-| API | `backend/api/reviews.py` | Review creation, polling, and export endpoints | Raises 404 for missing task and 409 for export before completion. |
+| API | `backend/api/reviews.py`, `backend/api/errors.py` | Review creation, history, polling, export, and structured errors | Errors use `{error, code, detail}` without changing successful item responses. |
 | Core | `backend/core/config.py`, `backend/core/report_contract.py`, `backend/core/logging.py` | Settings, shared report contract loading, and logger setup | Loads `.env`, creates runtime paths, reads `contracts/report_sections.json`, and centralizes backend logger initialization. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
 | LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default; the real client retries transient transport, 408, 409, 429, and 5xx failures three times with exponential backoff. |
-| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py`, `backend/parsers/javascript_parser.py` | Parser protocol, registry, Python/JavaScript/TypeScript file discovery, and structure extraction | Python uses tree-sitter with AST fallback; JS/TS uses dependency-free structural extraction for imports, classes, functions, and exports. |
-| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Adds structural roles, prioritized dependency edges, hub/cycle guidance, and line-preserving token budgeting while enforcing the four-section contract. |
+| Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/composite.py`, `backend/parsers/python_parser.py`, `backend/parsers/javascript_parser.py` | Parser protocol, registry, composite mixed-language delegation, and structure extraction | Single-language behavior stays direct; mixed Python/JavaScript/TypeScript files share one index and graph. |
+| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Adds human-readable insights and model-aware, line-preserving token budgeting while enforcing the four-section contract. |
 | Shared Contract | `contracts/report_sections.json` | Ordered report section contract consumed by backend and frontend | Defines the V1 report section IDs and titles without coupling either runtime to the other. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
 | Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates structural purpose summaries and propagates metrics, roles, scores, and graph intelligence. |
 | Dependency Graph | `backend/services/dependency_graph.py` | Resolve internal imports and calculate graph signals | Produces deterministic edges, fan-in/out, hubs, fan-in-based orphans, and strongly connected dependency cycles. |
+| Insight Engine | `backend/services/insights.py` | Convert context metrics and graph signals into architectural guidance | Produces architecture overview, risk hotspots, onboarding order, and refactoring candidates with explanations. |
+| Token Counting | `backend/services/token_counting.py` | Count and fit prompt tokens | Uses the configured OpenAI model encoding with a stable fallback for unknown models. |
 | Scoring | `backend/services/scoring.py` | Classify and prioritize files | Uses an absolute saturating 0-100 scale so small repositories do not automatically receive Critical labels. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
@@ -61,15 +63,18 @@ Browser
 |------|----------------|
 | `frontend/app/page.tsx` | Single-page client composition for submission, polling, status display, and report rendering. |
 | `frontend/app/layout.tsx` | Root layout and metadata. |
+| `frontend/app/error.tsx`, `frontend/app/loading.tsx` | Route-level error boundary and loading fallback. |
 | `frontend/app/globals.css` | Tailwind directives and theme variables. |
 | `frontend/components/ReviewSubmissionForm.tsx` | Review URL form and submit state. |
+| `frontend/components/ReviewHistory.tsx` | Persisted review list and previous-report selection. |
 | `frontend/components/ReviewStatusDisplay.tsx` | Review lifecycle and export link display. |
 | `frontend/components/ReportRenderer.tsx` | Report section rendering using the shared report contract. |
 | `frontend/components/ui/button.tsx` | Button primitive using class-variance-authority. |
 | `frontend/components/ui/card.tsx` | Card primitive. |
 | `frontend/components/ui/input.tsx` | Input primitive. |
 | `frontend/hooks/useReviewPolling.ts` | Polling lifecycle for review status. |
-| `frontend/lib/api.ts` | Frontend API client for review submission and polling. |
+| `frontend/lib/api.ts` | Frontend API client for submission, polling, history, and structured errors. |
+| `frontend/lib/validation.ts` | Client-side canonical GitHub repository URL validation. |
 | `frontend/lib/report.ts` | Status labels, terminal states, and shared-contract report parsing. |
 | `frontend/lib/types.ts` | Frontend review API types. |
 | `frontend/lib/utils.ts` | `cn()` helper using clsx and tailwind-merge. |
@@ -109,9 +114,23 @@ Response body:
 }
 ```
 
+### `GET /api/reviews`
+
+Returns newest reviews first using the existing item response shape. Supports `limit=1..100`.
+
 ### `GET /api/reviews/{task_id}/export`
 
 Returns `text/markdown` when completed. Returns 404 for unknown tasks and 409 when the report is not ready.
+
+All JSON API errors use:
+
+```json
+{
+  "error": "Human-readable summary",
+  "code": "stable_machine_code",
+  "detail": "Actionable detail"
+}
+```
 
 ## Data Model
 
@@ -140,6 +159,7 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
 - `circular_dependencies`
 - `hub_files`
 - `orphan_files`
+- `insights` with architecture overview, risk hotspots, onboarding guide, and refactoring candidates
 
 `CodeFileSummary` contains:
 
@@ -255,7 +275,7 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 |-----------|---------------|--------|
 | Max analyzed files | 300 | `backend/core/config.py` |
 | Max file size | 204800 bytes | `backend/core/config.py` |
-| Prompt budget | 5000 words | `backend/core/config.py` |
+| Prompt budget | 5000 model tokens | `backend/core/config.py` |
 | Worker count | 2 | `backend/tasks/runner.py` |
 | Required report sections | 4 | `contracts/report_sections.json` |
 | Python runtime | 3.11.11 | `.python-version`, `runtime.txt` |

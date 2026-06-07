@@ -146,6 +146,7 @@ class ReviewPipeline:
             self.llm_client,
             self.settings.reports_path,
             self.settings.final_prompt_token_budget,
+            token_model=self.settings.openai_model,
         )
         logger.info("event=export_started task_id=%s", task_id)
         report, export_path = report_generator.generate(task_id, context)

@@ -84,6 +84,28 @@ def test_create_review_accepts_canonical_github_url(
     assert runner.submissions == ["https://github.com/example/project.git"]
 
 
+@pytest.mark.parametrize(
+    "repo_url",
+    [
+        "http://github.com/example/project",
+        "https://github.com/example/project/issues",
+        "https://github.com/example/project?tab=readme",
+        "https://github.com.evil.example/example/project",
+    ],
+)
+def test_create_review_rejects_noncanonical_github_urls(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+    repo_url: str,
+) -> None:
+    client, _, runner = api_client
+
+    response = client.post("/api/reviews", json={"repo_url": repo_url})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert runner.submissions == []
+
+
 def test_list_reviews_returns_newest_first(
     api_client: tuple[TestClient, ReviewStore, FakeRunner],
 ) -> None:
@@ -110,6 +132,18 @@ def test_list_reviews_respects_limit(
 
     assert response.status_code == 200
     assert len(response.json()) == 1
+
+
+def test_list_reviews_rejects_invalid_limit_with_structured_error(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, _, _ = api_client
+
+    response = client.get("/api/reviews?limit=0")
+
+    assert response.status_code == 422
+    assert response.json()["error"] == "Invalid request"
+    assert response.json()["code"] == "validation_error"
 
 
 def test_query_review(api_client: tuple[TestClient, ReviewStore, FakeRunner]) -> None:

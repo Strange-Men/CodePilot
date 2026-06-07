@@ -6,39 +6,45 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 131 tests.
+`pytest --collect-only -q` collected 167 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 121 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
-| Integration | 9 | 2 | Validate FastAPI review endpoints and JS/TS review pipeline completion. |
+| Unit | 147 | 17 | Validate isolated backend services, parsers, repository insights, token counting, API errors, LLM behavior, report generation, storage, and task runner. |
+| Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
+| Frontend | 9 | 2 | Validate Markdown rendering, history, URL validation, API errors, and reliability fallbacks. |
 
 ## Unit Tests
 
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
+| `tests/unit/test_api_errors.py` | 3 | Known, framework, and unexpected structured API error envelopes. |
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
-| `tests/unit/test_dependency_graph.py` | 4 | Internal dependency resolution, fan-in/fan-out, hubs, fan-in-based orphans, and cycle detection for Python and TypeScript. |
+| `tests/unit/test_composite_parser.py` | 6 | Multi-language discovery limits, parser delegation, and unsupported extensions. |
+| `tests/unit/test_dependency_graph.py` | 5 | Internal dependency resolution, fan-in/fan-out, hubs, orphans, cycles, and mixed JS/TS edges. |
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 4 | Evaluation dataset results preserve parser stats and enforce source-file thresholds. |
 | `tests/unit/test_indexer.py` | 8 | Repository/file metric propagation, role propagation, graph-aware rescoring, and structural purpose inference. |
+| `tests/unit/test_insights.py` | 8 | Repository type, major components, hotspots, onboarding order, refactoring candidates, and safe defaults. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
 | `tests/unit/test_llm_client.py` | 12 | OpenAI-compatible requests, transient retries, exponential backoff, retry limits, permanent failures, credentials, and deterministic mock mode. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
 | `tests/unit/test_python_parser.py` | 11 | Valid, syntax-error, empty files, metrics, dependency imports, discovery filters, max-file handling, path format, and non-ASCII parsing. |
 | `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
-| `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
+| `tests/unit/test_review_store.py` | 9 | DB initialization, WAL mode, CRUD, report preservation, and schema-neutral history queries. |
 | `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
+| `tests/unit/test_token_counting.py` | 5 | Model encodings, Unicode, exact budgets, line preservation, and unknown-model fallback. |
 
 ## Integration Tests
 
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
 | `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JavaScript repository review completes and the generated report uses JavaScript language labeling. |
-| `tests/integration/test_reviews_api.py` | 8 | Create review, invalid payload, query, missing task, export, export conflict, failed review response. |
+| `tests/integration/test_multilanguage_review_pipeline.py` | 1 | Python, JavaScript, and TypeScript parsers merge into one insight-rich mock review. |
+| `tests/integration/test_reviews_api.py` | 17 | Create, canonical URL validation, history, item reads, structured errors, and export behavior. |
 
 ## Regression Tests
 
@@ -84,8 +90,11 @@ ruff check .
 # Run Harness audit
 python scripts/audit_harness.py
 
-# Build frontend
+# Run frontend component/API tests
 cd frontend
+npm test
+
+# Build frontend
 npm run build
 
 # Run smoke test
@@ -110,6 +119,7 @@ powershell -File scripts/smoke-backend.ps1
 | Integration tests | 100% pass | CI and release checklist |
 | Ruff | 0 warnings | CI and release checklist |
 | Frontend build | 0 errors | CI and release checklist |
+| Frontend tests | 100% pass | CI and release checklist |
 | Harness audit | 0 critical drift findings | CI and release checklist |
 | Smoke test | Pass before release | Manual release checklist |
 
@@ -117,7 +127,7 @@ powershell -File scripts/smoke-backend.ps1
 
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| Frontend component breadth | Medium | Markdown rendering is covered; submission, polling, and status components still lack focused tests. |
+| Frontend polling behavior | Medium | Rendering, history, validation, and API errors are covered; timer-driven polling still lacks focused fake-timer tests. |
 | End-to-end browser tests | Low | No Playwright/Cypress setup. |
 | Real LLM client live tests | Low | Requires external credentials and may be flaky/costly. |
 | Performance tests | Low | V1.1 relies on functional and smoke coverage. |

@@ -61,12 +61,21 @@ class FakeRepositoryIndexer:
 
 class FakeReportGenerator:
     llm_clients: list[object] = []
+    token_models: list[str] = []
 
-    def __init__(self, llm_client, reports_path: Path, prompt_token_budget: int) -> None:
+    def __init__(
+        self,
+        llm_client,
+        reports_path: Path,
+        prompt_token_budget: int,
+        token_model: str = "gpt-4o-mini",
+    ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
         self.prompt_token_budget = prompt_token_budget
+        self.token_model = token_model
         self.llm_clients.append(llm_client)
+        self.token_models.append(token_model)
 
     def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
         export_path = self.reports_path / f"{task_id}.md"
@@ -109,6 +118,7 @@ def reset_fake_clone_service() -> None:
     FakeCloneService.fail_clone = False
     FakeRepositoryIndexer.parser_instances = []
     FakeReportGenerator.llm_clients = []
+    FakeReportGenerator.token_models = []
 
 
 @pytest.fixture
@@ -205,6 +215,7 @@ def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[S
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
     assert FakeReportGenerator.llm_clients == [llm_client]
+    assert FakeReportGenerator.token_models == [settings.openai_model]
 
 
 def test_run_selects_javascript_parser_when_js_files_are_detected(

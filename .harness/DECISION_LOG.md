@@ -4,6 +4,60 @@
 > Last updated: 2026-06-07
 > Format: newest first, one significant decision per entry.
 
+## DECISION-025: Use Model-Aware Prompt Tokens and Frontend Failure Boundaries
+
+- Date: 2026-06-07
+- Type: Quality / Reliability
+- Status: Approved
+
+### Context
+
+V2.4 used a regex token heuristic, and the frontend had local loading indicators but no route-level error or loading fallback.
+
+### Decision
+
+Use `tiktoken` with the configured OpenAI model to count prompt tokens, preserve complete prioritized lines within the exact budget, and fall back to `cl100k_base` for unknown models. Add Next.js route error and loading boundaries, focused frontend tests, and a CI frontend-test gate.
+
+### Rationale
+
+Provider-compatible token counts prevent accidental prompt overflow while retaining the existing prompt priority. Route boundaries keep persisted reviews recoverable when rendering fails, and CI now enforces the frontend tests it depends on.
+
+## DECISION-024: Add Schema-Neutral Review History and Structured Errors
+
+- Date: 2026-06-07
+- Type: API / Product
+- Status: Approved
+
+### Context
+
+Persisted reviews could only be fetched by known task ID, FastAPI defaults produced inconsistent error payloads, and invalid repository URLs reached the backend without immediate browser guidance.
+
+### Decision
+
+Add `GET /api/reviews` over the existing SQLite columns, standardize JSON failures as `{error, code, detail}`, and validate canonical public GitHub HTTPS repository URLs in both Pydantic and the frontend.
+
+### Rationale
+
+The feature makes existing persistence useful without a schema migration or a breaking change to successful item responses. Stable error codes and client-side validation improve recovery while the backend remains authoritative.
+
+## DECISION-023: Merge Registered Parsers and Generate Deterministic Insights
+
+- Date: 2026-06-07
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+The parser registry supported Python, JavaScript, and TypeScript, but each review selected only one parser. Metrics and dependency signals were exported mostly as raw data rather than guidance for maintainers and newcomers.
+
+### Decision
+
+Keep direct parsing for single-language repositories and use `CompositeSourceParser` when multiple registered languages match. Feed the merged files into the existing indexer and dependency graph, then generate reusable typed insights for architecture, risk, onboarding, and refactoring.
+
+### Rationale
+
+This extends the parser registry, `RepositoryContext`, `DependencyGraph`, and review pipeline without replacing them. Deterministic insights keep mock mode useful, preserve the four-section report contract through an optional appendix, and remain reusable for later approved work.
+
 ## DECISION-022: Calibrate Repository Intelligence Without Repository-Max Scores
 
 - Date: 2026-06-07

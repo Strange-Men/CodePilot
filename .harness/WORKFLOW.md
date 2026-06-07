@@ -103,7 +103,7 @@ Trigger: Human requests a new feature or enhancement.
 6. Receive design spec from Claude.
 7. Implement in small, scoped changes following existing patterns.
 8. Add tests at the right level (unit for modules, integration for endpoints).
-9. Run validation gates: `ruff check .`, `pytest`, `npm run build` when applicable.
+9. Run validation gates: `ruff check .`, `pytest`, `npm test`, and `npm run build` when applicable.
 10. Update Harness docs using `HARNESS_UPDATE_CHECKLIST.md`.
 11. Submit summary to Claude: files changed, tests added, gate results, Harness updates.
 
@@ -166,6 +166,7 @@ Trigger: planned version is ready for release.
 | Full test suite | `pytest` | 100% pass |
 | Ruff lint | `ruff check .` | 0 warnings |
 | Frontend build | `cd frontend && npm run build` | 0 errors |
+| Frontend tests | `cd frontend && npm test` | 100% pass |
 | Docker build | `docker-compose build` | 0 errors when runtime/deploy files changed |
 | Smoke test | `powershell -File scripts/smoke-backend.ps1` | Full pipeline pass |
 | Evaluation | `python evaluation/run_eval.py` | 0 Critical failures |

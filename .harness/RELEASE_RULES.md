@@ -1,7 +1,7 @@
 # CodePilot - Release Rules
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
+> Last updated: 2026-06-07
 
 ## Release Lifecycle
 
@@ -25,7 +25,7 @@ Format: `v<MAJOR>.<MINOR>.<PATCH>`.
 | MINOR | New features, significant capability expansion, deployment target changes. |
 | PATCH | Bug fixes, documentation, small config changes, dependency maintenance. |
 
-Current project version: V1.1.
+Current project version: V2.5.
 
 ## Hard Gates
 
@@ -38,11 +38,12 @@ A release cannot ship unless every applicable hard gate passes.
 | Full test suite | `pytest` | 100% pass |
 | Ruff lint | `ruff check .` | 0 warnings |
 | Harness audit | `python scripts/audit_harness.py` | 0 critical drift findings |
+| Frontend tests | `cd frontend && npm test` | 100% pass |
 | Frontend build | `cd frontend && npm run build` | 0 errors |
 | Docker build | `docker-compose build` | 0 errors when runtime/deploy files changed |
 | Smoke test | `powershell -File scripts/smoke-backend.ps1` | Full pipeline pass before release |
 
-CI currently enforces `ruff check .`, `pytest`, `python scripts/audit_harness.py --output harness-audit.json`, and `npm run build`.
+CI currently enforces `ruff check .`, `pytest`, `python scripts/audit_harness.py --output harness-audit.json`, `npm test`, and `npm run build`.
 
 ## Soft Gates
 

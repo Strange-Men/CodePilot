@@ -1,18 +1,25 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from backend.core.report_contract import REPORT_SECTIONS, numbered_report_section_lines
 from backend.llm.client import LLMClient
 from backend.models.review import CodeFileSummary, RepositoryContext
+from backend.services.token_counting import PromptTokenCounter
 
 
 class ReportGenerator:
-    def __init__(self, llm_client: LLMClient, reports_path: Path, prompt_token_budget: int) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        reports_path: Path,
+        prompt_token_budget: int,
+        token_model: str = "gpt-4o-mini",
+    ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
         self.prompt_token_budget = prompt_token_budget
+        self.token_counter = PromptTokenCounter(token_model)
 
     def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
         prompt = self._build_prompt(context)
@@ -72,21 +79,10 @@ class ReportGenerator:
         return self._fit_to_token_budget("\n".join(lines))
 
     def _fit_to_token_budget(self, prompt: str) -> str:
-        if self.prompt_token_budget <= 0:
-            return ""
-        selected_lines: list[str] = []
-        used_tokens = 0
-        for line in prompt.splitlines():
-            line_tokens = len(re.findall(r"\w+|[^\w\s]", line))
-            if used_tokens + line_tokens > self.prompt_token_budget:
-                break
-            selected_lines.append(line)
-            used_tokens += line_tokens
-        if selected_lines:
-            return "\n".join(selected_lines)
+        return self.token_counter.fit_complete_lines(prompt, self.prompt_token_budget)
 
-        tokens = list(re.finditer(r"\w+|[^\w\s]", prompt))
-        return prompt[: tokens[self.prompt_token_budget - 1].end()].rstrip()
+    def _count_prompt_tokens(self, prompt: str) -> int:
+        return self.token_counter.count(prompt)
 
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         sections = self._extract_sections(report)
