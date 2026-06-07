@@ -30,6 +30,10 @@ class ReviewPipelineResult:
     analyzed_files: int = 0
     skipped_files: int = 0
 
+    @property
+    def total_source_files(self) -> int:
+        return self.total_python_files
+
 
 class ReviewPipeline:
     def __init__(
@@ -103,9 +107,7 @@ class ReviewPipeline:
     def _select_parser(self, repo_dir: Path) -> SourceParser:
         fallback_parser: SourceParser | None = None
         matching_parsers: list[SourceParser] = []
-        best_parser: SourceParser | None = None
         first_parser: SourceParser | None = None
-        best_total = 0
 
         language_priority = {"python": 0, "javascript": 1, "typescript": 2}
         for language in sorted(
@@ -124,16 +126,11 @@ class ReviewPipeline:
                 fallback_parser = parser
             if total > 0:
                 matching_parsers.append(parser)
-            if total > best_total or (total == best_total and total > 0 and parser.language == "python"):
-                best_parser = parser
-                best_total = total
 
         if len(matching_parsers) > 1:
             return CompositeSourceParser(matching_parsers)
         if matching_parsers:
             return matching_parsers[0]
-        if best_parser is not None:
-            return best_parser
         if fallback_parser is not None:
             return fallback_parser
         if first_parser is not None:

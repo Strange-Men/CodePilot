@@ -1,10 +1,10 @@
 # CodePilot
 
-CodePilot is a production-quality MVP for reviewing Python GitHub repositories from a recruiter-friendly web UI.
+CodePilot is a repository-intelligence MVP for reviewing Python, JavaScript, TypeScript, and mixed GitHub repositories.
 
 Workflow:
 
-`GitHub Repo URL -> Clone Repo -> Parse Python Code -> Build Repository Context -> Generate Review Report -> Display Report in Web UI -> Export Markdown`
+`GitHub Repo URL -> Clone Repo -> Parse Source -> Build Review Context -> Generate Review Report -> Display Report -> Export Markdown`
 
 The review report contains exactly:
 
@@ -52,10 +52,10 @@ OPENAI_MODEL=gpt-4o-mini
 
 - Frontend: Next.js, TypeScript, Tailwind, shadcn/ui-style components
 - Backend: FastAPI, Python 3.11
-- Parser: tree-sitter-language-pack for Python, with AST fallback
+- Parser: registry-backed Python, JavaScript, and TypeScript analysis
 - Storage: SQLite
 - LLM: OpenAI-compatible chat completions or mock mode
 
 ## Limits
 
-CodePilot analyzes Python files only. It ignores `node_modules`, `dist`, `build`, `.venv`, `venv`, `vendor`, `.git`, `__pycache__`, and `.next`. It analyzes at most 300 files and skips files over 200KB.
+CodePilot uses static, heuristic analysis and does not execute repository code. It analyzes at most 300 supported source files and skips files over 200KB.

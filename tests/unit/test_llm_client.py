@@ -130,3 +130,20 @@ def test_mock_client_remains_deterministic() -> None:
     second = MockLLMClient().generate_review("Repository language: Python\nAnalyzed files: 3")
 
     assert first == second
+
+
+def test_mock_client_uses_repository_evidence_in_findings() -> None:
+    report = MockLLMClient().generate_review(
+        "Repository language: Python\n"
+        "Analyzed files: 2\n"
+        "Risk Hotspots:\n"
+        "- High dependency pressure in services/core.py: 4 modules depend on this file.\n"
+        "Recommended Reading Order:\n"
+        "- 1. app.py: Start here.\n"
+        "Refactoring Candidates:\n"
+        "- Stabilize the boundary around services/core.py: Add contract tests.\n"
+        "Architecture Summary Context:\n"
+    )
+
+    assert "High dependency pressure in services/core.py" in report
+    assert "Stabilize the boundary around services/core.py" in report

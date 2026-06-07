@@ -6,6 +6,7 @@ from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.scoring import detect_entry_point
+from backend.services.source_selection import source_file_priority
 
 IGNORE_DIRS = {
     "node_modules",
@@ -22,6 +23,17 @@ IGNORE_DIRS = {
 JAVASCRIPT_EXTENSIONS = {".js", ".jsx"}
 TYPESCRIPT_EXTENSIONS = {".ts", ".tsx"}
 SCRIPT_EXTENSIONS = JAVASCRIPT_EXTENSIONS | TYPESCRIPT_EXTENSIONS
+SCRIPT_ENTRY_NAMES = {
+    "index.js",
+    "index.jsx",
+    "index.ts",
+    "index.tsx",
+    "main.ts",
+    "main.js",
+    "app.ts",
+    "app.js",
+}
+SCRIPT_CORE_PATH_PARTS = {"src", "app", "pages", "routes", "api", "components", "services", "lib"}
 
 
 @dataclass(frozen=True)
@@ -181,16 +193,11 @@ class JavaScriptParser(SourceParser):
 
     @staticmethod
     def _importance_key(path: Path) -> tuple[int, int, str]:
-        parts = [part.lower() for part in path.parts]
-        name = path.name.lower()
-        score = 50
-        if name in {"index.js", "index.jsx", "index.ts", "index.tsx", "main.ts", "main.js", "app.ts", "app.js"}:
-            score -= 20
-        if any(part in {"src", "app", "pages", "routes", "api", "components", "services", "lib"} for part in parts):
-            score -= 10
-        if any(part in {"tests", "test", "__tests__"} or part.startswith("test") for part in parts):
-            score += 8
-        return (score, len(parts), path.as_posix())
+        return source_file_priority(
+            path,
+            entry_names=SCRIPT_ENTRY_NAMES,
+            core_path_parts=SCRIPT_CORE_PATH_PARTS,
+        )
 
 
 class TypeScriptParser(JavaScriptParser):

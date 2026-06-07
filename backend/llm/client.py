@@ -31,9 +31,25 @@ class MockLLMClient:
         hubs = self._extract_after(prompt, "- Hub Files:") or "none detected"
         cycles = self._extract_after(prompt, "- Circular Dependencies:") or "none detected"
         repository_type = self._extract_after(prompt, "- Repository Type:")
+        risk_hotspots = self._extract_items(
+            prompt,
+            "Risk Hotspots:",
+            {"Recommended Reading Order:"},
+        )
+        refactoring_candidates = self._extract_items(
+            prompt,
+            "Refactoring Candidates:",
+            {"Architecture Summary Context:"},
+        )
         if not repository_type or repository_type == "Software repository":
             repository_type = f"{language_hint} application"
         architecture, code_smells, maintainability, refactoring = REPORT_SECTIONS
+        smell_lines = risk_hotspots[:3] or [
+            "No concentrated structural hotspot was detected in the summarized repository context."
+        ]
+        refactoring_lines = refactoring_candidates[:3] or [
+            "Preserve current module boundaries until a specific change exposes a clearer extraction point."
+        ]
         return (
             f"# {architecture}\n"
             f"The repository appears to be a {repository_type} ({language_hint}) composed of "
@@ -42,21 +58,15 @@ class MockLLMClient:
             f"The dependency structure has {dependency_structure}. "
             f"High fan-in hubs are {hubs}; circular dependencies are {cycles}.\n\n"
             f"# {code_smells}\n"
-            "- Some modules may be carrying mixed responsibilities when API, parsing, and persistence logic appear "
-            "close together.\n"
-            "- Files with many functions should be checked for low cohesion and hidden orchestration logic.\n"
-            "- Missing or thin docstrings make it harder for a reviewer to understand intent from the code index "
-            "alone.\n\n"
+            + "\n".join(f"- {finding}" for finding in smell_lines)
+            + "\n\n"
             f"# {maintainability}\n"
-            "- Error handling should stay explicit at repository boundaries such as cloning, file parsing, and LLM "
-            "calls.\n"
-            "- Larger files should be split only when there is a clear domain boundary, not just to reduce line "
-            "count.\n"
-            "- Tests should cover parsing edge cases, failed clone flows, and deterministic mock review generation.\n\n"
+            f"- Dependency structure: {dependency_structure}.\n"
+            f"- Hub evidence: {hubs}; cycle evidence: {cycles}.\n"
+            "- Keep tests focused on the boundaries identified by these repository signals.\n\n"
             f"# {refactoring}\n"
-            "- Keep I/O operations in service modules and pure code analysis in parser or reviewer modules.\n"
-            "- Add small integration tests around the complete review workflow before expanding features.\n"
-            "- Prefer concise file summaries and repository-level context over sending raw source to the LLM.\n"
+            + "\n".join(f"- {candidate}" for candidate in refactoring_lines)
+            + "\n"
         )
 
     @staticmethod
@@ -65,6 +75,24 @@ class MockLLMClient:
             if line.startswith(label):
                 return line.split(":", 1)[1].strip()
         return None
+
+    @staticmethod
+    def _extract_items(
+        prompt: str,
+        heading: str,
+        stop_headings: set[str],
+    ) -> list[str]:
+        collecting = False
+        items: list[str] = []
+        for line in prompt.splitlines():
+            if line == heading:
+                collecting = True
+                continue
+            if collecting and line in stop_headings:
+                break
+            if collecting and line.startswith("- "):
+                items.append(line.removeprefix("- ").strip())
+        return items
 
 
 class OpenAICompatibleClient:

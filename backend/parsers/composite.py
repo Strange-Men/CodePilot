@@ -3,6 +3,23 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.source_selection import source_file_priority
+
+COMPOSITE_ENTRY_NAMES = {
+    "__main__.py",
+    "app.js",
+    "app.py",
+    "app.ts",
+    "index.js",
+    "index.ts",
+    "main.js",
+    "main.py",
+    "main.ts",
+    "server.js",
+    "server.py",
+    "server.ts",
+}
+COMPOSITE_CORE_PATH_PARTS = {"api", "app", "core", "pages", "routes", "services", "src"}
 
 
 class CompositeSourceParser(SourceParser):
@@ -61,26 +78,8 @@ class CompositeSourceParser(SourceParser):
 
     @staticmethod
     def _importance_key(path: Path) -> tuple[int, int, str]:
-        parts = [part.lower() for part in path.parts]
-        name = path.name.lower()
-        score = 50
-        if name in {
-            "__main__.py",
-            "app.js",
-            "app.py",
-            "app.ts",
-            "index.js",
-            "index.ts",
-            "main.js",
-            "main.py",
-            "main.ts",
-            "server.js",
-            "server.py",
-            "server.ts",
-        }:
-            score -= 20
-        if any(part in {"api", "app", "core", "pages", "routes", "services", "src"} for part in parts):
-            score -= 10
-        if any(part in {"test", "tests", "__tests__"} or part.startswith("test") for part in parts):
-            score += 8
-        return score, len(parts), path.as_posix()
+        return source_file_priority(
+            path,
+            entry_names=COMPOSITE_ENTRY_NAMES,
+            core_path_parts=COMPOSITE_CORE_PATH_PARTS,
+        )

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.scoring import detect_entry_point
+from backend.services.source_selection import source_file_priority
 
 IGNORE_DIRS = {
     "node_modules",
@@ -18,6 +19,8 @@ IGNORE_DIRS = {
     "__pycache__",
     ".next",
 }
+PYTHON_ENTRY_NAMES = {"main.py", "app.py", "__init__.py"}
+PYTHON_CORE_PATH_PARTS = {"api", "services", "core", "models", "parsers", "reviewers", "llm"}
 
 
 @dataclass(frozen=True)
@@ -56,15 +59,21 @@ class PythonParser(SourceParser):
     def parse_file(self, repo_dir: Path, path: Path) -> ParsedPythonFile:
         source = path.read_text(encoding="utf-8", errors="replace")
         relative_path = path.relative_to(repo_dir).as_posix()
+        module = self._parse_ast(source)
 
         if self._tree_sitter_parser:
-            parsed = self._parse_with_tree_sitter(source, relative_path)
+            parsed = self._parse_with_tree_sitter(source, relative_path, module)
             if parsed:
                 return parsed
 
-        return self._parse_with_ast(source, relative_path)
+        return self._parse_with_ast(source, relative_path, module)
 
-    def _parse_with_tree_sitter(self, source: str, relative_path: str) -> ParsedPythonFile | None:
+    def _parse_with_tree_sitter(
+        self,
+        source: str,
+        relative_path: str,
+        module: ast.Module | None,
+    ) -> ParsedPythonFile | None:
         source_bytes = source.encode("utf-8")
         try:
             tree = self._tree_sitter_parser.parse(source_bytes)
@@ -96,26 +105,35 @@ class PythonParser(SourceParser):
                 walk(child)
 
         walk(root)
-        docstring = self._extract_ast_docstring(source)
-        line_count, function_count, complexity_estimate = self._calculate_metrics(source)
-        dependency_imports = self._extract_dependency_imports(source)
+        line_count = len(source.splitlines())
+        function_count = (
+            sum(
+                isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                for node in ast.walk(module)
+            )
+            if module is not None
+            else 0
+        )
         return ParsedPythonFile(
             path=relative_path,
             classes=classes,
             functions=functions,
             imports=imports[:12],
-            first_docstring=docstring,
+            first_docstring=ast.get_docstring(module) if module is not None else None,
             line_count=line_count,
             function_count=function_count,
-            complexity_estimate=complexity_estimate,
+            complexity_estimate=self._estimate_complexity(module) if module is not None else 0,
             is_entry_point=detect_entry_point(relative_path, source),
-            dependency_imports=dependency_imports,
+            dependency_imports=self._dependency_imports_from_module(module) if module is not None else [],
         )
 
-    def _parse_with_ast(self, source: str, relative_path: str) -> ParsedPythonFile:
-        try:
-            module = ast.parse(source)
-        except SyntaxError:
+    def _parse_with_ast(
+        self,
+        source: str,
+        relative_path: str,
+        module: ast.Module | None,
+    ) -> ParsedPythonFile:
+        if module is None:
             return ParsedPythonFile(
                 path=relative_path,
                 classes=[],
@@ -152,32 +170,11 @@ class PythonParser(SourceParser):
         )
 
     @staticmethod
-    def _extract_ast_docstring(source: str) -> str | None:
+    def _parse_ast(source: str) -> ast.Module | None:
         try:
-            module = ast.parse(source)
+            return ast.parse(source)
         except SyntaxError:
             return None
-        return ast.get_docstring(module)
-
-    @classmethod
-    def _calculate_metrics(cls, source: str) -> tuple[int, int, int]:
-        line_count = len(source.splitlines())
-        try:
-            module = ast.parse(source)
-        except SyntaxError:
-            return line_count, 0, 0
-        function_count = sum(
-            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in ast.walk(module)
-        )
-        return line_count, function_count, cls._estimate_complexity(module)
-
-    @classmethod
-    def _extract_dependency_imports(cls, source: str) -> list[str]:
-        try:
-            module = ast.parse(source)
-        except SyntaxError:
-            return []
-        return cls._dependency_imports_from_module(module)
 
     @staticmethod
     def _dependency_imports_from_module(module: ast.AST) -> list[str]:
@@ -217,16 +214,12 @@ class PythonParser(SourceParser):
 
     @staticmethod
     def _importance_key(path: Path) -> tuple[int, int, str]:
-        parts = [part.lower() for part in path.parts]
-        name = path.name.lower()
-        score = 50
-        if name in {"main.py", "app.py", "__init__.py"}:
-            score -= 20
-        if any(part in {"api", "services", "core", "models", "parsers", "reviewers", "llm"} for part in parts):
-            score -= 10
-        if any(part in {"tests", "test"} or part.startswith("test_") for part in parts):
-            score += 8
-        return (score, len(parts), path.as_posix())
+        return source_file_priority(
+            path,
+            entry_names=PYTHON_ENTRY_NAMES,
+            core_path_parts=PYTHON_CORE_PATH_PARTS,
+            test_name_prefixes=("test_",),
+        )
 
     @staticmethod
     def _build_tree_sitter_parser():

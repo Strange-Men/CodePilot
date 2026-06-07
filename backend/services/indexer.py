@@ -13,6 +13,7 @@ from backend.models.context import (
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.dependency_graph import DependencyGraph
 from backend.services.insights import RepositoryInsightEngine
+from backend.services.prioritization import paths_for_roles
 from backend.services.scoring import ScoreInput, file_role, score_files
 
 
@@ -129,9 +130,9 @@ class RepositoryIndexer:
         )
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
-        entry_points = self._paths_for_roles(summaries, {"Entry Point"})
-        core_modules = self._paths_for_roles(summaries, {"Core Module"})
-        supporting_modules = self._paths_for_roles(
+        entry_points = paths_for_roles(summaries, {"Entry Point"})
+        core_modules = paths_for_roles(summaries, {"Core Module"})
+        supporting_modules = paths_for_roles(
             summaries,
             {"Supporting File", "Supporting Module"},
         )
@@ -202,20 +203,6 @@ class RepositoryIndexer:
         if parser_languages:
             return " + ".join(labels.get(language, language.title()) for language in parser_languages)
         return labels.get(self.parser.language, self.parser.language.title())
-
-    @staticmethod
-    def _paths_for_roles(
-        summaries: list[CodeFileSummary],
-        roles: set[str],
-    ) -> list[str]:
-        return [
-            summary.path
-            for summary in sorted(
-                summaries,
-                key=lambda summary: (-summary.importance_score, summary.path),
-            )
-            if summary.file_role in roles
-        ]
 
     @staticmethod
     def _format_paths(paths: list[str], limit: int = 8) -> str:

@@ -12,6 +12,7 @@ from backend.models.context import (
 )
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.prompts import PromptRenderer
+from backend.services.prioritization import top_important_files
 
 DEFAULT_SECTION_CONTENT = "No critical findings detected from the available repository summaries."
 APPENDIX_SECTIONS = {
@@ -200,7 +201,4 @@ class MarkdownReviewAdapter:
         *,
         limit: int,
     ) -> list[CodeFileSummary]:
-        return sorted(
-            context.file_summaries,
-            key=lambda summary: (-summary.importance_score, summary.path),
-        )[:limit]
+        return top_important_files(context, limit=limit)

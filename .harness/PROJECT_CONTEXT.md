@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V2.5, the completed 2.x MVP: deterministic architectural insights, mixed Python/JavaScript/TypeScript reviews, repository metrics, dependency graphs, calibrated scoring, onboarding guidance, review history, structured API errors, model-aware prompt budgets, resilient frontend states, and 167 collected backend tests.
+CodePilot is at V2.6, the completed 2.x series: focused review context models, modular prompts, structured review drafts, deterministic architectural insights, mixed Python/JavaScript/TypeScript reviews, repository metrics, dependency graphs, graceful shutdown, and 187 collected backend tests.
 
 ## Release History
 
@@ -20,6 +20,7 @@ CodePilot is at V2.5, the completed 2.x MVP: deterministic architectural insight
 | V2.3 | 2026-06-07 | `15a1121` | Internal dependency graph, fan-in/out, hubs, cycles, orphans, graph-aware scoring |
 | V2.4 | 2026-06-07 | `f8be650` onward | CI audit repair, LLM retries, structural architecture context, calibrated scoring, quality coverage |
 | V2.5 | 2026-06-07 | `8b6347e` onward | Insight engine, mixed-language reviews, history, structured errors, URL validation, exact token counting, frontend reliability |
+| V2.6 | 2026-06-07 | `4ae27d2` onward | Context decomposition, versioned prompt system, structured review adapter, parser/lifecycle cleanup, V3-ready boundaries |
 
 ## Architecture Summary
 
@@ -34,8 +35,9 @@ FastAPI backend
   -> run every matching registered parser through direct or composite parsing
   -> calculate file metrics and dependency graph
   -> classify roles, infer purpose, and score files
-  -> build graph-aware RepositoryContext and deterministic repository insights
-  -> inject selected LLMClient into report generation
+  -> build focused ReviewContext and deterministic repository insights
+  -> render a versioned, token-budgeted prompt
+  -> adapt the LLM Markdown through StructuredReviewDraft
   -> generate normalized shared-contract four-section report plus insight appendices
   -> persist in SQLite
   -> export Markdown
@@ -46,9 +48,10 @@ Backend modules:
 - `backend/api` - Review routes and structured error handlers.
 - `backend/core` - Settings, environment loading, shared report contract loading, and logger setup.
 - `backend/llm` - Mock and retrying OpenAI-compatible LLM clients selected at the runner composition boundary.
-- `backend/models` - Pydantic schemas and review status enum.
+- `backend/models` - API schemas, focused review context models, compatibility context, and structured review findings.
+- `backend/prompts` - Versioned prompt templates, sections, rendering, and token budgeting.
 - `backend/parsers` - Parser protocol, registry, composite parser, and Python/JavaScript/TypeScript discovery and extraction.
-- `backend/reviewers` - Insight-aware prompt building, report normalization, insight/metrics/architecture appendices, Markdown export.
+- `backend/reviewers` - Structured Markdown adaptation, report normalization, appendices, and export orchestration.
 - `backend/services` - Clone service, repository indexer, dependency graph, calibrated scoring, insight engine, and token counting.
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
@@ -113,8 +116,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 167 tests on 2026-06-07.
-- Unit tests: 147 collected across API errors, clone service, parsers, composite parsing, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- `pytest --collect-only -q` collected 187 tests on 2026-06-07.
+- Unit tests: 167 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
 - Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
@@ -160,6 +163,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 5. SQLite fits single-instance deployment, not multi-instance distributed writes.
 6. Free-tier hosting can have cold starts and ephemeral local filesystem limits.
 7. Local scripts and CI are Windows-first.
+8. `RepositoryContext` is a V2.5 compatibility layer; new internal work uses `ReviewContext`.
 
 ## Reserved Directories
 

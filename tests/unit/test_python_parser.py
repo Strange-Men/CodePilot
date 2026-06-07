@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -176,3 +177,25 @@ def test_python_parser_preserves_relative_dependency_imports(temp_repo: Path) ->
     assert ".sibling" in parsed.dependency_imports
     assert "..core.service" in parsed.dependency_imports
     assert "..core" in parsed.dependency_imports
+
+
+def test_python_parser_parses_ast_once_per_file(
+    temp_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = temp_repo / "single_pass.py"
+    source.write_text("import os\n\ndef run():\n    return os.getcwd()\n", encoding="utf-8")
+    calls = 0
+    real_parse = ast.parse
+
+    def counting_parse(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real_parse(*args, **kwargs)
+
+    monkeypatch.setattr(ast, "parse", counting_parse)
+
+    parsed = PythonParser().parse_file(temp_repo, source)
+
+    assert parsed.functions == ["run"]
+    assert calls == 1

@@ -27,8 +27,11 @@ class ReviewTaskRunner:
         self.llm_client = llm_client if llm_client is not None else build_llm_client(settings)
         self.pipeline = ReviewPipeline(settings, store, self.llm_client, self.parser_registry)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="codepilot-review")
+        self._shutdown = False
 
     def submit(self, repo_url: str) -> str:
+        if self._shutdown:
+            raise RuntimeError("Review task runner is shut down.")
         task_id = uuid4().hex
         self.store.create_review(task_id, repo_url)
         self.executor.submit(self._run, task_id, repo_url)
@@ -36,3 +39,9 @@ class ReviewTaskRunner:
 
     def _run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
         return self.pipeline.run(task_id, repo_url)
+
+    def shutdown(self, wait: bool = True) -> None:
+        if self._shutdown:
+            return
+        self._shutdown = True
+        self.executor.shutdown(wait=wait, cancel_futures=False)

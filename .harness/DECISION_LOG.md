@@ -4,6 +4,24 @@
 > Last updated: 2026-06-07
 > Format: newest first, one significant decision per entry.
 
+## DECISION-026: Stabilize V2 Around Focused Context, Prompt, and Review Boundaries
+
+- Date: 2026-06-07
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+V2.5 concentrated repository metadata, file analysis, dependency structure, insights, prompt construction, and Markdown normalization in broad models and reviewer code. This made later reviewer evolution risky even though the API and report contracts were stable.
+
+### Decision
+
+Use focused `ReviewContext` models internally while retaining flat `RepositoryContext` compatibility. Move prompt construction into versioned prompt components, represent review output as `StructuredReviewDraft`, and keep Markdown adaptation at the existing report boundary. Centralize prioritization, reuse one Python AST per file, and drain the task executor through application lifespan.
+
+### Rationale
+
+The boundaries reduce coupling and repeated work without changing Parser Registry, DependencyGraph, ReviewPipeline, API responses, SQLite schema, report headings, frontend behavior, or mock-mode execution. They define a V3 migration path without implementing V3 features.
+
 ## DECISION-025: Use Model-Aware Prompt Tokens and Frontend Failure Boundaries
 
 - Date: 2026-06-07

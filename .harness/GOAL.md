@@ -15,7 +15,7 @@ Build and maintain an AI Code Review & Refactor Agent for Large Repositories: a 
 4. The tool is deployable on free-tier infrastructure with a Vercel frontend and Render Docker backend after platform setup.
 5. Mock mode enables a complete end-to-end demo without API credentials.
 
-CodePilot V2.5 completes the 2.x MVP with repository insights, mixed-language analysis, review history, structured errors, and onboarding guidance. Further work belongs to separately approved V3 scope.
+CodePilot V2.6 completes the 2.x series with stabilized context, prompt, structured-review, parser, and lifecycle boundaries. Further work belongs to separately approved V3 scope.
 
 ## Non-Goals
 
@@ -31,7 +31,7 @@ Time from "paste URL" to "readable report" is under 60 seconds for a typical pub
 
 ## Quality Bar
 
-- 167 automated pytest tests and 9 frontend tests pass.
+- 187 automated pytest tests and 9 frontend tests pass.
 - Ruff linting is clean with zero warnings.
 - Frontend builds without TypeScript errors.
 - Docker Compose can bring up both services with one command.

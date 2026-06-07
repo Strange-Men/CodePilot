@@ -1,11 +1,13 @@
 # Roadmap
 
-This MVP intentionally avoids chatbot, multi-agent, code graph, authentication, auto-fix, and deployment features.
+CodePilot V2.6 completes the 2.x architecture stabilization work. It intentionally avoids agents, orchestration frameworks, MCP, authentication, SaaS, and enterprise features.
 
-Near-term improvements:
+Completed V2.6 foundations:
 
-- Add focused tests for failed clone, parser fallback, and report normalization.
-- Improve heuristics for selecting important files in larger repositories.
-- Add small UI affordances for recent local review tasks.
-- Add safer cancellation and cleanup for long-running clone tasks.
+- Focused `ReviewContext` models with a flat `RepositoryContext` compatibility adapter.
+- Versioned prompt templates, sections, rendering, and token budgeting.
+- Structured review drafts with lossless Markdown adaptation.
+- Shared prioritization and source-selection helpers.
+- Single-pass Python AST analysis and graceful task-runner shutdown.
 
+Future work requires a separately approved V3 plan. The migration boundary is documented in `docs/V3_READINESS.md`; no V3 runtime is implemented.

@@ -28,9 +28,9 @@ Browser
 6. ReviewPipeline discovers every matching registered parser; mixed repositories use CompositeSourceParser while single-language repositories keep their direct parser path.
 7. Parsers extract structure, metrics, entry-point signals, and internal import candidates into one analyzed file set.
 8. Indexer builds one DependencyGraph, calculates graph metrics, classifies file roles, infers purpose, scores files, and runs RepositoryInsightEngine.
-9. ReportGenerator builds an insight- and graph-aware prompt within FINAL_PROMPT_TOKEN_BUDGET using model-aware token counting and the shared report contract.
+9. PromptRenderer builds a versioned insight- and graph-aware prompt within FINAL_PROMPT_TOKEN_BUDGET.
 10. LLM client returns report text; transient real-client failures receive three exponential-backoff retries, while mock mode remains deterministic.
-11. ReportGenerator normalizes output to the four required sections and appends repository insights, metrics, and architecture graph exports.
+11. MarkdownReviewAdapter converts output through StructuredReviewDraft, normalizes the four required sections, and appends repository intelligence exports.
 12. Store persists status, report, and export path.
 13. Frontend polls /api/reviews/{task_id} until completed or failed and can load persisted reviews from GET /api/reviews.
 14. User can read onboarding and risk guidance or download Markdown from /api/reviews/{task_id}/export.
@@ -43,13 +43,14 @@ Browser
 | Entry | `backend/main.py` | FastAPI app setup, CORS, router mounting, `/health` | Uses settings singleton and shared store/runner. |
 | API | `backend/api/reviews.py`, `backend/api/errors.py` | Review creation, history, polling, export, and structured errors | Errors use `{error, code, detail}` without changing successful item responses. |
 | Core | `backend/core/config.py`, `backend/core/report_contract.py`, `backend/core/logging.py` | Settings, shared report contract loading, and logger setup | Loads `.env`, creates runtime paths, reads `contracts/report_sections.json`, and centralizes backend logger initialization. |
-| Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
+| Models | `backend/models/review.py`, `backend/models/context.py`, `backend/models/structured_review.py` | API schemas, focused review context, compatibility context, and structured findings | `ReviewStatus` lifecycle and flat API payloads remain unchanged. |
+| Prompts | `backend/prompts/` | Versioned prompt sections, rendering, and token budgets | Prompt policy is independently testable and separate from report export. |
 | LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default; the real client retries transient transport, 408, 409, 429, and 5xx failures three times with exponential backoff. |
 | Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/composite.py`, `backend/parsers/python_parser.py`, `backend/parsers/javascript_parser.py` | Parser protocol, registry, composite mixed-language delegation, and structure extraction | Single-language behavior stays direct; mixed Python/JavaScript/TypeScript files share one index and graph. |
-| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Adds human-readable insights and model-aware, line-preserving token budgeting while enforcing the four-section contract. |
+| Reviewer | `backend/reviewers/report_generator.py`, `backend/reviewers/markdown_adapter.py` | Review orchestration, structured Markdown adaptation, and export | Enforces the four-section contract while preserving appendices and frontend output. |
 | Shared Contract | `contracts/report_sections.json` | Ordered report section contract consumed by backend and frontend | Defines the V1 report section IDs and titles without coupling either runtime to the other. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
-| Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates structural purpose summaries and propagates metrics, roles, scores, and graph intelligence. |
+| Indexer | `backend/services/indexer.py` | Convert parsed files into `ReviewContext` | Generates focused metadata, file, dependency, and insight bundles; flat `RepositoryContext` remains compatible. |
 | Dependency Graph | `backend/services/dependency_graph.py` | Resolve internal imports and calculate graph signals | Produces deterministic edges, fan-in/out, hubs, fan-in-based orphans, and strongly connected dependency cycles. |
 | Insight Engine | `backend/services/insights.py` | Convert context metrics and graph signals into architectural guidance | Produces architecture overview, risk hotspots, onboarding order, and refactoring candidates with explanations. |
 | Token Counting | `backend/services/token_counting.py` | Count and fit prompt tokens | Uses the configured OpenAI model encoding with a stable fallback for unknown models. |
@@ -141,25 +142,14 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
                                               -> failed
 ```
 
-`RepositoryContext` contains:
+Internal `ReviewContext` contains:
 
-- `repo_url`
-- `total_python_files` (legacy API-compatible field now populated with selected parser source-file count)
-- `analyzed_files`
-- `skipped_files`
-- `file_summaries`
-- `repository_summary`
-- `language`
-- `total_lines`
-- `avg_complexity`
-- `entry_points`
-- `core_modules`
-- `supporting_modules`
-- `dependency_edges`
-- `circular_dependencies`
-- `hub_files`
-- `orphan_files`
-- `insights` with architecture overview, risk hotspots, onboarding guide, and refactoring candidates
+- `RepoMetadata` for identity, language, counts, metrics, and summary.
+- `FileAnalysisBundle` for summaries and structural roles.
+- `DependencyStructure` for edges, cycles, hubs, and orphans.
+- `InsightReport` for architecture, hotspots, onboarding, and refactoring guidance.
+
+`RepositoryContext` preserves the flat V2.5 constructor and serialized fields through explicit conversion methods.
 
 `CodeFileSummary` contains:
 
@@ -281,7 +271,7 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 | Python runtime | 3.11.11 | `.python-version`, `runtime.txt` |
 | Node runtime | 20 | CI and Dockerfile |
 
-## Multi-Agent Readiness
+## V3 Readiness
 
 The repository contains reserved top-level directories for future expansion:
 
@@ -289,7 +279,7 @@ The repository contains reserved top-level directories for future expansion:
 - `graph/` for call graph and dependency analysis.
 - `mcp/` for Model Context Protocol integration.
 
-Current implementation does not orchestrate multiple agents. Future multi-agent work must define agent input/output contracts, persistence needs, and quality gates before implementation.
+Current implementation does not orchestrate multiple agents. Future reviewers can consume `ReviewContext` and produce `StructuredReviewDraft` without changing the current API, SQLite schema, Markdown contract, or frontend. See `docs/V3_READINESS.md`.
 
 ## Cross-References
 

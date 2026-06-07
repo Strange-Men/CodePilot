@@ -1,11 +1,31 @@
 # Architecture
 
-CodePilot is a modular monolith.
+CodePilot V2.6 is a modular monolith with a FastAPI backend and Next.js frontend.
 
-The FastAPI backend owns cloning, repository indexing, task state, report generation, and Markdown export. SQLite stores review task status and final report content. A small in-process background runner schedules tasks, and a review pipeline moves them through `pending`, `cloning`, `parsing`, `summarizing`, `reviewing`, `completed`, and `failed`.
+The review flow is:
 
-Parsing is routed through a parser registry and parser protocol. The only registered parser is the existing Python parser, which indexes Python files only. Tree-sitter extracts classes, functions, imports, and docstrings for concise file summaries, with AST fallback. Those summaries become repository context; raw repository source is never sent to the LLM.
+```text
+Parser Registry
+  -> direct or CompositeSourceParser
+  -> ParsedSourceFile
+  -> RepositoryIndexer
+  -> ReviewContext
+       RepoMetadata
+       FileAnalysisBundle
+       DependencyStructure
+       InsightReport
+  -> PromptTemplate / PromptRenderer / TokenBudgeter
+  -> LLMClient
+  -> StructuredReviewDraft
+  -> MarkdownReviewAdapter
+  -> four-section report plus repository appendices
+  -> SQLite and Markdown export
+```
 
-The selected LLM client is composed at the task runner boundary and injected into the review pipeline. Mock and OpenAI-compatible behavior remain implemented by the existing `backend/llm` clients.
+`RepositoryContext` remains available as the flat V2.5 compatibility model. Production indexing and review orchestration use `ReviewContext`; adapters convert at extension boundaries without changing API responses, the SQLite schema, or report output.
 
-The Next.js frontend starts reviews, polls task status every two seconds, displays clear failures, renders the four report sections, and links to Markdown export.
+Prompt construction lives in `backend/prompts/`. `ReportGenerator` coordinates rendering, LLM invocation, normalization, and export. `MarkdownReviewAdapter` converts between current Markdown and `StructuredReviewDraft`, preserving the four required report sections while creating a future structured-review boundary.
+
+`DependencyGraph`, parser registration, and `ReviewPipeline` remain the core V2 execution path. The in-process `ReviewTaskRunner` still uses two worker threads, and FastAPI lifespan now drains the executor during application shutdown.
+
+See `docs/V3_READINESS.md` for the supported future migration points and current boundaries.

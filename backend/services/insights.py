@@ -11,15 +11,13 @@ from backend.models.context import (
     ReviewContext,
     as_review_context,
 )
+from backend.services.prioritization import ordered_by_importance
 
 
 class RepositoryInsightEngine:
     def generate(self, context: ReviewContext | RepositoryContext) -> InsightReport:
         context = as_review_context(context)
-        ordered = sorted(
-            context.file_summaries,
-            key=lambda summary: (-summary.importance_score, summary.path),
-        )
+        ordered = ordered_by_importance(context.file_summaries)
         components = self._major_components(ordered)
         repository_type = self._repository_type(context)
         return InsightReport(

@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 167 tests.
+`pytest --collect-only -q` collected 187 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 147 | 17 | Validate isolated backend services, parsers, repository insights, token counting, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 167 | 22 | Validate contexts, prompts, structured reviews, backend services, parsers, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -29,14 +29,19 @@
 | `tests/unit/test_indexer.py` | 8 | Repository/file metric propagation, role propagation, graph-aware rescoring, and structural purpose inference. |
 | `tests/unit/test_insights.py` | 8 | Repository type, major components, hotspots, onboarding order, refactoring candidates, and safe defaults. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
-| `tests/unit/test_llm_client.py` | 12 | OpenAI-compatible requests, transient retries, exponential backoff, retry limits, permanent failures, credentials, and deterministic mock mode. |
+| `tests/unit/test_llm_client.py` | 13 | OpenAI-compatible requests, retries, credentials, deterministic mock mode, and repository-evidence mock findings. |
+| `tests/unit/test_main.py` | 1 | FastAPI lifespan drains the review runner during shutdown. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
-| `tests/unit/test_python_parser.py` | 11 | Valid, syntax-error, empty files, metrics, dependency imports, discovery filters, max-file handling, path format, and non-ASCII parsing. |
+| `tests/unit/test_prioritization.py` | 2 | Shared importance ordering and role filtering. |
+| `tests/unit/test_prompt_system.py` | 5 | Versioned sections, independent rendering, nested-context compatibility, and token budgets. |
+| `tests/unit/test_python_parser.py` | 12 | Parsing, metrics, discovery, dependency imports, non-ASCII handling, and single-pass AST reuse. |
 | `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
 | `tests/unit/test_review_store.py` | 9 | DB initialization, WAL mode, CRUD, report preservation, and schema-neutral history queries. |
-| `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
+| `tests/unit/test_review_context.py` | 4 | Focused context defaults and flat compatibility round trips. |
+| `tests/unit/test_review_task_runner.py` | 7 | Submit/run behavior, status progression, parser selection, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 5 | Model encodings, Unicode, exact budgets, line preservation, and unknown-model fallback. |
+| `tests/unit/test_structured_review.py` | 5 | Markdown parsing, structured findings, contract ordering, and lossless context-aware round trips. |
 
 ## Integration Tests
 

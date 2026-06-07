@@ -29,7 +29,7 @@
 - [x] Python 3.11.11 runtime pinning.
 - [x] Smoke test script for backend pipeline.
 
-### V2.0-V2.5 - Repository Intelligence MVP
+### V2.0-V2.6 - Repository Intelligence and Architecture Stabilization
 
 - [x] Parser registry with Python, JavaScript, and TypeScript support.
 - [x] File and repository metrics.
@@ -42,11 +42,15 @@
 - [x] Combined Python, JavaScript, and TypeScript repository reviews.
 - [x] Review history, structured API errors, and canonical GitHub URL validation.
 - [x] Model-aware token counting, frontend error/loading states, and CI frontend tests.
-- [x] 167 collected pytest tests and enforced Harness audit.
+- [x] Focused ReviewContext models with RepositoryContext compatibility.
+- [x] Versioned prompt system and token-budget boundary.
+- [x] Structured review findings with Markdown compatibility.
+- [x] Shared prioritization, single-pass Python AST analysis, and graceful shutdown.
+- [x] 187 collected pytest tests and enforced Harness audit.
 
 ## In Progress
 
-CodePilot 2.x MVP is complete at V2.5. No V3 implementation is in progress.
+CodePilot 2.x is complete at V2.6. No V3 implementation is in progress.
 
 ## Future Development Priorities
 

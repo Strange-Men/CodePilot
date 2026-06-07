@@ -14,9 +14,13 @@ from backend.tasks.runner import ReviewTaskRunner
 class CapturingExecutor:
     def __init__(self) -> None:
         self.submissions: list[tuple[object, tuple[object, ...]]] = []
+        self.shutdown_calls: list[tuple[bool, bool]] = []
 
     def submit(self, fn, *args):
         self.submissions.append((fn, args))
+
+    def shutdown(self, wait: bool, cancel_futures: bool) -> None:
+        self.shutdown_calls.append((wait, cancel_futures))
 
 
 class FakeCloneService:
@@ -235,3 +239,20 @@ def test_run_selects_javascript_parser_when_js_files_are_detected(
     runner._run("task-1", "https://github.com/expressjs/express")
 
     assert FakeRepositoryIndexer.parser_instances == [javascript_parser]
+
+
+def test_shutdown_drains_executor_once_and_rejects_new_work(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store)
+    executor = CapturingExecutor()
+    runner.executor = executor
+
+    runner.shutdown()
+    runner.shutdown()
+
+    assert executor.shutdown_calls == [(True, False)]
+    with pytest.raises(RuntimeError, match="shut down"):
+        runner.submit("https://github.com/pallets/flask")
+    assert store.list_reviews() == []

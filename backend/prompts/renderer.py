@@ -9,6 +9,11 @@ from backend.models.context import (
 )
 from backend.prompts.models import PromptSection, PromptTemplate, PromptVersion
 from backend.prompts.token_budget import TokenBudgeter
+from backend.services.prioritization import (
+    important_dependency_relationships,
+    ordered_by_importance,
+    top_important_files,
+)
 
 
 class PromptRenderer:
@@ -186,24 +191,7 @@ class PromptRenderer:
         *,
         limit: int,
     ) -> list[tuple[str, str]]:
-        context = as_review_context(context)
-        importance_scores = {
-            summary.path: summary.importance_score
-            for summary in context.file_summaries
-        }
-        relationships = [
-            (source, target)
-            for source, targets in context.dependency_edges.items()
-            for target in targets
-        ]
-        return sorted(
-            relationships,
-            key=lambda edge: (
-                -importance_scores.get(edge[0], 0.0),
-                -importance_scores.get(edge[1], 0.0),
-                edge,
-            ),
-        )[:limit]
+        return important_dependency_relationships(context, limit=limit)
 
     @staticmethod
     def top_important_files(
@@ -211,11 +199,7 @@ class PromptRenderer:
         *,
         limit: int,
     ) -> list[CodeFileSummary]:
-        context = as_review_context(context)
-        return sorted(
-            context.file_summaries,
-            key=lambda summary: (-summary.importance_score, summary.path),
-        )[:limit]
+        return top_important_files(context, limit=limit)
 
     @staticmethod
     def _file_group_lines(
@@ -227,7 +211,7 @@ class PromptRenderer:
         if not summaries:
             return [*lines, "- None detected."]
 
-        ordered = sorted(summaries, key=lambda summary: (-summary.importance_score, summary.path))
+        ordered = ordered_by_importance(summaries)
         detailed = [summary for summary in ordered if summary.path in detailed_paths]
         remaining = [summary for summary in ordered if summary.path not in detailed_paths]
         for summary in detailed:
