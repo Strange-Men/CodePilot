@@ -45,4 +45,5 @@ class RepositoryContext(BaseModel):
     skipped_files: int
     file_summaries: list[CodeFileSummary]
     repository_summary: str
+    language: str = "Python"
 

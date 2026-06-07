@@ -28,6 +28,7 @@ class ReportGenerator:
             "Return markdown with exactly four top-level sections:",
             *numbered_report_section_lines(),
             f"Repository URL: {context.repo_url}",
+            f"Repository language: {context.language}",
             f"Total source files: {context.total_python_files}",
             f"Analyzed files: {context.analyzed_files}",
             f"Skipped files: {context.skipped_files}",

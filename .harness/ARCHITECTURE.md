@@ -127,6 +127,7 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
 - `skipped_files`
 - `file_summaries`
 - `repository_summary`
+- `language`
 
 `CodeFileSummary` contains:
 

@@ -25,6 +25,7 @@ class RepositoryIndexer:
             skipped_files=skipped,
             file_summaries=summaries,
             repository_summary=repo_summary,
+            language=self._language_label(),
         )
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:

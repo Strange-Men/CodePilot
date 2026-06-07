@@ -42,6 +42,7 @@ def test_mock_mode_generates_required_sections(sample_context) -> None:
     report = MockLLMClient().generate_review(prompt)
 
     assert_report_shape(report)
+    assert "Python application" in report
 
 
 def test_malformed_llm_response_is_normalized(tmp_path: Path, sample_context) -> None:

@@ -33,7 +33,7 @@
 
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
-| `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JS/TS repository review completes through the real pipeline using mock LLM. |
+| `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JavaScript repository review completes and the generated report uses JavaScript language labeling. |
 | `tests/integration/test_reviews_api.py` | 8 | Create review, invalid payload, query, missing task, export, export conflict, failed review response. |
 
 ## Regression Tests

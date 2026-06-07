@@ -17,10 +17,11 @@ class LLMClient(Protocol):
 class MockLLMClient:
     def generate_review(self, prompt: str) -> str:
         file_count_hint = self._extract_after(prompt, "Analyzed files:")
+        language_hint = self._extract_after(prompt, "Repository language:") or "source"
         architecture, code_smells, maintainability, refactoring = REPORT_SECTIONS
         return (
             f"# {architecture}\n"
-            "The repository appears to be a Python application composed of "
+            f"The repository appears to be a {language_hint} application composed of "
             f"{file_count_hint or 'multiple'} analyzed modules. "
             "The code is organized around module-level responsibilities, with classes and functions forming the main "
             "reviewable units. "

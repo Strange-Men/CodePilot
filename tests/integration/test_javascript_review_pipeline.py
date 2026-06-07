@@ -17,7 +17,7 @@ class LocalJavaScriptCloneService:
         repo_dir = self.workspace_path / task_id / "repo"
         source_dir = repo_dir / "src"
         source_dir.mkdir(parents=True)
-        (source_dir / "index.ts").write_text(
+        (source_dir / "index.js").write_text(
             "import express from 'express';\n"
             "export class AppServer {}\n"
             "export const createServer = () => express();\n",
@@ -29,7 +29,8 @@ class LocalJavaScriptCloneService:
         return None
 
 
-def test_javascript_repository_completes_review(tmp_path: Path) -> None:
+def test_javascript_repository_report_uses_javascript_language(tmp_path: Path) -> None:
+    repo_url = "https://github.com/expressjs/express"
     settings = Settings(
         database_path=tmp_path / "reviews.db",
         workspace_path=tmp_path / "workspace",
@@ -39,7 +40,7 @@ def test_javascript_repository_completes_review(tmp_path: Path) -> None:
     settings.workspace_path.mkdir()
     settings.reports_path.mkdir()
     store = ReviewStore(settings.database_path)
-    store.create_review("task-js", "https://github.com/example/js-app")
+    store.create_review("task-js", repo_url)
     pipeline = ReviewPipeline(
         settings,
         store,
@@ -47,7 +48,7 @@ def test_javascript_repository_completes_review(tmp_path: Path) -> None:
         clone_service_factory=LocalJavaScriptCloneService,
     )
 
-    result = pipeline.run("task-js", "https://github.com/example/js-app")
+    result = pipeline.run("task-js", repo_url)
 
     row = store.get_review("task-js")
     assert row["status"] == ReviewStatus.completed.value
@@ -55,3 +56,5 @@ def test_javascript_repository_completes_review(tmp_path: Path) -> None:
     assert result.analyzed_files == 1
     assert result.skipped_files == 0
     assert all(f"# {section}" in row["report_markdown"] for section in REPORT_SECTIONS)
+    assert "JavaScript application" in row["report_markdown"]
+    assert "Python application" not in row["report_markdown"]

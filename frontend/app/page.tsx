@@ -70,7 +70,7 @@ export default function Home() {
             </div>
             <h1 className="text-3xl font-semibold tracking-normal md:text-4xl">CodePilot</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Clone a public GitHub repository, index Python code, generate concise repository context, and export a focused review report.
+              Clone a public GitHub repository, index supported source code, generate concise repository context, and export a focused review report.
             </p>
           </div>
           <div className="text-sm text-muted-foreground">Mock LLM ready by default</div>
