@@ -63,6 +63,7 @@ class RepositoryContext(BaseModel):
     avg_complexity: float = 0.0
     entry_points: list[str] = Field(default_factory=list)
     core_modules: list[str] = Field(default_factory=list)
+    supporting_modules: list[str] = Field(default_factory=list)
     dependency_edges: dict[str, list[str]] = Field(default_factory=dict)
     circular_dependencies: list[list[str]] = Field(default_factory=list)
     hub_files: list[str] = Field(default_factory=list)

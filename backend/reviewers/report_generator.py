@@ -28,6 +28,10 @@ class ReportGenerator:
             "Do not assume access to raw source code.",
             "Return markdown with exactly four top-level sections:",
             *numbered_report_section_lines(),
+            "Architecture Summary requirements:",
+            "- Describe Entry Points, Core Modules, Supporting Modules, and Dependency Structure.",
+            "- Explain how important dependency relationships shape control flow and change risk.",
+            "- Use hub and cycle evidence in findings instead of listing file paths without interpretation.",
             "Repository Summary:",
             f"Repository URL: {context.repo_url}",
             f"Repository language: {context.language}",
@@ -37,6 +41,7 @@ class ReportGenerator:
             f"Total lines: {context.total_lines}",
             f"Average complexity: {context.avg_complexity:.2f}",
             context.repository_summary,
+            *self._architecture_summary_prompt(context),
             *self._architecture_graph_prompt(context),
         ]
         detailed_paths = {
@@ -45,7 +50,7 @@ class ReportGenerator:
         for role, heading in (
             ("Entry Point", "Entry Points"),
             ("Core Module", "Core Modules"),
-            ("Supporting File", "Supporting Files"),
+            ("Supporting File", "Supporting Modules"),
         ):
             lines.extend(
                 self._prompt_file_group(
@@ -103,9 +108,27 @@ class ReportGenerator:
         return "\n".join(lines)
 
     @staticmethod
-    def _architecture_graph_prompt(context: RepositoryContext) -> list[str]:
+    def _architecture_summary_prompt(context: RepositoryContext) -> list[str]:
+        supporting_modules = context.supporting_modules or [
+            summary.path
+            for summary in context.file_summaries
+            if summary.file_role == "Supporting File"
+        ]
+        edge_count = sum(len(targets) for targets in context.dependency_edges.values())
+        return [
+            "Architecture Summary Context:",
+            f"- Entry Points: {', '.join(context.entry_points) or 'None detected'}",
+            f"- Core Modules: {', '.join(context.core_modules) or 'None detected'}",
+            f"- Supporting Modules: {', '.join(supporting_modules) or 'None detected'}",
+            (
+                f"- Dependency Structure: {edge_count} resolved internal relationships, "
+                f"{len(context.hub_files)} hubs, and {len(context.circular_dependencies)} cycles"
+            ),
+        ]
+
+    @classmethod
+    def _architecture_graph_prompt(cls, context: RepositoryContext) -> list[str]:
         summaries = {summary.path: summary for summary in context.file_summaries}
-        entry_points = ", ".join(context.entry_points) or "None detected"
         hubs = ", ".join(
             f"{path} (fan_in={summaries[path].fan_in})"
             for path in context.hub_files
@@ -117,13 +140,30 @@ class ReportGenerator:
             if cycle
         ) or "None detected"
         orphans = ", ".join(context.orphan_files) or "None detected"
-        return [
+        lines = [
             "Architecture Graph:",
-            f"- Entry Points: {entry_points}",
             f"- Hub Files: {hubs}",
             f"- Circular Dependencies: {cycles}",
             f"- Orphans: {orphans}",
+            "Important Dependency Relationships:",
         ]
+        relationships = cls._important_dependency_relationships(context, limit=30)
+        lines.extend(f"- {source} -> {target}" for source, target in relationships)
+        if not relationships:
+            lines.append("- None resolved.")
+        lines.extend(
+            [
+                (
+                    "Hub Analysis Guidance: inspect high fan-in modules for broad change impact, "
+                    "unstable interfaces, and mixed responsibilities."
+                ),
+                (
+                    "Cycle Analysis Guidance: explain ownership and initialization risks in each cycle, "
+                    "then suggest the smallest dependency-breaking boundary."
+                ),
+            ]
+        )
+        return lines
 
     @staticmethod
     def _architecture_graph_section(context: RepositoryContext) -> str:
@@ -141,6 +181,13 @@ class ReportGenerator:
         )
         if not context.entry_points:
             lines.append("- None detected.")
+
+        lines.extend(["", "## Important Relationships"])
+        relationships = ReportGenerator._important_dependency_relationships(context, limit=30)
+        if relationships:
+            lines.extend(f"- `{source}` -> `{target}`" for source, target in relationships)
+        else:
+            lines.append("- None resolved.")
 
         lines.extend(
             [
@@ -177,6 +224,30 @@ class ReportGenerator:
         else:
             lines.append("- None detected.")
         return "\n".join(lines)
+
+    @staticmethod
+    def _important_dependency_relationships(
+        context: RepositoryContext,
+        *,
+        limit: int,
+    ) -> list[tuple[str, str]]:
+        importance_scores = {
+            summary.path: summary.importance_score
+            for summary in context.file_summaries
+        }
+        relationships = [
+            (source, target)
+            for source, targets in context.dependency_edges.items()
+            for target in targets
+        ]
+        return sorted(
+            relationships,
+            key=lambda edge: (
+                -importance_scores.get(edge[0], 0.0),
+                -importance_scores.get(edge[1], 0.0),
+                edge,
+            ),
+        )[:limit]
 
     @staticmethod
     def _top_important_files(

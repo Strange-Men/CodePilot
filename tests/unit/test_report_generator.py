@@ -46,6 +46,10 @@ def test_mock_mode_generates_required_sections(sample_context) -> None:
 
     assert_report_shape(report)
     assert "Python application" in report
+    assert "Entry points are app.py" in report
+    assert "Core modules are services/review.py" in report
+    assert "1 resolved internal relationships" in report
+    assert "High fan-in hubs are services/review.py (fan_in=1)" in report
 
 
 def test_malformed_llm_response_is_normalized(tmp_path: Path, sample_context) -> None:
@@ -100,7 +104,7 @@ def test_prompt_budget_preserves_complete_prompt_when_it_fits(tmp_path: Path, sa
     prompt = generator._build_prompt(sample_context)
 
     assert "services/review.py: purpose=Implements review behavior; classes=none; functions=review." in prompt
-    assert prompt.endswith("Supporting Files:\n- None detected.")
+    assert prompt.endswith("Supporting Modules:\n- None detected.")
     assert "\nRepository Summary:\n" in prompt
 
 
@@ -132,8 +136,9 @@ def test_prompt_groups_files_and_only_details_top_ten(tmp_path: Path, sample_con
     assert "Average complexity: 6.50" in prompt
     assert "Entry Points:" in prompt
     assert "Core Modules:" in prompt
-    assert "Supporting Files:" in prompt
+    assert "Supporting Modules:" in prompt
     assert "Architecture Graph:" in prompt
+    assert "Important Dependency Relationships:" in prompt
     assert "- Hub Files:" in prompt
     assert "- Circular Dependencies:" in prompt
     assert "- Orphans:" in prompt
@@ -143,6 +148,41 @@ def test_prompt_groups_files_and_only_details_top_ten(tmp_path: Path, sample_con
     assert "detail-10" not in prompt
     assert "file-00.py [0.00 Low]" in prompt
     assert prompt.index("file-20.py") < prompt.index("file-19.py")
+
+
+def test_prompt_includes_dependency_edges_and_analysis_guidance(tmp_path: Path, sample_context) -> None:
+    prompt = ReportGenerator(StaticLLM(""), tmp_path, 5000)._build_prompt(sample_context)
+
+    assert "Architecture Summary requirements:" in prompt
+    assert "- Entry Points: app.py" in prompt
+    assert "- Core Modules: services/review.py" in prompt
+    assert "- Dependency Structure: 1 resolved internal relationships, 1 hubs, and 0 cycles" in prompt
+    assert "- app.py -> services/review.py" in prompt
+    assert "Hub Analysis Guidance: inspect high fan-in modules" in prompt
+    assert "Cycle Analysis Guidance: explain ownership and initialization risks" in prompt
+
+
+def test_dependency_relationships_prioritize_important_files(sample_context) -> None:
+    sample_context.file_summaries.append(
+        CodeFileSummary(
+            path="helpers/format.py",
+            purpose="Formats output.",
+            summary="Formatting helper.",
+            importance_score=10.0,
+        )
+    )
+    sample_context.dependency_edges = {
+        "app.py": ["helpers/format.py", "services/review.py"],
+        "services/review.py": ["helpers/format.py"],
+        "helpers/format.py": [],
+    }
+
+    relationships = ReportGenerator._important_dependency_relationships(sample_context, limit=2)
+
+    assert relationships == [
+        ("app.py", "services/review.py"),
+        ("app.py", "helpers/format.py"),
+    ]
 
 
 def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path, sample_context) -> None:
@@ -161,6 +201,8 @@ def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path,
     assert report.index("| app.py |") < report.index("| services/review.py |")
     assert report.index("# Architecture Graph") > report.index("# Repository Metrics")
     assert "- Resolved internal dependencies: 1" in report
+    assert "## Important Relationships" in report
+    assert "- `app.py` -> `services/review.py`" in report
     assert "| services/review.py | 1 | 0 | 80.06 |" in report
 
 

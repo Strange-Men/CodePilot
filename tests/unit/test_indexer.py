@@ -65,6 +65,9 @@ def test_indexer_propagates_repository_metrics_and_importance(temp_repo: Path) -
     assert summaries["large.py"].importance_score == pytest.approx(100.0)
     assert summaries["small.py"].importance_label == "Peripheral"
     assert summaries["large.py"].importance_label == "Critical"
+    assert context.supporting_modules == ["small.py", "large.py"]
+    assert "Supporting modules:" in context.repository_summary
+    assert "Dependency structure: 0 resolved internal relationships" in context.repository_summary
     assert context.repository_summary.index("large.py") < context.repository_summary.index("small.py")
 
 
@@ -102,6 +105,8 @@ def test_indexer_propagates_entry_points_and_core_modules(temp_repo: Path) -> No
 
     assert context.entry_points == ["app.py"]
     assert context.core_modules == ["services/review.py"]
+    assert "Entry points: app.py." in context.repository_summary
+    assert "Core modules: services/review.py." in context.repository_summary
     summaries = {summary.path: summary for summary in context.file_summaries}
     assert summaries["app.py"].file_role == "Entry Point"
     assert summaries["services/review.py"].file_role == "Core Module"

@@ -52,6 +52,7 @@ def sample_context() -> RepositoryContext:
         ],
         entry_points=["app.py"],
         core_modules=["services/review.py"],
+        supporting_modules=[],
         dependency_edges={
             "app.py": ["services/review.py"],
             "services/review.py": [],

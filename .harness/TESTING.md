@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 115 tests.
+`pytest --collect-only -q` collected 117 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 105 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
+| Unit | 107 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
 | Integration | 9 | 2 | Validate FastAPI review endpoints and JS/TS review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -28,7 +28,7 @@
 | `tests/unit/test_llm_client.py` | 12 | OpenAI-compatible requests, transient retries, exponential backoff, retry limits, permanent failures, credentials, and deterministic mock mode. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
 | `tests/unit/test_python_parser.py` | 11 | Valid, syntax-error, empty files, metrics, dependency imports, discovery filters, max-file handling, path format, and non-ASCII parsing. |
-| `tests/unit/test_report_generator.py` | 12 | Mock generation, malformed output, shared contract, formatting-preserving budgets, role grouping, report appendices, ordering, and trailing newline. |
+| `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
 | `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
 | `tests/unit/test_scoring.py` | 23 | Importance labels, normalized scoring, path modifiers, entry-point detection, and dependency-aware importance. |

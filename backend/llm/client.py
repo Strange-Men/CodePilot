@@ -24,15 +24,20 @@ class MockLLMClient:
     def generate_review(self, prompt: str) -> str:
         file_count_hint = self._extract_after(prompt, "Analyzed files:")
         language_hint = self._extract_after(prompt, "Repository language:") or "source"
+        entry_points = self._extract_after(prompt, "- Entry Points:") or "none detected"
+        core_modules = self._extract_after(prompt, "- Core Modules:") or "none detected"
+        supporting_modules = self._extract_after(prompt, "- Supporting Modules:") or "none detected"
+        dependency_structure = self._extract_after(prompt, "- Dependency Structure:") or "no resolved graph"
+        hubs = self._extract_after(prompt, "- Hub Files:") or "none detected"
+        cycles = self._extract_after(prompt, "- Circular Dependencies:") or "none detected"
         architecture, code_smells, maintainability, refactoring = REPORT_SECTIONS
         return (
             f"# {architecture}\n"
             f"The repository appears to be a {language_hint} application composed of "
-            f"{file_count_hint or 'multiple'} analyzed modules. "
-            "The code is organized around module-level responsibilities, with classes and functions forming the main "
-            "reviewable units. "
-            "The current structure is suitable for a portfolio review because entry points, services, and data "
-            "definitions can be inspected separately.\n\n"
+            f"{file_count_hint or 'multiple'} analyzed modules. Entry points are {entry_points}. "
+            f"Core modules are {core_modules}, while supporting modules are {supporting_modules}. "
+            f"The dependency structure has {dependency_structure}. "
+            f"High fan-in hubs are {hubs}; circular dependencies are {cycles}.\n\n"
             f"# {code_smells}\n"
             "- Some modules may be carrying mixed responsibilities when API, parsing, and persistence logic appear "
             "close together.\n"

@@ -74,6 +74,9 @@ class RepositoryIndexer:
             core_modules=[
                 summary.path for summary in summaries if summary.file_role == "Core Module"
             ],
+            supporting_modules=[
+                summary.path for summary in summaries if summary.file_role == "Supporting File"
+            ],
             dependency_edges={
                 path: list(targets)
                 for path, targets in dependency_graph.dependencies.items()
@@ -105,17 +108,27 @@ class RepositoryIndexer:
         )
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
-        top_files = ", ".join(
+        entry_points = self._paths_for_roles(summaries, {"Entry Point"})
+        core_modules = self._paths_for_roles(summaries, {"Core Module"})
+        supporting_modules = self._paths_for_roles(summaries, {"Supporting File"})
+        hubs = [
             summary.path
             for summary in sorted(
                 summaries,
-                key=lambda summary: (-summary.importance_score, summary.path),
-            )[:20]
-        ) or "none"
+                key=lambda summary: (-summary.fan_in, -summary.importance_score, summary.path),
+            )
+            if summary.is_hub
+        ]
+        dependency_count = sum(summary.fan_out for summary in summaries)
+        cycle_count = sum(summary.in_dependency_cycle for summary in summaries)
         language = self._language_label()
         return (
             f"{language} repository with {total} {language} files; analyzed {len(summaries)} and skipped {skipped}. "
-            f"Important files include: {top_files}."
+            f"Entry points: {self._format_paths(entry_points)}. "
+            f"Core modules: {self._format_paths(core_modules)}. "
+            f"Supporting modules: {self._format_paths(supporting_modules)}. "
+            f"Dependency structure: {dependency_count} resolved internal relationships; "
+            f"hubs: {self._format_paths(hubs)}; {cycle_count} modules participate in cycles."
         )
 
     def _infer_purpose(self, parsed: ParsedSourceFile) -> str:
@@ -143,6 +156,28 @@ class RepositoryIndexer:
             "typescript": "TypeScript",
         }
         return labels.get(self.parser.language, self.parser.language.title())
+
+    @staticmethod
+    def _paths_for_roles(
+        summaries: list[CodeFileSummary],
+        roles: set[str],
+    ) -> list[str]:
+        return [
+            summary.path
+            for summary in sorted(
+                summaries,
+                key=lambda summary: (-summary.importance_score, summary.path),
+            )
+            if summary.file_role in roles
+        ]
+
+    @staticmethod
+    def _format_paths(paths: list[str], limit: int = 8) -> str:
+        if not paths:
+            return "none detected"
+        displayed = ", ".join(paths[:limit])
+        remaining = len(paths) - limit
+        return f"{displayed} (+{remaining} more)" if remaining > 0 else displayed
 
     @staticmethod
     def _trim_words(text: str, limit: int) -> str:
