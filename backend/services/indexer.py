@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.models.review import CodeFileSummary, RepositoryContext
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.dependency_graph import DependencyGraph
 from backend.services.scoring import ScoreInput, score_files
 
 
@@ -17,12 +18,30 @@ class RepositoryIndexer:
         files, total, skipped = self.parser.discover_files(repo_dir, self.max_files, self.max_file_size_bytes)
         parsed_files = [self.parser.parse_file(repo_dir, path) for path in files]
         summaries = [self._summarize_file(parsed) for parsed in parsed_files]
+        dependency_graph = DependencyGraph(self.parser.language).build(parsed_files)
+        cycle_files = {
+            path
+            for cycle in dependency_graph.cycles
+            for path in cycle
+        }
+        hub_files = set(dependency_graph.hub_files)
+        orphan_files = set(dependency_graph.orphan_files)
+        for summary in summaries:
+            summary.dependencies = list(dependency_graph.dependencies[summary.path])
+            summary.fan_in = dependency_graph.fan_in[summary.path]
+            summary.fan_out = dependency_graph.fan_out[summary.path]
+            summary.in_dependency_cycle = summary.path in cycle_files
+            summary.is_hub = summary.path in hub_files
+            summary.is_orphan = summary.path in orphan_files
         scored_files = score_files(
             ScoreInput(
                 path=summary.path,
                 line_count=summary.line_count,
                 complexity_estimate=summary.complexity_estimate,
                 is_entry_point=summary.is_entry_point,
+                fan_in=summary.fan_in,
+                fan_out=summary.fan_out,
+                in_dependency_cycle=summary.in_dependency_cycle,
             )
             for summary in summaries
         )
@@ -55,6 +74,13 @@ class RepositoryIndexer:
             core_modules=[
                 summary.path for summary in summaries if summary.file_role == "Core Module"
             ],
+            dependency_edges={
+                path: list(targets)
+                for path, targets in dependency_graph.dependencies.items()
+            },
+            circular_dependencies=[list(cycle) for cycle in dependency_graph.cycles],
+            hub_files=list(dependency_graph.hub_files),
+            orphan_files=list(dependency_graph.orphan_files),
         )
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:

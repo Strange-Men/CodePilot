@@ -71,3 +71,22 @@ def test_entry_point_detection(path: str, source: str) -> None:
 
 def test_non_bootstrap_module_is_not_an_entry_point() -> None:
     assert not detect_entry_point("services/review.py", "def review():\n    return True")
+
+
+def test_dependency_metrics_increase_normalized_importance() -> None:
+    scored = score_files(
+        [
+            ScoreInput("plain.py", line_count=100, complexity_estimate=10),
+            ScoreInput(
+                "connected.py",
+                line_count=100,
+                complexity_estimate=10,
+                fan_in=3,
+                fan_out=2,
+                in_dependency_cycle=True,
+            ),
+        ]
+    )
+
+    assert scored["connected.py"].score == 100
+    assert scored["plain.py"].score < scored["connected.py"].score

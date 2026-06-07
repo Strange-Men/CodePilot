@@ -31,6 +31,8 @@ def sample_context() -> RepositoryContext:
                 importance_label="Critical",
                 file_role="Entry Point",
                 is_entry_point=True,
+                dependencies=["services/review.py"],
+                fan_out=1,
             ),
             CodeFileSummary(
                 path="services/review.py",
@@ -44,10 +46,17 @@ def sample_context() -> RepositoryContext:
                 importance_score=80.06,
                 importance_label="High",
                 file_role="Core Module",
+                fan_in=1,
+                is_hub=True,
             ),
         ],
         entry_points=["app.py"],
         core_modules=["services/review.py"],
+        dependency_edges={
+            "app.py": ["services/review.py"],
+            "services/review.py": [],
+        },
+        hub_files=["services/review.py"],
     )
 
 

@@ -74,6 +74,7 @@ class JavaScriptParser(SourceParser):
             function_count=self._count_functions(source),
             complexity_estimate=self._estimate_complexity(source),
             is_entry_point=detect_entry_point(relative_path, source),
+            dependency_imports=self._extract_dependency_imports(source),
             exported_symbols=exported_symbols,
         )
 
@@ -102,6 +103,21 @@ class JavaScriptParser(SourceParser):
             for match in re.finditer(pattern, source, re.MULTILINE):
                 imports.append(" ".join(match.group(0).strip().split())[:120])
         return _dedupe(imports)[:12]
+
+    @staticmethod
+    def _extract_dependency_imports(source: str) -> list[str]:
+        imports: list[str] = []
+        patterns = [
+            r"\b(?:import|export)\s+(?:type\s+)?(?:[^;\n]*?\s+from\s+)?['\"](?P<specifier>[^'\"]+)['\"]",
+            r"\brequire\(\s*['\"](?P<specifier>[^'\"]+)['\"]\s*\)",
+            r"\bimport\(\s*['\"](?P<specifier>[^'\"]+)['\"]\s*\)",
+        ]
+        for pattern in patterns:
+            imports.extend(
+                match.group("specifier")
+                for match in re.finditer(pattern, source, re.MULTILINE)
+            )
+        return _dedupe(imports)
 
     @staticmethod
     def _extract_classes(source: str) -> list[str]:

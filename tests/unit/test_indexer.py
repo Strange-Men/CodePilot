@@ -105,3 +105,49 @@ def test_indexer_propagates_entry_points_and_core_modules(temp_repo: Path) -> No
     summaries = {summary.path: summary for summary in context.file_summaries}
     assert summaries["app.py"].file_role == "Entry Point"
     assert summaries["services/review.py"].file_role == "Core Module"
+
+
+def test_indexer_propagates_graph_metrics_and_rescores_files(temp_repo: Path) -> None:
+    parser = StaticParser(
+        [
+            ParsedSourceFile(
+                path="src/caller.py",
+                classes=[],
+                functions=["call"],
+                imports=[],
+                first_docstring=None,
+                line_count=10,
+                function_count=1,
+                complexity_estimate=0,
+                dependency_imports=["src.target"],
+            ),
+            ParsedSourceFile(
+                path="src/target.py",
+                classes=[],
+                functions=["target"],
+                imports=[],
+                first_docstring=None,
+                line_count=10,
+                function_count=1,
+                complexity_estimate=0,
+            ),
+        ]
+    )
+
+    context = RepositoryIndexer(parser, max_files=10, max_file_size_bytes=1000).build_context(
+        temp_repo,
+        "https://github.com/example/project",
+    )
+
+    summaries = {summary.path: summary for summary in context.file_summaries}
+    assert context.dependency_edges == {
+        "src/caller.py": ["src/target.py"],
+        "src/target.py": [],
+    }
+    assert summaries["src/caller.py"].fan_out == 1
+    assert summaries["src/target.py"].fan_in == 1
+    assert summaries["src/target.py"].is_hub
+    assert summaries["src/target.py"].importance_score == 100
+    assert summaries["src/caller.py"].importance_score < summaries["src/target.py"].importance_score
+    assert context.hub_files == ["src/target.py"]
+    assert context.orphan_files == []

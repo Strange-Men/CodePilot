@@ -121,6 +121,10 @@ def test_prompt_groups_files_and_only_details_top_ten(tmp_path: Path, sample_con
     assert "Entry Points:" in prompt
     assert "Core Modules:" in prompt
     assert "Supporting Files:" in prompt
+    assert "Architecture Graph:" in prompt
+    assert "- Hub Files:" in prompt
+    assert "- Circular Dependencies:" in prompt
+    assert "- Orphans:" in prompt
     assert prompt.count("| score=") == 10
     assert "detail-20" in prompt
     assert "detail-11" in prompt
@@ -143,6 +147,9 @@ def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path,
     assert "| File | Lines | Complexity | Score | Label |" in report
     assert "| app.py | 100 | 8 | 100.00 | Critical |" in report
     assert report.index("| app.py |") < report.index("| services/review.py |")
+    assert report.index("# Architecture Graph") > report.index("# Repository Metrics")
+    assert "- Resolved internal dependencies: 1" in report
+    assert "| services/review.py | 1 | 0 | 80.06 |" in report
 
 
 def test_section_order_is_stable(tmp_path: Path, sample_context) -> None:

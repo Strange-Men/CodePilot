@@ -36,6 +36,7 @@ class ReportGenerator:
             f"Total lines: {context.total_lines}",
             f"Average complexity: {context.avg_complexity:.2f}",
             context.repository_summary,
+            *self._architecture_graph_prompt(context),
         ]
         detailed_paths = {
             summary.path for summary in self._top_important_files(context, limit=10)
@@ -68,6 +69,7 @@ class ReportGenerator:
             output.append(f"# {section}\n{body.strip()}")
         if context is not None:
             output.append(self._repository_metrics_section(context))
+            output.append(self._architecture_graph_section(context))
         return "\n\n".join(output) + "\n"
 
     def _repository_metrics_section(self, context: RepositoryContext) -> str:
@@ -94,6 +96,82 @@ class ReportGenerator:
                 )
         else:
             lines.append("| No analyzed files | 0 | 0 | 0.00 | Peripheral |")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _architecture_graph_prompt(context: RepositoryContext) -> list[str]:
+        summaries = {summary.path: summary for summary in context.file_summaries}
+        entry_points = ", ".join(context.entry_points) or "None detected"
+        hubs = ", ".join(
+            f"{path} (fan_in={summaries[path].fan_in})"
+            for path in context.hub_files
+            if path in summaries
+        ) or "None detected"
+        cycles = "; ".join(
+            " -> ".join([*cycle, cycle[0]])
+            for cycle in context.circular_dependencies
+            if cycle
+        ) or "None detected"
+        orphans = ", ".join(context.orphan_files) or "None detected"
+        return [
+            "Architecture Graph:",
+            f"- Entry Points: {entry_points}",
+            f"- Hub Files: {hubs}",
+            f"- Circular Dependencies: {cycles}",
+            f"- Orphans: {orphans}",
+        ]
+
+    @staticmethod
+    def _architecture_graph_section(context: RepositoryContext) -> str:
+        summaries = {summary.path: summary for summary in context.file_summaries}
+        edge_count = sum(len(targets) for targets in context.dependency_edges.values())
+        lines = [
+            "# Architecture Graph",
+            f"- Analyzed nodes: {len(context.file_summaries)}",
+            f"- Resolved internal dependencies: {edge_count}",
+            "",
+            "## Entry Points",
+        ]
+        lines.extend(
+            f"- `{path}`" for path in context.entry_points
+        )
+        if not context.entry_points:
+            lines.append("- None detected.")
+
+        lines.extend(
+            [
+                "",
+                "## Hub Files",
+                "",
+                "| File | Fan In | Fan Out | Score |",
+                "| --- | ---: | ---: | ---: |",
+            ]
+        )
+        hubs = [summaries[path] for path in context.hub_files if path in summaries]
+        if hubs:
+            lines.extend(
+                f"| {summary.path} | {summary.fan_in} | {summary.fan_out} | "
+                f"{summary.importance_score:.2f} |"
+                for summary in hubs
+            )
+        else:
+            lines.append("| None detected | 0 | 0 | 0.00 |")
+
+        lines.extend(["", "## Circular Dependencies"])
+        if context.circular_dependencies:
+            lines.extend(
+                f"- {' -> '.join([*cycle, cycle[0]])}"
+                for cycle in context.circular_dependencies
+                if cycle
+            )
+        else:
+            lines.append("- None detected.")
+
+        lines.extend(["", "## Orphans"])
+        if context.orphan_files:
+            lines.extend(f"- `{path}`" for path in context.orphan_files)
+        else:
+            lines.append("- None detected.")
         return "\n".join(lines)
 
     @staticmethod

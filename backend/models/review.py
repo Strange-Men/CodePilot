@@ -43,6 +43,12 @@ class CodeFileSummary(BaseModel):
     importance_label: str = "Peripheral"
     file_role: str = "Supporting File"
     is_entry_point: bool = False
+    dependencies: list[str] = Field(default_factory=list)
+    fan_in: int = 0
+    fan_out: int = 0
+    in_dependency_cycle: bool = False
+    is_hub: bool = False
+    is_orphan: bool = False
 
 
 class RepositoryContext(BaseModel):
@@ -57,4 +63,8 @@ class RepositoryContext(BaseModel):
     avg_complexity: float = 0.0
     entry_points: list[str] = Field(default_factory=list)
     core_modules: list[str] = Field(default_factory=list)
+    dependency_edges: dict[str, list[str]] = Field(default_factory=dict)
+    circular_dependencies: list[list[str]] = Field(default_factory=list)
+    hub_files: list[str] = Field(default_factory=list)
+    orphan_files: list[str] = Field(default_factory=list)
 

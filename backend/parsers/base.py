@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -16,6 +16,7 @@ class ParsedSourceFile:
     function_count: int = 0
     complexity_estimate: int = 0
     is_entry_point: bool = False
+    dependency_imports: list[str] = field(default_factory=list)
 
 
 class SourceParser(Protocol):

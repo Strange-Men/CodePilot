@@ -98,6 +98,7 @@ class PythonParser(SourceParser):
         walk(root)
         docstring = self._extract_ast_docstring(source)
         line_count, function_count, complexity_estimate = self._calculate_metrics(source)
+        dependency_imports = self._extract_dependency_imports(source)
         return ParsedPythonFile(
             path=relative_path,
             classes=classes,
@@ -108,6 +109,7 @@ class PythonParser(SourceParser):
             function_count=function_count,
             complexity_estimate=complexity_estimate,
             is_entry_point=detect_entry_point(relative_path, source),
+            dependency_imports=dependency_imports,
         )
 
     def _parse_with_ast(self, source: str, relative_path: str) -> ParsedPythonFile:
@@ -146,6 +148,7 @@ class PythonParser(SourceParser):
             function_count=len(functions),
             complexity_estimate=self._estimate_complexity(module),
             is_entry_point=detect_entry_point(relative_path, source),
+            dependency_imports=self._dependency_imports_from_module(module),
         )
 
     @staticmethod
@@ -167,6 +170,30 @@ class PythonParser(SourceParser):
             isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in ast.walk(module)
         )
         return line_count, function_count, cls._estimate_complexity(module)
+
+    @classmethod
+    def _extract_dependency_imports(cls, source: str) -> list[str]:
+        try:
+            module = ast.parse(source)
+        except SyntaxError:
+            return []
+        return cls._dependency_imports_from_module(module)
+
+    @staticmethod
+    def _dependency_imports_from_module(module: ast.AST) -> list[str]:
+        imports: list[str] = []
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                imports.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                prefix = "." * node.level
+                base = prefix + (node.module or "")
+                for alias in node.names:
+                    if alias.name != "*":
+                        imports.append(f"{base}.{alias.name}" if node.module else f"{prefix}{alias.name}")
+                if node.module:
+                    imports.append(base)
+        return list(dict.fromkeys(imports))
 
     @staticmethod
     def _estimate_complexity(module: ast.AST) -> int:

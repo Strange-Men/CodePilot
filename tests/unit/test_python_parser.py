@@ -27,6 +27,8 @@ def test_parse_valid_python_file(temp_repo: Path) -> None:
     assert "create_app" in parsed.functions
     assert parsed.imports
     assert parsed.first_docstring == "Application module."
+    assert "os" in parsed.dependency_imports
+    assert "pathlib.Path" in parsed.dependency_imports
 
 
 def test_parse_syntax_error_file_returns_safe_result(temp_repo: Path) -> None:
@@ -158,3 +160,19 @@ def test_parse_file_handles_non_ascii_before_imports_regression(temp_repo: Path)
 
     assert parsed.path == "enterprise_edge.py"
     assert parsed.imports == ["import os"]
+
+
+def test_python_parser_preserves_relative_dependency_imports(temp_repo: Path) -> None:
+    source = temp_repo / "pkg" / "module.py"
+    source.parent.mkdir()
+    source.write_text(
+        "from . import sibling\n"
+        "from ..core import service\n",
+        encoding="utf-8",
+    )
+
+    parsed = PythonParser().parse_file(temp_repo, source)
+
+    assert ".sibling" in parsed.dependency_imports
+    assert "..core.service" in parsed.dependency_imports
+    assert "..core" in parsed.dependency_imports

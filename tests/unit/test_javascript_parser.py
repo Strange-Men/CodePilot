@@ -28,6 +28,7 @@ def test_parse_javascript_extracts_imports_classes_functions_and_exports(temp_re
     assert parsed.functions == ["renderWidget", "createWidget"]
     assert parsed.exported_symbols == ["Widget", "renderWidget", "createWidget", "buildWidget"]
     assert parsed.first_docstring == "Public API module."
+    assert parsed.dependency_imports == ["react", "fs"]
 
 
 def test_parse_typescript_extracts_typescript_exports(temp_repo: Path) -> None:
@@ -149,3 +150,18 @@ def test_javascript_metrics_use_lightweight_pattern_counts(temp_repo: Path) -> N
     assert parsed.line_count == 9
     assert parsed.function_count == 2
     assert parsed.complexity_estimate == 7
+
+
+def test_javascript_parser_preserves_relative_dependency_imports(temp_repo: Path) -> None:
+    source = temp_repo / "src" / "module.ts"
+    source.parent.mkdir()
+    source.write_text(
+        "import value from './value';\n"
+        "export { helper } from './helpers';\n"
+        "const lazy = import('./lazy');\n",
+        encoding="utf-8",
+    )
+
+    parsed = TypeScriptParser().parse_file(temp_repo, source)
+
+    assert parsed.dependency_imports == ["./value", "./helpers", "./lazy"]

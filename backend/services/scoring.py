@@ -59,6 +59,9 @@ class ScoreInput:
     line_count: int
     complexity_estimate: int
     is_entry_point: bool = False
+    fan_in: int = 0
+    fan_out: int = 0
+    in_dependency_cycle: bool = False
 
 
 @dataclass(frozen=True)
@@ -144,7 +147,10 @@ def is_documentation_file(path: str) -> bool:
 
 
 def _base_score(file: ScoreInput) -> float:
-    return (file.line_count * 0.3) + (file.complexity_estimate * 0.7)
+    graph_score = (file.fan_in * 8.0) + (file.fan_out * 2.0)
+    if file.in_dependency_cycle:
+        graph_score += 10.0
+    return (file.line_count * 0.3) + (file.complexity_estimate * 0.7) + graph_score
 
 
 def _score_modifier(path: str) -> float:
