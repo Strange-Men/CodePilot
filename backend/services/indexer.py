@@ -17,6 +17,12 @@ class RepositoryIndexer:
         parsed_files = [self.parser.parse_file(repo_dir, path) for path in files]
         summaries = [self._summarize_file(parsed) for parsed in parsed_files]
         repo_summary = self._summarize_repository(summaries, total, skipped)
+        total_lines = sum(summary.line_count for summary in summaries)
+        avg_complexity = (
+            sum(summary.complexity_estimate for summary in summaries) / len(summaries)
+            if summaries
+            else 0.0
+        )
 
         return RepositoryContext(
             repo_url=repo_url,
@@ -26,6 +32,8 @@ class RepositoryIndexer:
             file_summaries=summaries,
             repository_summary=repo_summary,
             language=self._language_label(),
+            total_lines=total_lines,
+            avg_complexity=avg_complexity,
         )
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:
@@ -43,10 +51,20 @@ class RepositoryIndexer:
             functions=parsed.functions[:30],
             purpose=purpose,
             summary=self._trim_words(summary, 170),
+            line_count=parsed.line_count,
+            function_count=parsed.function_count,
+            complexity_estimate=parsed.complexity_estimate,
+            importance_score=(parsed.line_count * 0.3) + (parsed.complexity_estimate * 0.7),
         )
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
-        top_files = ", ".join(summary.path for summary in summaries[:20]) or "none"
+        top_files = ", ".join(
+            summary.path
+            for summary in sorted(
+                summaries,
+                key=lambda summary: (-summary.importance_score, summary.path),
+            )[:20]
+        ) or "none"
         language = self._language_label()
         return (
             f"{language} repository with {total} {language} files; analyzed {len(summaries)} and skipped {skipped}. "

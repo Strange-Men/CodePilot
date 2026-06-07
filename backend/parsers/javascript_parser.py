@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
@@ -25,7 +25,7 @@ SCRIPT_EXTENSIONS = JAVASCRIPT_EXTENSIONS | TYPESCRIPT_EXTENSIONS
 
 @dataclass(frozen=True)
 class ParsedJavaScriptFile(ParsedSourceFile):
-    exported_symbols: list[str]
+    exported_symbols: list[str] = field(default_factory=list)
 
 
 class JavaScriptParser(SourceParser):
@@ -69,8 +69,23 @@ class JavaScriptParser(SourceParser):
             functions=functions,
             imports=imports,
             first_docstring=self._extract_leading_comment(source),
+            line_count=len(source.splitlines()),
+            function_count=self._count_functions(source),
+            complexity_estimate=self._estimate_complexity(source),
             exported_symbols=exported_symbols,
         )
+
+    @staticmethod
+    def _count_functions(source: str) -> int:
+        return len(re.findall(r"\bfunction\b", source)) + source.count("=>")
+
+    @staticmethod
+    def _estimate_complexity(source: str) -> int:
+        control_flow = sum(
+            len(re.findall(rf"\b{keyword}\b", source))
+            for keyword in ("if", "for", "while", "catch")
+        )
+        return control_flow + source.count("&&") + source.count("||") + source.count("?")
 
     @staticmethod
     def _extract_imports(source: str) -> list[str]:

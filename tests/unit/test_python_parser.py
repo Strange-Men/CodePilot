@@ -54,6 +54,33 @@ def test_parse_empty_file(temp_repo: Path) -> None:
     assert parsed.classes == []
     assert parsed.functions == []
     assert parsed.first_docstring is None
+    assert parsed.line_count == 0
+    assert parsed.function_count == 0
+    assert parsed.complexity_estimate == 0
+
+
+def test_python_metrics_count_lines_functions_and_control_flow(temp_repo: Path) -> None:
+    source = temp_repo / "metrics.py"
+    source.write_text(
+        "def evaluate(items, enabled):\n"
+        "    assert items\n"
+        "    if enabled and items:\n"
+        "        for item in items:\n"
+        "            while item:\n"
+        "                break\n"
+        "    try:\n"
+        "        with open('value.txt') as handle:\n"
+        "            return handle.read()\n"
+        "    except OSError:\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+
+    parsed = PythonParser().parse_file(temp_repo, source)
+
+    assert parsed.line_count == 11
+    assert parsed.function_count == 1
+    assert parsed.complexity_estimate == 7
 
 
 def test_discover_skips_large_file(temp_repo: Path) -> None:

@@ -36,6 +36,10 @@ class CodeFileSummary(BaseModel):
     functions: list[str] = Field(default_factory=list)
     purpose: str
     summary: str
+    line_count: int = 0
+    function_count: int = 0
+    complexity_estimate: int = 0
+    importance_score: float = 0.0
 
 
 class RepositoryContext(BaseModel):
@@ -46,4 +50,6 @@ class RepositoryContext(BaseModel):
     file_summaries: list[CodeFileSummary]
     repository_summary: str
     language: str = "Python"
+    total_lines: int = 0
+    avg_complexity: float = 0.0
 

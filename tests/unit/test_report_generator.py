@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.core.report_contract import load_report_sections
 from backend.llm.client import REPORT_SECTIONS, MockLLMClient
+from backend.models.review import CodeFileSummary
 from backend.reviewers.report_generator import ReportGenerator
 
 
@@ -35,6 +36,7 @@ def test_valid_report_generation_writes_markdown(tmp_path: Path, sample_context)
     assert_report_shape(report)
     assert export_path == tmp_path / "task-1.md"
     assert export_path.read_text(encoding="utf-8") == report
+    assert "# Repository Metrics" in report
 
 
 def test_mock_mode_generates_required_sections(sample_context) -> None:
@@ -88,6 +90,45 @@ def test_prompt_budget_trims_large_context(tmp_path: Path, sample_context) -> No
     prompt = ReportGenerator(StaticLLM(""), tmp_path, prompt_token_budget=20)._build_prompt(sample_context)
 
     assert len(prompt.split()) <= 15
+
+
+def test_prompt_includes_metrics_and_only_top_twenty_files(tmp_path: Path, sample_context) -> None:
+    sample_context.file_summaries = [
+        CodeFileSummary(
+            path=f"file-{index:02}.py",
+            purpose="Test file.",
+            summary=f"detail-{index}",
+            line_count=index,
+            complexity_estimate=index,
+            importance_score=float(index),
+        )
+        for index in range(21)
+    ]
+
+    prompt = ReportGenerator(StaticLLM(""), tmp_path, 5000)._build_prompt(sample_context)
+
+    assert "Repository Metrics:" in prompt
+    assert "- Total lines: 150" in prompt
+    assert "- Average complexity: 6.50" in prompt
+    assert prompt.count("| lines=") == 20
+    assert "detail-20" in prompt
+    assert "detail-1" in prompt
+    assert "detail-0" not in prompt
+    assert prompt.index("file-20.py") < prompt.index("file-19.py")
+
+
+def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path, sample_context) -> None:
+    report, _ = ReportGenerator(
+        StaticLLM("# Architecture Summary\nArchitecture."),
+        tmp_path,
+        5000,
+    ).generate("task-1", sample_context)
+
+    assert report.index("# Repository Metrics") > report.index("# Refactoring Suggestions")
+    assert "- Total lines: 150" in report
+    assert "- Average complexity: 6.50" in report
+    assert "| File | Lines | Complexity | Importance |" in report
+    assert report.index("| app.py |") < report.index("| services/review.py |")
 
 
 def test_section_order_is_stable(tmp_path: Path, sample_context) -> None:

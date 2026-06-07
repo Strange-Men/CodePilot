@@ -127,3 +127,25 @@ def test_javascript_parser_handles_invalid_utf8_without_crashing(temp_repo: Path
     assert parsed.path == "invalid.js"
     assert parsed.functions == []
     assert parsed.exported_symbols == ["name"]
+
+
+def test_javascript_metrics_use_lightweight_pattern_counts(temp_repo: Path) -> None:
+    source = temp_repo / "metrics.js"
+    source.write_text(
+        "export function run(value) {\n"
+        "  if (value && ready || fallback) {\n"
+        "    for (const item of values) {\n"
+        "      while (item.active) break;\n"
+        "    }\n"
+        "  }\n"
+        "  try { return value ? value : fallback; } catch (error) { return null; }\n"
+        "}\n"
+        "export const choose = () => true;\n",
+        encoding="utf-8",
+    )
+
+    parsed = JavaScriptParser().parse_file(temp_repo, source)
+
+    assert parsed.line_count == 9
+    assert parsed.function_count == 2
+    assert parsed.complexity_estimate == 7

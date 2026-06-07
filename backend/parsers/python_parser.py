@@ -96,13 +96,30 @@ class PythonParser(SourceParser):
 
         walk(root)
         docstring = self._extract_ast_docstring(source)
-        return ParsedPythonFile(relative_path, classes, functions, imports[:12], docstring)
+        line_count, function_count, complexity_estimate = self._calculate_metrics(source)
+        return ParsedPythonFile(
+            path=relative_path,
+            classes=classes,
+            functions=functions,
+            imports=imports[:12],
+            first_docstring=docstring,
+            line_count=line_count,
+            function_count=function_count,
+            complexity_estimate=complexity_estimate,
+        )
 
     def _parse_with_ast(self, source: str, relative_path: str) -> ParsedPythonFile:
         try:
             module = ast.parse(source)
         except SyntaxError:
-            return ParsedPythonFile(relative_path, [], [], [], None)
+            return ParsedPythonFile(
+                path=relative_path,
+                classes=[],
+                functions=[],
+                imports=[],
+                first_docstring=None,
+                line_count=len(source.splitlines()),
+            )
 
         classes = [node.name for node in ast.walk(module) if isinstance(node, ast.ClassDef)]
         functions = [
@@ -116,7 +133,16 @@ class PythonParser(SourceParser):
                 imports.extend(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.append(node.module)
-        return ParsedPythonFile(relative_path, classes, functions, imports[:12], ast.get_docstring(module))
+        return ParsedPythonFile(
+            path=relative_path,
+            classes=classes,
+            functions=functions,
+            imports=imports[:12],
+            first_docstring=ast.get_docstring(module),
+            line_count=len(source.splitlines()),
+            function_count=len(functions),
+            complexity_estimate=self._estimate_complexity(module),
+        )
 
     @staticmethod
     def _extract_ast_docstring(source: str) -> str | None:
@@ -125,6 +151,38 @@ class PythonParser(SourceParser):
         except SyntaxError:
             return None
         return ast.get_docstring(module)
+
+    @classmethod
+    def _calculate_metrics(cls, source: str) -> tuple[int, int, int]:
+        line_count = len(source.splitlines())
+        try:
+            module = ast.parse(source)
+        except SyntaxError:
+            return line_count, 0, 0
+        function_count = sum(
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in ast.walk(module)
+        )
+        return line_count, function_count, cls._estimate_complexity(module)
+
+    @staticmethod
+    def _estimate_complexity(module: ast.AST) -> int:
+        complexity = 0
+        control_flow_nodes = (
+            ast.If,
+            ast.For,
+            ast.AsyncFor,
+            ast.While,
+            ast.ExceptHandler,
+            ast.With,
+            ast.AsyncWith,
+            ast.Assert,
+        )
+        for node in ast.walk(module):
+            if isinstance(node, control_flow_nodes):
+                complexity += 1
+            elif isinstance(node, ast.BoolOp):
+                complexity += max(0, len(node.values) - 1)
+        return complexity
 
     @staticmethod
     def _importance_key(path: Path) -> tuple[int, int, str]:

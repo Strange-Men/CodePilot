@@ -13,16 +13,18 @@ export const STATUS_LABELS: Record<ReviewStatus, string> = {
 };
 
 export const orderedSections = reportContract.sections.map((section) => section.title);
+export const repositoryMetricsSection = "Repository Metrics";
 
 export const terminalStatuses: ReviewStatus[] = ["completed", "failed"];
 
 export function parseReport(markdown: string): Record<string, string> {
   const sections: Record<string, string> = {};
   let current = "";
+  const recognizedSections = [...orderedSections, repositoryMetricsSection];
 
   for (const line of markdown.split("\n")) {
     const heading = line.replace(/^#+\s*/, "").trim();
-    if (orderedSections.includes(heading)) {
+    if (recognizedSections.includes(heading)) {
       current = heading;
       sections[current] = "";
       continue;

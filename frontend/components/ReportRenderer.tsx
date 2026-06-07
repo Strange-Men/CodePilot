@@ -1,7 +1,7 @@
 import { Github, RefreshCcw } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { orderedSections, parseReport } from "@/lib/report";
+import { orderedSections, parseReport, repositoryMetricsSection } from "@/lib/report";
 
 type ReportRendererProps = {
   isRunning: boolean;
@@ -14,6 +14,18 @@ export function ReportRenderer({ isRunning, reportMarkdown }: ReportRendererProp
   if (reportMarkdown) {
     return (
       <>
+        {sections[repositoryMetricsSection] ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{repositoryMetricsSection}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {sections[repositoryMetricsSection]}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
         {orderedSections.map((section) => (
           <Card key={section}>
             <CardHeader>

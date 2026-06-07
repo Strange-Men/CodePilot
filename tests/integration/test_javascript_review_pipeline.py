@@ -56,5 +56,8 @@ def test_javascript_repository_report_uses_javascript_language(tmp_path: Path) -
     assert result.analyzed_files == 1
     assert result.skipped_files == 0
     assert all(f"# {section}" in row["report_markdown"] for section in REPORT_SECTIONS)
+    assert "# Repository Metrics" in row["report_markdown"]
+    assert "- Total lines: 3" in row["report_markdown"]
+    assert "| src/index.js | 3 | 0 | 0.90 |" in row["report_markdown"]
     assert "JavaScript application" in row["report_markdown"]
     assert "Python application" not in row["report_markdown"]

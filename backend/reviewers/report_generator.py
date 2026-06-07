@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.core.report_contract import REPORT_SECTIONS, numbered_report_section_lines
 from backend.llm.client import LLMClient
-from backend.models.review import RepositoryContext
+from backend.models.review import CodeFileSummary, RepositoryContext
 
 
 class ReportGenerator:
@@ -16,7 +16,7 @@ class ReportGenerator:
     def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
         prompt = self._build_prompt(context)
         raw_report = self.llm_client.generate_review(prompt)
-        report = self._normalize_report(raw_report)
+        report = self._normalize_report(raw_report, context)
         export_path = self.reports_path / f"{task_id}.md"
         export_path.write_text(report, encoding="utf-8")
         return report, export_path
@@ -33,10 +33,17 @@ class ReportGenerator:
             f"Analyzed files: {context.analyzed_files}",
             f"Skipped files: {context.skipped_files}",
             f"Repository summary: {context.repository_summary}",
-            "File summaries:",
+            "Repository Metrics:",
+            f"- Total lines: {context.total_lines}",
+            f"- Average complexity: {context.avg_complexity:.2f}",
+            "Top Important Files:",
         ]
-        for summary in context.file_summaries:
-            lines.append(f"- {summary.summary}")
+        for summary in self._top_important_files(context):
+            lines.append(
+                f"- {summary.path} | lines={summary.line_count} | functions={summary.function_count} | "
+                f"complexity={summary.complexity_estimate} | importance={summary.importance_score:.2f} | "
+                f"{summary.summary}"
+            )
 
         prompt = "\n".join(lines)
         words = prompt.split()
@@ -45,13 +52,46 @@ class ReportGenerator:
             prompt = " ".join(words[:max_words])
         return prompt
 
-    def _normalize_report(self, report: str) -> str:
+    def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         sections = self._extract_sections(report)
         output: list[str] = []
         for section in REPORT_SECTIONS:
             body = sections.get(section) or "No critical findings detected from the available repository summaries."
             output.append(f"# {section}\n{body.strip()}")
+        if context is not None:
+            output.append(self._repository_metrics_section(context))
         return "\n\n".join(output) + "\n"
+
+    def _repository_metrics_section(self, context: RepositoryContext) -> str:
+        lines = [
+            "# Repository Metrics",
+            f"- Total source files: {context.total_python_files}",
+            f"- Analyzed files: {context.analyzed_files}",
+            f"- Skipped files: {context.skipped_files}",
+            f"- Total lines: {context.total_lines}",
+            f"- Average complexity: {context.avg_complexity:.2f}",
+            "",
+            "| File | Lines | Complexity | Importance |",
+            "| --- | ---: | ---: | ---: |",
+        ]
+        top_files = self._top_important_files(context)
+        if top_files:
+            for summary in top_files:
+                path = summary.path.replace("|", r"\|")
+                lines.append(
+                    f"| {path} | {summary.line_count} | {summary.complexity_estimate} | "
+                    f"{summary.importance_score:.2f} |"
+                )
+        else:
+            lines.append("| No analyzed files | 0 | 0 | 0.00 |")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _top_important_files(context: RepositoryContext) -> list[CodeFileSummary]:
+        return sorted(
+            context.file_summaries,
+            key=lambda summary: (-summary.importance_score, summary.path),
+        )[:20]
 
     @staticmethod
     def _extract_sections(report: str) -> dict[str, str]:

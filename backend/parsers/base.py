@@ -12,6 +12,9 @@ class ParsedSourceFile:
     functions: list[str]
     imports: list[str]
     first_docstring: str | None
+    line_count: int = 0
+    function_count: int = 0
+    complexity_estimate: int = 0
 
 
 class SourceParser(Protocol):
