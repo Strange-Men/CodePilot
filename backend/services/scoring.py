@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -40,6 +41,18 @@ CORE_PATH_PARTS = {
 }
 DOCUMENTATION_PATH_PARTS = {"doc", "docs", "documentation", "examples"}
 TEST_PATH_PARTS = {"test", "tests", "__tests__"}
+CONFIGURATION_NAMES = {
+    "config.py",
+    "settings.py",
+    "conftest.py",
+    "next.config.js",
+    "next.config.mjs",
+    "next.config.ts",
+    "vite.config.js",
+    "vite.config.ts",
+    "webpack.config.js",
+    "webpack.config.ts",
+}
 FRAMEWORK_BOOTSTRAP_MARKERS = {
     "@nestjs/core",
     "createapp(",
@@ -87,22 +100,17 @@ def detect_entry_point(path: str, source: str) -> bool:
 
 def score_files(files: Iterable[ScoreInput]) -> dict[str, ScoredFile]:
     score_inputs = list(files)
-    adjusted_scores = {
-        file.path: max(0.0, _base_score(file) + _score_modifier(file.path))
-        for file in score_inputs
-    }
-    maximum = max(adjusted_scores.values(), default=0.0)
 
     scored: dict[str, ScoredFile] = {}
     for file in score_inputs:
-        adjusted = adjusted_scores[file.path]
-        normalized = (adjusted / maximum * 100.0) if maximum > 0 else 0.0
-        score = round(min(100.0, max(0.0, normalized)), 2)
+        role = file_role(file.path, file.is_entry_point, file.fan_in)
+        adjusted = max(0.0, _base_score(file) + _score_modifier(role))
+        score = round(100.0 * (1.0 - math.exp(-adjusted / 120.0)), 2)
         scored[file.path] = ScoredFile(
             path=file.path,
             score=score,
             label=importance_label(score),
-            role=file_role(file.path, file.is_entry_point),
+            role=role,
         )
     return scored
 
@@ -119,12 +127,18 @@ def importance_label(score: float) -> str:
     return "Peripheral"
 
 
-def file_role(path: str, is_entry_point: bool) -> str:
+def file_role(path: str, is_entry_point: bool, fan_in: int = 0) -> str:
+    if is_test_file(path):
+        return "Test File"
+    if is_documentation_file(path):
+        return "Documentation"
+    if is_configuration_file(path):
+        return "Configuration"
     if is_entry_point:
         return "Entry Point"
-    if is_core_module(path):
+    if is_core_module(path) or fan_in >= 2:
         return "Core Module"
-    return "Supporting File"
+    return "Supporting Module"
 
 
 def is_core_module(path: str) -> bool:
@@ -146,6 +160,11 @@ def is_documentation_file(path: str) -> bool:
     return bool(_path_parts(path) & DOCUMENTATION_PATH_PARTS)
 
 
+def is_configuration_file(path: str) -> bool:
+    name = PurePosixPath(path.replace("\\", "/").lower()).name
+    return name in CONFIGURATION_NAMES or ".config." in name
+
+
 def _base_score(file: ScoreInput) -> float:
     graph_score = (file.fan_in * 8.0) + (file.fan_out * 2.0)
     if file.in_dependency_cycle:
@@ -153,15 +172,14 @@ def _base_score(file: ScoreInput) -> float:
     return (file.line_count * 0.3) + (file.complexity_estimate * 0.7) + graph_score
 
 
-def _score_modifier(path: str) -> float:
-    modifier = 0.0
-    if is_test_file(path):
-        modifier -= 20.0
-    if is_documentation_file(path):
-        modifier -= 25.0
-    if is_core_module(path):
-        modifier += 10.0
-    return modifier
+def _score_modifier(role: str) -> float:
+    return {
+        "Entry Point": 15.0,
+        "Core Module": 10.0,
+        "Test File": -20.0,
+        "Documentation": -25.0,
+        "Configuration": -5.0,
+    }.get(role, 0.0)
 
 
 def _path_parts(path: str) -> set[str]:

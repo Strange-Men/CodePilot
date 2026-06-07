@@ -5,7 +5,7 @@ from pathlib import Path
 from backend.models.review import CodeFileSummary, RepositoryContext
 from backend.parsers.base import ParsedSourceFile, SourceParser
 from backend.services.dependency_graph import DependencyGraph
-from backend.services.scoring import ScoreInput, score_files
+from backend.services.scoring import ScoreInput, file_role, score_files
 
 
 class RepositoryIndexer:
@@ -75,7 +75,9 @@ class RepositoryIndexer:
                 summary.path for summary in summaries if summary.file_role == "Core Module"
             ],
             supporting_modules=[
-                summary.path for summary in summaries if summary.file_role == "Supporting File"
+                summary.path
+                for summary in summaries
+                if summary.file_role in {"Supporting File", "Supporting Module"}
             ],
             dependency_edges={
                 path: list(targets)
@@ -110,7 +112,10 @@ class RepositoryIndexer:
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
         entry_points = self._paths_for_roles(summaries, {"Entry Point"})
         core_modules = self._paths_for_roles(summaries, {"Core Module"})
-        supporting_modules = self._paths_for_roles(summaries, {"Supporting File"})
+        supporting_modules = self._paths_for_roles(
+            summaries,
+            {"Supporting File", "Supporting Module"},
+        )
         hubs = [
             summary.path
             for summary in sorted(
@@ -135,18 +140,37 @@ class RepositoryIndexer:
         lower_path = parsed.path.lower()
         if parsed.first_docstring:
             return " ".join(parsed.first_docstring.split())[:220]
+        role = file_role(parsed.path, parsed.is_entry_point)
+        if role == "Entry Point":
+            return "Bootstraps the application and connects top-level runtime components."
+        if role == "Test File":
+            return "Contains tests, fixtures, or validation helpers."
+        if role == "Documentation":
+            return "Provides executable examples or documentation-adjacent source."
+        if role == "Configuration":
+            return "Defines application, tooling, or test configuration."
         if "api" in lower_path or "router" in lower_path:
             return "Defines web API endpoints or request routing."
-        if "model" in lower_path or parsed.classes:
-            return "Defines data models or object-oriented domain behavior."
-        if "test" in lower_path:
-            return "Contains tests or validation helpers."
         if "service" in lower_path:
             return "Implements application service logic."
         if "parser" in lower_path:
             return "Parses source code or input data."
+        dependency_count = len(parsed.dependency_imports or parsed.imports)
+        if dependency_count >= 3 and parsed.functions:
+            return "Coordinates several imported components through application workflows."
+        if parsed.classes and parsed.functions:
+            return "Implements object-oriented domain behavior with supporting operations."
+        if "model" in lower_path or parsed.classes:
+            return "Defines data models or object-oriented domain behavior."
+        exported_symbols = getattr(parsed, "exported_symbols", [])
+        if exported_symbols:
+            return "Defines a public module interface for reusable application behavior."
+        if len(parsed.functions) >= 5:
+            return "Groups a substantial set of related application operations."
         if parsed.functions:
             return "Provides reusable functions for application behavior."
+        if dependency_count:
+            return "Composes imported modules without exposing substantial local behavior."
         return f"{self._language_label()} module with limited top-level structure detected."
 
     def _language_label(self) -> str:

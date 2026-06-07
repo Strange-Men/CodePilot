@@ -59,6 +59,6 @@ def test_javascript_repository_report_uses_javascript_language(tmp_path: Path) -
     assert "# Repository Metrics" in row["report_markdown"]
     assert "# Architecture Graph" in row["report_markdown"]
     assert "- Total lines: 3" in row["report_markdown"]
-    assert "| src/index.js | 3 | 0 | 100.00 | Critical |" in row["report_markdown"]
+    assert "| src/index.js | 3 | 0 | 12.41 | Peripheral |" in row["report_markdown"]
     assert "JavaScript application" in row["report_markdown"]
     assert "Python application" not in row["report_markdown"]

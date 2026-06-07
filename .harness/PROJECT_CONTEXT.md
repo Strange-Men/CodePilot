@@ -1,12 +1,12 @@
 # CodePilot - Project Context
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
-> Repository reality checked: 2026-06-05
+> Last updated: 2026-06-07
+> Repository reality checked: 2026-06-07
 
 ## Current Version
 
-CodePilot is at V2.0.1 release-integrity state: production-ready MVP foundation plus JavaScript/TypeScript parser support through the existing parser registry, automatic parser selection, evaluation threshold enforcement, JS/TS malformed-source safety coverage, and 66 collected tests.
+CodePilot is at V2.4 repository-intelligence hardening state: Python/JavaScript/TypeScript parsing, repository metrics, dependency graph analysis, calibrated file scoring, structural roles and purpose inference, graph-aware prompts, resilient LLM calls, rich Markdown rendering, and 131 collected tests.
 
 ## Release History
 
@@ -15,6 +15,10 @@ CodePilot is at V2.0.1 release-integrity state: production-ready MVP foundation 
 | V1.0 | Recorded before Harness install | `bd83f28` to `627dba4` | MVP clone -> parse -> context -> review -> export pipeline |
 | V1.1 | 2026-06-05 | `9fb290d` to `544d4d4` | 44 tests, ruff, Windows CI, Docker Compose, Vercel frontend, Render Docker backend |
 | Harness V1.2 | 2026-06-05 | In progress | Evaluation harness, regression harness, Harness audit enforcement |
+| V2.1 | 2026-06-07 | `871f6b6` | Repository/file metrics, importance ranking, prompt optimization, metrics export |
+| V2.2 | 2026-06-07 | `df36f77` | Scoring intelligence, entry-point detection, file roles, rich Markdown reports |
+| V2.3 | 2026-06-07 | `15a1121` | Internal dependency graph, fan-in/out, hubs, cycles, orphans, graph-aware scoring |
+| V2.4 | 2026-06-07 | `f8be650` onward | CI audit repair, LLM retries, structural architecture context, calibrated scoring, quality coverage |
 
 ## Architecture Summary
 
@@ -27,7 +31,9 @@ FastAPI backend
   -> clone public GitHub repo
   -> orchestrate review lifecycle through ReviewPipeline
   -> select a registered parser based on repository files
-  -> build RepositoryContext
+  -> calculate file metrics and dependency graph
+  -> classify roles, infer purpose, and score files
+  -> build graph-aware RepositoryContext
   -> inject selected LLMClient into report generation
   -> generate normalized shared-contract four-section report
   -> persist in SQLite
@@ -38,11 +44,11 @@ Backend modules:
 
 - `backend/api` - Review routes.
 - `backend/core` - Settings, environment loading, shared report contract loading, and logger setup.
-- `backend/llm` - Mock and OpenAI-compatible LLM clients selected at the runner composition boundary.
+- `backend/llm` - Mock and retrying OpenAI-compatible LLM clients selected at the runner composition boundary.
 - `backend/models` - Pydantic schemas and review status enum.
 - `backend/parsers` - Parser protocol, parser registry, registered Python parser, and JavaScript/TypeScript parser/file discovery.
-- `backend/reviewers` - Prompt building, report normalization, Markdown export.
-- `backend/services` - Clone service and repository indexer.
+- `backend/reviewers` - Graph-aware prompt building, report normalization, metrics/architecture appendices, Markdown export.
+- `backend/services` - Clone service, repository indexer, dependency graph, and calibrated scoring.
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
 
@@ -96,15 +102,15 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 3. Install `backend/requirements-dev.txt`.
 4. Run `ruff check .`.
 5. Run `pytest`.
-6. Set up Node 20 with npm cache.
-7. Run `python scripts/audit_harness.py --output harness-audit.json`.
+6. Run `python scripts/audit_harness.py --output harness-audit.json`.
+7. Set up Node 20 with npm cache.
 8. Run `npm ci` in `frontend`.
 9. Run `npm run build` in `frontend`.
 
 ## Test State
 
-- `pytest --collect-only -q` collected 66 tests on 2026-06-05.
-- Unit tests: 56 collected across clone service, Python parser, JavaScript/TypeScript parser, parser registry, report generator, evaluation metrics, review store, and task runner/pipeline delegation.
+- `pytest --collect-only -q` collected 131 tests on 2026-06-07.
+- Unit tests: 121 collected across clone service, parsers, parser registry, metrics, dependency graph, scoring, purpose inference, LLM retries, report generation, evaluation, storage, and task orchestration.
 - Integration tests: 9 collected for review API routes and JS/TS review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
@@ -137,12 +143,12 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `CORS_ALLOW_ORIGIN_REGEX` | `https?://(localhost|127\.0\.0\.1):\d+` | Local dev origin regex. |
 | `MAX_FILES` | `300` | Maximum source files analyzed. |
 | `MAX_FILE_SIZE_BYTES` | `204800` | Per-file size limit. |
-| `FINAL_PROMPT_TOKEN_BUDGET` | `5000` | Prompt word budget. |
+| `FINAL_PROMPT_TOKEN_BUDGET` | `5000` | Approximate prompt token budget. |
 | `NEXT_PUBLIC_API_BASE` | `http://localhost:8000` | Frontend API base URL. |
 
 ## Known Constraints
 
-1. Parser only analyzes `.py` files.
+1. Each review selects one registered repository language; mixed-language analysis is not yet combined.
 2. Repository access is public GitHub HTTPS only.
 3. Review execution is in-process with two worker threads.
 4. Cloned repositories are temporary and should be cleaned after each task.
@@ -155,7 +161,6 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | Directory | Current State | Intended Use |
 |-----------|---------------|--------------|
 | `agents/` | Empty/reserved project area | Future multi-agent review orchestration. |
-| `graph/` | Empty/reserved project area | Future code graph and dependency analysis. |
 | `mcp/` | Empty/reserved project area | Future MCP integration. |
 
 ## Cross-References

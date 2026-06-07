@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 117 tests.
+`pytest --collect-only -q` collected 131 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 107 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
+| Unit | 121 | 13 | Validate isolated backend services, parsers, repository intelligence, LLM behavior, report generation, evaluation metrics, storage, and task runner. |
 | Integration | 9 | 2 | Validate FastAPI review endpoints and JS/TS review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -23,7 +23,7 @@
 | `tests/unit/test_dependency_graph.py` | 4 | Internal dependency resolution, fan-in/fan-out, hubs, fan-in-based orphans, and cycle detection for Python and TypeScript. |
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 4 | Evaluation dataset results preserve parser stats and enforce source-file thresholds. |
-| `tests/unit/test_indexer.py` | 3 | Repository/file metric propagation, role propagation, graph metrics, and graph-aware rescoring. |
+| `tests/unit/test_indexer.py` | 8 | Repository/file metric propagation, role propagation, graph-aware rescoring, and structural purpose inference. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
 | `tests/unit/test_llm_client.py` | 12 | OpenAI-compatible requests, transient retries, exponential backoff, retry limits, permanent failures, credentials, and deterministic mock mode. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
@@ -31,7 +31,7 @@
 | `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
 | `tests/unit/test_review_store.py` | 6 | DB initialization, WAL mode, CRUD, errors, report preservation, missing task. |
 | `tests/unit/test_review_task_runner.py` | 6 | Submit behavior, successful run, failure path, status progression, parser registry handoff, JS parser selection. |
-| `tests/unit/test_scoring.py` | 23 | Importance labels, normalized scoring, path modifiers, entry-point detection, and dependency-aware importance. |
+| `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 
 ## Integration Tests
 
@@ -117,7 +117,7 @@ powershell -File scripts/smoke-backend.ps1
 
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| Frontend component tests | Medium | No React Testing Library or browser test setup yet. |
+| Frontend component breadth | Medium | Markdown rendering is covered; submission, polling, and status components still lack focused tests. |
 | End-to-end browser tests | Low | No Playwright/Cypress setup. |
 | Real LLM client live tests | Low | Requires external credentials and may be flaky/costly. |
 | Performance tests | Low | V1.1 relies on functional and smoke coverage. |

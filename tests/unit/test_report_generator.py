@@ -91,11 +91,13 @@ def test_extra_sections_are_not_preserved(tmp_path: Path, sample_context) -> Non
 
 def test_prompt_budget_trims_large_context(tmp_path: Path, sample_context) -> None:
     sample_context.file_summaries[0].summary = "word " * 100
+    full_prompt = ReportGenerator(StaticLLM(""), tmp_path, prompt_token_budget=5000)._build_prompt(sample_context)
 
     prompt = ReportGenerator(StaticLLM(""), tmp_path, prompt_token_budget=20)._build_prompt(sample_context)
 
     assert len(re.findall(r"\w+|[^\w\s]", prompt)) <= 20
     assert "\n" in prompt
+    assert all(line in full_prompt.splitlines() for line in prompt.splitlines())
 
 
 def test_prompt_budget_preserves_complete_prompt_when_it_fits(tmp_path: Path, sample_context) -> None:
@@ -104,7 +106,7 @@ def test_prompt_budget_preserves_complete_prompt_when_it_fits(tmp_path: Path, sa
     prompt = generator._build_prompt(sample_context)
 
     assert "services/review.py: purpose=Implements review behavior; classes=none; functions=review." in prompt
-    assert prompt.endswith("Supporting Modules:\n- None detected.")
+    assert prompt.endswith("Configuration:\n- None detected.")
     assert "\nRepository Summary:\n" in prompt
 
 

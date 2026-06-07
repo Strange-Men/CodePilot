@@ -1,8 +1,8 @@
 # CodePilot - Architecture
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
-> Repository reality checked: 2026-06-05
+> Last updated: 2026-06-07
+> Repository reality checked: 2026-06-07
 
 ## System Overview
 
@@ -26,13 +26,14 @@ Browser
 4. ReviewTaskRunner schedules execution on the in-process worker pool.
 5. ReviewPipeline clones the repository using shallow git clone.
 6. ReviewPipeline selects a registered parser based on repository files and discovers eligible source files.
-7. Parser extracts structure and the indexer builds RepositoryContext with file summaries.
-8. ReportGenerator builds a prompt within FINAL_PROMPT_TOKEN_BUDGET using the shared report-section contract.
-9. LLM client returns report text, or mock client returns deterministic output.
-10. ReportGenerator normalizes output to the four required contract sections.
-11. Store persists status, report, and export path.
-12. Frontend polls /api/reviews/{task_id} until completed or failed.
-13. User can download Markdown from /api/reviews/{task_id}/export.
+7. Parser extracts structure, metrics, entry-point signals, and internal import candidates.
+8. Indexer builds DependencyGraph, calculates graph metrics, classifies file roles, infers purpose, and scores files.
+9. ReportGenerator builds a graph-aware prompt within FINAL_PROMPT_TOKEN_BUDGET using the shared report contract.
+10. LLM client returns report text; transient real-client failures receive three exponential-backoff retries, while mock mode remains deterministic.
+11. ReportGenerator normalizes output to the four required sections and appends metrics and architecture graph exports.
+12. Store persists status, report, and export path.
+13. Frontend polls /api/reviews/{task_id} until completed or failed.
+14. User can download Markdown from /api/reviews/{task_id}/export.
 ```
 
 ## Backend Module Map
@@ -43,12 +44,14 @@ Browser
 | API | `backend/api/reviews.py` | Review creation, polling, and export endpoints | Raises 404 for missing task and 409 for export before completion. |
 | Core | `backend/core/config.py`, `backend/core/report_contract.py`, `backend/core/logging.py` | Settings, shared report contract loading, and logger setup | Loads `.env`, creates runtime paths, reads `contracts/report_sections.json`, and centralizes backend logger initialization. |
 | Models | `backend/models/review.py` | Review statuses and Pydantic schemas | `ReviewStatus` lifecycle is the API contract. |
-| LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default through `USE_MOCK_LLM=true`; runner composes the selected client and injects it into the pipeline. |
+| LLM | `backend/llm/client.py` | Mock and OpenAI-compatible clients | Mock is default; the real client retries transient transport, 408, 409, 429, and 5xx failures three times with exponential backoff. |
 | Parser | `backend/parsers/base.py`, `backend/parsers/registry.py`, `backend/parsers/python_parser.py`, `backend/parsers/javascript_parser.py` | Parser protocol, registry, Python/JavaScript/TypeScript file discovery, and structure extraction | Python uses tree-sitter with AST fallback; JS/TS uses dependency-free structural extraction for imports, classes, functions, and exports. |
-| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Enforces the shared-contract four-section report format. |
+| Reviewer | `backend/reviewers/report_generator.py` | Prompt building, section normalization, Markdown export | Adds structural roles, prioritized dependency edges, hub/cycle guidance, and line-preserving token budgeting while enforcing the four-section contract. |
 | Shared Contract | `contracts/report_sections.json` | Ordered report section contract consumed by backend and frontend | Defines the V1 report section IDs and titles without coupling either runtime to the other. |
 | Clone | `backend/services/clone_service.py` | Public GitHub clone and cleanup | Validates allowed URLs and retries transient failures. |
-| Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates deterministic summaries before LLM review. |
+| Indexer | `backend/services/indexer.py` | Convert parsed files into `RepositoryContext` | Generates structural purpose summaries and propagates metrics, roles, scores, and graph intelligence. |
+| Dependency Graph | `backend/services/dependency_graph.py` | Resolve internal imports and calculate graph signals | Produces deterministic edges, fan-in/out, hubs, fan-in-based orphans, and strongly connected dependency cycles. |
+| Scoring | `backend/services/scoring.py` | Classify and prioritize files | Uses an absolute saturating 0-100 scale so small repositories do not automatically receive Critical labels. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
 
@@ -128,6 +131,15 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
 - `file_summaries`
 - `repository_summary`
 - `language`
+- `total_lines`
+- `avg_complexity`
+- `entry_points`
+- `core_modules`
+- `supporting_modules`
+- `dependency_edges`
+- `circular_dependencies`
+- `hub_files`
+- `orphan_files`
 
 `CodeFileSummary` contains:
 
@@ -136,6 +148,16 @@ pending -> cloning -> parsing -> summarizing -> reviewing -> completed
 - `functions`
 - `purpose`
 - `summary`
+- `line_count`
+- `function_count`
+- `complexity_estimate`
+- `importance_score`
+- `importance_label`
+- `file_role`
+- `dependencies`
+- `fan_in`
+- `fan_out`
+- graph flags for cycles, hubs, and orphans
 
 ## Design Decisions
 

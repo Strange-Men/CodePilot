@@ -61,10 +61,10 @@ def test_indexer_propagates_repository_metrics_and_importance(temp_repo: Path) -
     assert context.total_lines == 110
     assert context.avg_complexity == pytest.approx(6.0)
     summaries = {summary.path: summary for summary in context.file_summaries}
-    assert summaries["small.py"].importance_score == pytest.approx(11.89)
-    assert summaries["large.py"].importance_score == pytest.approx(100.0)
+    assert summaries["small.py"].importance_score == pytest.approx(3.6)
+    assert summaries["large.py"].importance_score == pytest.approx(26.53)
     assert summaries["small.py"].importance_label == "Peripheral"
-    assert summaries["large.py"].importance_label == "Critical"
+    assert summaries["large.py"].importance_label == "Low"
     assert context.supporting_modules == ["small.py", "large.py"]
     assert "Supporting modules:" in context.repository_summary
     assert "Dependency structure: 0 resolved internal relationships" in context.repository_summary
@@ -152,7 +152,73 @@ def test_indexer_propagates_graph_metrics_and_rescores_files(temp_repo: Path) ->
     assert summaries["src/caller.py"].fan_out == 1
     assert summaries["src/target.py"].fan_in == 1
     assert summaries["src/target.py"].is_hub
-    assert summaries["src/target.py"].importance_score == 100
+    assert summaries["src/target.py"].importance_score == 8.76
     assert summaries["src/caller.py"].importance_score < summaries["src/target.py"].importance_score
     assert context.hub_files == ["src/target.py"]
     assert context.orphan_files == ["src/caller.py"]
+
+
+@pytest.mark.parametrize(
+    ("parsed", "expected"),
+    [
+        (
+            ParsedSourceFile(
+                path="worker.py",
+                classes=[],
+                functions=["run"],
+                imports=[],
+                first_docstring=None,
+                is_entry_point=True,
+            ),
+            "Bootstraps the application",
+        ),
+        (
+            ParsedSourceFile(
+                path="workflow.py",
+                classes=[],
+                functions=["execute"],
+                imports=[],
+                first_docstring=None,
+                dependency_imports=["alpha", "beta", "gamma"],
+            ),
+            "Coordinates several imported components",
+        ),
+        (
+            ParsedSourceFile(
+                path="aggregate.py",
+                classes=["Aggregate"],
+                functions=["apply"],
+                imports=[],
+                first_docstring=None,
+            ),
+            "object-oriented domain behavior with supporting operations",
+        ),
+        (
+            ParsedSourceFile(
+                path="wiring.py",
+                classes=[],
+                functions=[],
+                imports=["alpha"],
+                first_docstring=None,
+            ),
+            "Composes imported modules",
+        ),
+        (
+            ParsedSourceFile(
+                path="operations.py",
+                classes=[],
+                functions=["one", "two", "three", "four", "five"],
+                imports=[],
+                first_docstring=None,
+            ),
+            "substantial set of related application operations",
+        ),
+    ],
+)
+def test_purpose_inference_uses_structural_signals(
+    parsed: ParsedSourceFile,
+    expected: str,
+) -> None:
+    indexer = RepositoryIndexer(StaticParser([]), max_files=10, max_file_size_bytes=1000)
+
+    assert expected in indexer._infer_purpose(parsed)

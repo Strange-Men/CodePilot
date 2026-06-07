@@ -5,6 +5,7 @@ import pytest
 from backend.services.scoring import (
     ScoreInput,
     detect_entry_point,
+    file_role,
     importance_label,
     score_files,
 )
@@ -29,7 +30,7 @@ def test_importance_labels_cover_score_range(score: float, label: str) -> None:
     assert importance_label(score) == label
 
 
-def test_scores_are_normalized_and_apply_path_modifiers() -> None:
+def test_scores_use_absolute_calibration_and_apply_role_modifiers() -> None:
     scored = score_files(
         [
             ScoreInput("src/feature.py", line_count=100, complexity_estimate=0),
@@ -39,13 +40,13 @@ def test_scores_are_normalized_and_apply_path_modifiers() -> None:
         ]
     )
 
-    assert scored["core/feature.py"].score == 100
-    assert scored["core/feature.py"].label == "Critical"
-    assert scored["src/feature.py"].score == 75
-    assert scored["src/feature.py"].label == "High"
-    assert scored["tests/test_feature.py"].score == 25
-    assert scored["tests/test_feature.py"].label == "Low"
-    assert scored["docs/example.py"].score == 12.5
+    assert scored["core/feature.py"].score == 28.35
+    assert scored["core/feature.py"].label == "Low"
+    assert scored["src/feature.py"].score == 22.12
+    assert scored["src/feature.py"].label == "Low"
+    assert scored["tests/test_feature.py"].score == 8.0
+    assert scored["tests/test_feature.py"].label == "Peripheral"
+    assert scored["docs/example.py"].score == 4.08
     assert scored["docs/example.py"].label == "Peripheral"
     assert all(0 <= file.score <= 100 for file in scored.values())
 
@@ -73,7 +74,7 @@ def test_non_bootstrap_module_is_not_an_entry_point() -> None:
     assert not detect_entry_point("services/review.py", "def review():\n    return True")
 
 
-def test_dependency_metrics_increase_normalized_importance() -> None:
+def test_dependency_metrics_increase_calibrated_importance() -> None:
     scored = score_files(
         [
             ScoreInput("plain.py", line_count=100, complexity_estimate=10),
@@ -88,5 +89,51 @@ def test_dependency_metrics_increase_normalized_importance() -> None:
         ]
     )
 
-    assert scored["connected.py"].score == 100
+    assert scored["connected.py"].score == 50.75
     assert scored["plain.py"].score < scored["connected.py"].score
+
+
+def test_small_repository_does_not_create_meaningless_critical_label() -> None:
+    scored = score_files([ScoreInput("tiny.py", line_count=5, complexity_estimate=0)])
+
+    assert scored["tiny.py"].score == 1.24
+    assert scored["tiny.py"].label == "Peripheral"
+
+
+def test_large_graph_central_file_can_still_be_critical() -> None:
+    scored = score_files(
+        [
+            ScoreInput(
+                "core/orchestrator.py",
+                line_count=1200,
+                complexity_estimate=100,
+                fan_in=12,
+                fan_out=8,
+                in_dependency_cycle=True,
+            )
+        ]
+    )
+
+    assert scored["core/orchestrator.py"].score >= 90
+    assert scored["core/orchestrator.py"].label == "Critical"
+
+
+@pytest.mark.parametrize(
+    ("path", "is_entry_point", "fan_in", "expected"),
+    [
+        ("src/main.py", True, 0, "Entry Point"),
+        ("domain/model.py", False, 0, "Core Module"),
+        ("src/helper.py", False, 0, "Supporting Module"),
+        ("tests/main.py", True, 0, "Test File"),
+        ("docs/example.py", False, 0, "Documentation"),
+        ("src/settings.py", False, 0, "Configuration"),
+        ("src/shared.py", False, 2, "Core Module"),
+    ],
+)
+def test_file_roles_cover_structural_categories(
+    path: str,
+    is_entry_point: bool,
+    fan_in: int,
+    expected: str,
+) -> None:
+    assert file_role(path, is_entry_point, fan_in) == expected

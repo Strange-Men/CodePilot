@@ -1,8 +1,26 @@
 # CodePilot - Decision Log
 
 > Harness version: v1.2
-> Last updated: 2026-06-05
+> Last updated: 2026-06-07
 > Format: newest first, one significant decision per entry.
+
+## DECISION-022: Calibrate Repository Intelligence Without Repository-Max Scores
+
+- Date: 2026-06-07
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+Repository-max normalization always assigned 100 to the largest analyzed file, even when a repository contained only trivial files. Flat path lists also underused the dependency graph already available in `RepositoryContext`.
+
+### Decision
+
+Use an absolute saturating 0-100 score derived from size, complexity, graph centrality, cycles, and role modifiers. Classify files as Entry Point, Core Module, Supporting Module, Test File, Documentation, or Configuration. Feed structural role groups, prioritized dependency edges, and hub/cycle guidance into the existing report prompt.
+
+### Rationale
+
+Absolute calibration makes labels comparable across repositories and reserves Critical for substantial risk signals. Reusing `RepositoryContext`, `DependencyGraph`, and `ReportGenerator` preserves the parser registry, pipeline, API, database, and four-section report contract while leaving reusable intelligence for later versions.
 
 ## DECISION-021: Share the V1 Report Section Contract
 

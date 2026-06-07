@@ -1,7 +1,7 @@
 # CodePilot - Roadmap
 
 > Harness version: v1.1
-> Last updated: 2026-06-05
+> Last updated: 2026-06-07
 
 ## Completed
 
@@ -29,9 +29,20 @@
 - [x] Python 3.11.11 runtime pinning.
 - [x] Smoke test script for backend pipeline.
 
+### V2.0-V2.4 - Repository Intelligence
+
+- [x] Parser registry with Python, JavaScript, and TypeScript support.
+- [x] File and repository metrics.
+- [x] Internal dependency graph with fan-in/out, hubs, cycles, and orphans.
+- [x] Calibrated file scoring, six file roles, and structural purpose inference.
+- [x] Graph-aware prompt context and architecture summary guidance.
+- [x] Deterministic rich Markdown report rendering.
+- [x] OpenAI-compatible retry handling with exponential backoff.
+- [x] 131 collected pytest tests and enforced Harness audit.
+
 ## In Progress
 
-No active product implementation is in progress at Harness install time.
+V2.4 quality verification and release preparation.
 
 ## Future Development Priorities
 
@@ -83,8 +94,8 @@ Infrastructure work should only be planned when it directly enables these priori
 
 ### Enhanced Analysis
 
-- [ ] Build dependency graph.
-- [ ] Compute code complexity metrics.
+- [x] Build dependency graph.
+- [x] Compute code complexity metrics.
 - [ ] Add basic security pattern scanning.
 - [ ] Correlate findings with test coverage where available.
 
@@ -100,7 +111,7 @@ Infrastructure work should only be planned when it directly enables these priori
 ### Code Graph
 
 - [ ] Build call graph.
-- [ ] Build import/dependency graph.
+- [x] Build import/dependency graph.
 - [ ] Add impact analysis.
 - [ ] Use graph signals for prompt context selection.
 
@@ -121,8 +132,7 @@ Infrastructure work should only be planned when it directly enables these priori
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Frontend component tests | Medium | No frontend test runner currently configured. |
-| Extract LLM interface | Medium | Would simplify multi-model routing. |
+| Frontend browser tests | Medium | Component rendering tests exist, but no Playwright/Cypress workflow is configured. |
 | Consistent API error schema | Medium | Current errors are FastAPI defaults. |
 | Database migrations | Low | Needed if SQLite schema evolves. |
 | `py.typed` marker | Low | Useful for downstream type-aware tooling. |

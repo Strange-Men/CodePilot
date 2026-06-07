@@ -47,15 +47,22 @@ class ReportGenerator:
         detailed_paths = {
             summary.path for summary in self._top_important_files(context, limit=10)
         }
-        for role, heading in (
-            ("Entry Point", "Entry Points"),
-            ("Core Module", "Core Modules"),
-            ("Supporting File", "Supporting Modules"),
+        for roles, heading in (
+            ({"Entry Point"}, "Entry Points"),
+            ({"Core Module"}, "Core Modules"),
+            ({"Supporting File", "Supporting Module"}, "Supporting Modules"),
+            ({"Test File"}, "Test Files"),
+            ({"Documentation"}, "Documentation"),
+            ({"Configuration"}, "Configuration"),
         ):
             lines.extend(
                 self._prompt_file_group(
                     heading,
-                    [summary for summary in context.file_summaries if summary.file_role == role],
+                    [
+                        summary
+                        for summary in context.file_summaries
+                        if summary.file_role in roles
+                    ],
                     detailed_paths,
                 )
             )
@@ -65,9 +72,18 @@ class ReportGenerator:
     def _fit_to_token_budget(self, prompt: str) -> str:
         if self.prompt_token_budget <= 0:
             return ""
+        selected_lines: list[str] = []
+        used_tokens = 0
+        for line in prompt.splitlines():
+            line_tokens = len(re.findall(r"\w+|[^\w\s]", line))
+            if used_tokens + line_tokens > self.prompt_token_budget:
+                break
+            selected_lines.append(line)
+            used_tokens += line_tokens
+        if selected_lines:
+            return "\n".join(selected_lines)
+
         tokens = list(re.finditer(r"\w+|[^\w\s]", prompt))
-        if len(tokens) <= self.prompt_token_budget:
-            return prompt
         return prompt[: tokens[self.prompt_token_budget - 1].end()].rstrip()
 
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
@@ -112,7 +128,7 @@ class ReportGenerator:
         supporting_modules = context.supporting_modules or [
             summary.path
             for summary in context.file_summaries
-            if summary.file_role == "Supporting File"
+            if summary.file_role in {"Supporting File", "Supporting Module"}
         ]
         edge_count = sum(len(targets) for targets in context.dependency_edges.values())
         return [

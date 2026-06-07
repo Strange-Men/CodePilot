@@ -41,7 +41,7 @@ class CodeFileSummary(BaseModel):
     complexity_estimate: int = 0
     importance_score: float = 0.0
     importance_label: str = "Peripheral"
-    file_role: str = "Supporting File"
+    file_role: str = "Supporting Module"
     is_entry_point: bool = False
     dependencies: list[str] = Field(default_factory=list)
     fan_in: int = 0
