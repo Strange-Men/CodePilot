@@ -77,6 +77,18 @@ class ReviewStore:
             row = conn.execute("SELECT * FROM reviews WHERE task_id = ?", (task_id,)).fetchone()
         return dict(row) if row else None
 
+    def list_reviews(self, limit: int = 50) -> list[dict]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM reviews
+                ORDER BY created_at DESC, task_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     @staticmethod
     def _now() -> str:
         return datetime.now(UTC).isoformat()

@@ -21,9 +21,11 @@ test("renders GFM tables and highlighted fenced code", () => {
 
 test("parses optional repository intelligence appendices separately", () => {
   const sections = parseReport(
-    "# Repository Metrics\nMetrics.\n\n# Architecture Graph\nGraph.\n\n# Architecture Summary\nArchitecture."
+    "# Repository Insights\nInsights.\n\n# Repository Metrics\nMetrics.\n\n"
+      + "# Architecture Graph\nGraph.\n\n# Architecture Summary\nArchitecture."
   );
 
+  assert.equal(sections["Repository Insights"].trim(), "Insights.");
   assert.equal(sections["Repository Metrics"].trim(), "Metrics.");
   assert.equal(sections["Architecture Graph"].trim(), "Graph.");
   assert.equal(sections["Architecture Summary"].trim(), "Architecture.");

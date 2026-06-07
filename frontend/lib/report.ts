@@ -15,7 +15,12 @@ export const STATUS_LABELS: Record<ReviewStatus, string> = {
 export const orderedSections = reportContract.sections.map((section) => section.title);
 export const repositoryMetricsSection = "Repository Metrics";
 export const architectureGraphSection = "Architecture Graph";
-export const reportAppendixSections = [repositoryMetricsSection, architectureGraphSection];
+export const repositoryInsightsSection = "Repository Insights";
+export const reportAppendixSections = [
+  repositoryInsightsSection,
+  repositoryMetricsSection,
+  architectureGraphSection
+];
 
 export const terminalStatuses: ReviewStatus[] = ["completed", "failed"];
 

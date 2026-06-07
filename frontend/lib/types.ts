@@ -15,3 +15,9 @@ export type ReviewResponse = {
   report_markdown: string | null;
   export_path: string | null;
 };
+
+export type APIErrorPayload = {
+  error: string;
+  code: string;
+  detail: string;
+};

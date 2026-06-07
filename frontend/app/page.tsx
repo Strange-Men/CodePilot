@@ -4,13 +4,15 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Github } from "lucide-react";
 
 import { ReportRenderer } from "@/components/ReportRenderer";
+import { ReviewHistory } from "@/components/ReviewHistory";
 import { ReviewStatusDisplay } from "@/components/ReviewStatusDisplay";
 import { ReviewSubmissionForm } from "@/components/ReviewSubmissionForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useReviewPolling } from "@/hooks/useReviewPolling";
-import { createReview } from "@/lib/api";
+import { createReview, listReviews } from "@/lib/api";
 import { terminalStatuses } from "@/lib/report";
 import type { ReviewResponse } from "@/lib/types";
+import { validateGitHubRepositoryUrl } from "@/lib/validation";
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
@@ -18,19 +20,39 @@ export default function Home() {
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [history, setHistory] = useState<ReviewResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
+
+  const refreshHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      setHistory(await listReviews());
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Unable to load review history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const repoFromQuery = new URLSearchParams(window.location.search).get("repo_url");
     if (repoFromQuery) {
       setRepoUrl(repoFromQuery);
     }
-  }, []);
+    void refreshHistory();
+  }, [refreshHistory]);
 
   const handleReview = useCallback((data: ReviewResponse) => {
     setReview(data);
-  }, []);
+    if (terminalStatuses.includes(data.status)) {
+      void refreshHistory();
+    }
+  }, [refreshHistory]);
 
   const handlePollingError = useCallback((message: string) => {
     setError(message || null);
@@ -44,6 +66,10 @@ export default function Home() {
 
   async function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const validationError = validateGitHubRepositoryUrl(repoUrl);
+    setFieldError(validationError);
+    if (validationError) return;
+
     setSubmitting(true);
     setError(null);
     setReview(null);
@@ -52,10 +78,26 @@ export default function Home() {
     try {
       const data = await createReview(repoUrl);
       setTaskId(data.task_id);
+      void refreshHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start review.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function selectHistoricalReview(historicalReview: ReviewResponse) {
+    setTaskId(null);
+    setReview(historicalReview);
+    setRepoUrl(historicalReview.repo_url);
+    setError(historicalReview.error);
+    setFieldError(null);
+  }
+
+  function changeRepoUrl(value: string) {
+    setRepoUrl(value);
+    if (fieldError) {
+      setFieldError(validateGitHubRepositoryUrl(value));
     }
   }
 
@@ -84,8 +126,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <ReviewSubmissionForm
+              fieldError={fieldError}
               isRunning={isRunning}
-              onRepoUrlChange={setRepoUrl}
+              onRepoUrlChange={changeRepoUrl}
               onSubmit={submitReview}
               repoUrl={repoUrl}
               submitting={submitting}
@@ -95,6 +138,13 @@ export default function Home() {
         </Card>
 
         <div className="space-y-5">
+          <ReviewHistory
+            error={historyError}
+            loading={historyLoading}
+            onSelect={selectHistoricalReview}
+            reviews={history}
+            selectedTaskId={review?.task_id || taskId}
+          />
           <ReportRenderer isRunning={isRunning} reportMarkdown={review?.report_markdown} />
         </div>
       </section>
