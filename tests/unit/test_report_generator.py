@@ -92,7 +92,7 @@ def test_prompt_budget_trims_large_context(tmp_path: Path, sample_context) -> No
     assert len(prompt.split()) <= 15
 
 
-def test_prompt_includes_metrics_and_only_top_twenty_files(tmp_path: Path, sample_context) -> None:
+def test_prompt_groups_files_and_only_details_top_ten(tmp_path: Path, sample_context) -> None:
     sample_context.file_summaries = [
         CodeFileSummary(
             path=f"file-{index:02}.py",
@@ -101,19 +101,31 @@ def test_prompt_includes_metrics_and_only_top_twenty_files(tmp_path: Path, sampl
             line_count=index,
             complexity_estimate=index,
             importance_score=float(index),
+            importance_label="Low",
+            file_role=(
+                "Entry Point"
+                if index == 20
+                else "Core Module"
+                if index >= 18
+                else "Supporting File"
+            ),
         )
         for index in range(21)
     ]
 
     prompt = ReportGenerator(StaticLLM(""), tmp_path, 5000)._build_prompt(sample_context)
 
-    assert "Repository Metrics:" in prompt
-    assert "- Total lines: 150" in prompt
-    assert "- Average complexity: 6.50" in prompt
-    assert prompt.count("| lines=") == 20
+    assert "Repository Summary:" in prompt
+    assert "Total lines: 150" in prompt
+    assert "Average complexity: 6.50" in prompt
+    assert "Entry Points:" in prompt
+    assert "Core Modules:" in prompt
+    assert "Supporting Files:" in prompt
+    assert prompt.count("| score=") == 10
     assert "detail-20" in prompt
-    assert "detail-1" in prompt
-    assert "detail-0" not in prompt
+    assert "detail-11" in prompt
+    assert "detail-10" not in prompt
+    assert "file-00.py [0.00 Low]" in prompt
     assert prompt.index("file-20.py") < prompt.index("file-19.py")
 
 
@@ -127,7 +139,9 @@ def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path,
     assert report.index("# Repository Metrics") > report.index("# Refactoring Suggestions")
     assert "- Total lines: 150" in report
     assert "- Average complexity: 6.50" in report
-    assert "| File | Lines | Complexity | Importance |" in report
+    assert "## Top Files" in report
+    assert "| File | Lines | Complexity | Score | Label |" in report
+    assert "| app.py | 100 | 8 | 100.00 | Critical |" in report
     assert report.index("| app.py |") < report.index("| services/review.py |")
 
 

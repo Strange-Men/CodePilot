@@ -61,6 +61,47 @@ def test_indexer_propagates_repository_metrics_and_importance(temp_repo: Path) -
     assert context.total_lines == 110
     assert context.avg_complexity == pytest.approx(6.0)
     summaries = {summary.path: summary for summary in context.file_summaries}
-    assert summaries["small.py"].importance_score == pytest.approx(4.4)
-    assert summaries["large.py"].importance_score == pytest.approx(37.0)
+    assert summaries["small.py"].importance_score == pytest.approx(11.89)
+    assert summaries["large.py"].importance_score == pytest.approx(100.0)
+    assert summaries["small.py"].importance_label == "Peripheral"
+    assert summaries["large.py"].importance_label == "Critical"
     assert context.repository_summary.index("large.py") < context.repository_summary.index("small.py")
+
+
+def test_indexer_propagates_entry_points_and_core_modules(temp_repo: Path) -> None:
+    parser = StaticParser(
+        [
+            ParsedSourceFile(
+                path="app.py",
+                classes=[],
+                functions=["create_app"],
+                imports=[],
+                first_docstring=None,
+                line_count=20,
+                function_count=1,
+                complexity_estimate=1,
+                is_entry_point=True,
+            ),
+            ParsedSourceFile(
+                path="services/review.py",
+                classes=[],
+                functions=["review"],
+                imports=[],
+                first_docstring=None,
+                line_count=20,
+                function_count=1,
+                complexity_estimate=1,
+            ),
+        ]
+    )
+
+    context = RepositoryIndexer(parser, max_files=10, max_file_size_bytes=1000).build_context(
+        temp_repo,
+        "https://github.com/example/project",
+    )
+
+    assert context.entry_points == ["app.py"]
+    assert context.core_modules == ["services/review.py"]
+    summaries = {summary.path: summary for summary in context.file_summaries}
+    assert summaries["app.py"].file_role == "Entry Point"
+    assert summaries["services/review.py"].file_role == "Core Module"

@@ -27,22 +27,30 @@ class ReportGenerator:
             "Do not assume access to raw source code.",
             "Return markdown with exactly four top-level sections:",
             *numbered_report_section_lines(),
+            "Repository Summary:",
             f"Repository URL: {context.repo_url}",
             f"Repository language: {context.language}",
             f"Total source files: {context.total_python_files}",
             f"Analyzed files: {context.analyzed_files}",
             f"Skipped files: {context.skipped_files}",
-            f"Repository summary: {context.repository_summary}",
-            "Repository Metrics:",
-            f"- Total lines: {context.total_lines}",
-            f"- Average complexity: {context.avg_complexity:.2f}",
-            "Top Important Files:",
+            f"Total lines: {context.total_lines}",
+            f"Average complexity: {context.avg_complexity:.2f}",
+            context.repository_summary,
         ]
-        for summary in self._top_important_files(context):
-            lines.append(
-                f"- {summary.path} | lines={summary.line_count} | functions={summary.function_count} | "
-                f"complexity={summary.complexity_estimate} | importance={summary.importance_score:.2f} | "
-                f"{summary.summary}"
+        detailed_paths = {
+            summary.path for summary in self._top_important_files(context, limit=10)
+        }
+        for role, heading in (
+            ("Entry Point", "Entry Points"),
+            ("Core Module", "Core Modules"),
+            ("Supporting File", "Supporting Files"),
+        ):
+            lines.extend(
+                self._prompt_file_group(
+                    heading,
+                    [summary for summary in context.file_summaries if summary.file_role == role],
+                    detailed_paths,
+                )
             )
 
         prompt = "\n".join(lines)
@@ -71,27 +79,61 @@ class ReportGenerator:
             f"- Total lines: {context.total_lines}",
             f"- Average complexity: {context.avg_complexity:.2f}",
             "",
-            "| File | Lines | Complexity | Importance |",
-            "| --- | ---: | ---: | ---: |",
+            "## Top Files",
+            "",
+            "| File | Lines | Complexity | Score | Label |",
+            "| --- | ---: | ---: | ---: | --- |",
         ]
-        top_files = self._top_important_files(context)
+        top_files = self._top_important_files(context, limit=10)
         if top_files:
             for summary in top_files:
                 path = summary.path.replace("|", r"\|")
                 lines.append(
                     f"| {path} | {summary.line_count} | {summary.complexity_estimate} | "
-                    f"{summary.importance_score:.2f} |"
+                    f"{summary.importance_score:.2f} | {summary.importance_label} |"
                 )
         else:
-            lines.append("| No analyzed files | 0 | 0 | 0.00 |")
+            lines.append("| No analyzed files | 0 | 0 | 0.00 | Peripheral |")
         return "\n".join(lines)
 
     @staticmethod
-    def _top_important_files(context: RepositoryContext) -> list[CodeFileSummary]:
+    def _top_important_files(
+        context: RepositoryContext,
+        *,
+        limit: int,
+    ) -> list[CodeFileSummary]:
         return sorted(
             context.file_summaries,
             key=lambda summary: (-summary.importance_score, summary.path),
-        )[:20]
+        )[:limit]
+
+    @staticmethod
+    def _prompt_file_group(
+        heading: str,
+        summaries: list[CodeFileSummary],
+        detailed_paths: set[str],
+    ) -> list[str]:
+        lines = [f"{heading}:"]
+        if not summaries:
+            return [*lines, "- None detected."]
+
+        ordered = sorted(summaries, key=lambda summary: (-summary.importance_score, summary.path))
+        detailed = [summary for summary in ordered if summary.path in detailed_paths]
+        remaining = [summary for summary in ordered if summary.path not in detailed_paths]
+        for summary in detailed:
+            lines.append(
+                f"- {summary.path} | score={summary.importance_score:.2f} "
+                f"({summary.importance_label}) | lines={summary.line_count} | "
+                f"functions={summary.function_count} | complexity={summary.complexity_estimate} | "
+                f"{summary.summary}"
+            )
+        if remaining:
+            compact = ", ".join(
+                f"{summary.path} [{summary.importance_score:.2f} {summary.importance_label}]"
+                for summary in remaining
+            )
+            lines.append(f"- Remaining summarized files: {compact}")
+        return lines
 
     @staticmethod
     def _extract_sections(report: str) -> dict[str, str]:

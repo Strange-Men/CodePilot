@@ -1,5 +1,6 @@
 import { Github, RefreshCcw } from "lucide-react";
 
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { orderedSections, parseReport, repositoryMetricsSection } from "@/lib/report";
 
@@ -20,9 +21,7 @@ export function ReportRenderer({ isRunning, reportMarkdown }: ReportRendererProp
               <CardTitle>{repositoryMetricsSection}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                {sections[repositoryMetricsSection]}
-              </div>
+              <MarkdownContent>{sections[repositoryMetricsSection]}</MarkdownContent>
             </CardContent>
           </Card>
         ) : null}
@@ -32,7 +31,7 @@ export function ReportRenderer({ isRunning, reportMarkdown }: ReportRendererProp
               <CardTitle>{section}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">{sections[section] || "No findings returned."}</div>
+              <MarkdownContent>{sections[section] || "No findings returned."}</MarkdownContent>
             </CardContent>
           </Card>
         ))}

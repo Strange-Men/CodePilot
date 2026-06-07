@@ -15,6 +15,7 @@ class ParsedSourceFile:
     line_count: int = 0
     function_count: int = 0
     complexity_estimate: int = 0
+    is_entry_point: bool = False
 
 
 class SourceParser(Protocol):

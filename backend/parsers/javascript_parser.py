@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.scoring import detect_entry_point
 
 IGNORE_DIRS = {
     "node_modules",
@@ -72,6 +73,7 @@ class JavaScriptParser(SourceParser):
             line_count=len(source.splitlines()),
             function_count=self._count_functions(source),
             complexity_estimate=self._estimate_complexity(source),
+            is_entry_point=detect_entry_point(relative_path, source),
             exported_symbols=exported_symbols,
         )
 

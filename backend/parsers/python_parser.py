@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.scoring import detect_entry_point
 
 IGNORE_DIRS = {
     "node_modules",
@@ -106,6 +107,7 @@ class PythonParser(SourceParser):
             line_count=line_count,
             function_count=function_count,
             complexity_estimate=complexity_estimate,
+            is_entry_point=detect_entry_point(relative_path, source),
         )
 
     def _parse_with_ast(self, source: str, relative_path: str) -> ParsedPythonFile:
@@ -119,6 +121,7 @@ class PythonParser(SourceParser):
                 imports=[],
                 first_docstring=None,
                 line_count=len(source.splitlines()),
+                is_entry_point=detect_entry_point(relative_path, source),
             )
 
         classes = [node.name for node in ast.walk(module) if isinstance(node, ast.ClassDef)]
@@ -142,6 +145,7 @@ class PythonParser(SourceParser):
             line_count=len(source.splitlines()),
             function_count=len(functions),
             complexity_estimate=self._estimate_complexity(module),
+            is_entry_point=detect_entry_point(relative_path, source),
         )
 
     @staticmethod

@@ -27,7 +27,10 @@ def sample_context() -> RepositoryContext:
                 line_count=100,
                 function_count=1,
                 complexity_estimate=8,
-                importance_score=35.6,
+                importance_score=100.0,
+                importance_label="Critical",
+                file_role="Entry Point",
+                is_entry_point=True,
             ),
             CodeFileSummary(
                 path="services/review.py",
@@ -38,9 +41,13 @@ def sample_context() -> RepositoryContext:
                 line_count=50,
                 function_count=1,
                 complexity_estimate=5,
-                importance_score=18.5,
+                importance_score=80.06,
+                importance_label="High",
+                file_role="Core Module",
             ),
         ],
+        entry_points=["app.py"],
+        core_modules=["services/review.py"],
     )
 
 

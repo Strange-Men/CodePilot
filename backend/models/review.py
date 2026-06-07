@@ -40,6 +40,9 @@ class CodeFileSummary(BaseModel):
     function_count: int = 0
     complexity_estimate: int = 0
     importance_score: float = 0.0
+    importance_label: str = "Peripheral"
+    file_role: str = "Supporting File"
+    is_entry_point: bool = False
 
 
 class RepositoryContext(BaseModel):
@@ -52,4 +55,6 @@ class RepositoryContext(BaseModel):
     language: str = "Python"
     total_lines: int = 0
     avg_complexity: float = 0.0
+    entry_points: list[str] = Field(default_factory=list)
+    core_modules: list[str] = Field(default_factory=list)
 

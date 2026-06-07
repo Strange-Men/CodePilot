@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.models.review import CodeFileSummary, RepositoryContext
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.scoring import ScoreInput, score_files
 
 
 class RepositoryIndexer:
@@ -16,6 +17,20 @@ class RepositoryIndexer:
         files, total, skipped = self.parser.discover_files(repo_dir, self.max_files, self.max_file_size_bytes)
         parsed_files = [self.parser.parse_file(repo_dir, path) for path in files]
         summaries = [self._summarize_file(parsed) for parsed in parsed_files]
+        scored_files = score_files(
+            ScoreInput(
+                path=summary.path,
+                line_count=summary.line_count,
+                complexity_estimate=summary.complexity_estimate,
+                is_entry_point=summary.is_entry_point,
+            )
+            for summary in summaries
+        )
+        for summary in summaries:
+            scored = scored_files[summary.path]
+            summary.importance_score = scored.score
+            summary.importance_label = scored.label
+            summary.file_role = scored.role
         repo_summary = self._summarize_repository(summaries, total, skipped)
         total_lines = sum(summary.line_count for summary in summaries)
         avg_complexity = (
@@ -34,6 +49,12 @@ class RepositoryIndexer:
             language=self._language_label(),
             total_lines=total_lines,
             avg_complexity=avg_complexity,
+            entry_points=[
+                summary.path for summary in summaries if summary.file_role == "Entry Point"
+            ],
+            core_modules=[
+                summary.path for summary in summaries if summary.file_role == "Core Module"
+            ],
         )
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:
@@ -54,7 +75,7 @@ class RepositoryIndexer:
             line_count=parsed.line_count,
             function_count=parsed.function_count,
             complexity_estimate=parsed.complexity_estimate,
-            importance_score=(parsed.line_count * 0.3) + (parsed.complexity_estimate * 0.7),
+            is_entry_point=parsed.is_entry_point,
         )
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:
