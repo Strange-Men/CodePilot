@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 264 tests.
+`pytest --collect-only -q` collected 266 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 244 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 246 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -42,7 +42,7 @@
 | `tests/unit/test_review_task_runner.py` | 8 | Submit/run behavior, status progression, parser selection, V3 state persistence, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 6 | Model encodings, Unicode, exact budgets, line preservation, unknown-model fallback, and missing-dependency runtime fallback. |
-| `tests/unit/test_v3_2_retrieval.py` | 3 | Tiered retrieval levels, legacy retrieval compatibility, and safe per-agent retrieval metadata. |
+| `tests/unit/test_v3_2_retrieval.py` | 5 | Tiered retrieval levels, legacy retrieval compatibility, context compression, compressed token budgeting, and safe per-agent retrieval metadata. |
 | `tests/unit/test_v3_sandbox_evidence.py` | 6 | Sandbox boundaries, secret redaction, deep context, stable evidence IDs, and lexical evidence retrieval. |
 | `tests/unit/test_v3_structured_agent.py` | 5 | Structured LLM retries, evidence-only validation, ArchitectureAgent mock behavior, V3 single-agent report contract, and real LLM opt-in guard. |
 | `tests/unit/test_v3_multi_agent.py` | 4 | Multi-agent failure isolation, conservative deduplication, per-section mock findings, and V3 multi-agent report rendering. |

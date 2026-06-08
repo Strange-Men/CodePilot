@@ -106,3 +106,66 @@ def test_agent_retrieval_policy_is_persistable_without_snippets(sample_context) 
     assert state.metadata["retrieval_level_3_snippet"] > 0
     assert "def create_app" not in state.model_dump_json()
     assert "return [item for item in items]" not in state.model_dump_json()
+
+
+def test_context_compression_keeps_evidence_lineage_and_relevant_lines(sample_context) -> None:
+    context = _retrieval_context(sample_context)
+    long_snippet = "\n".join(
+        [
+            "def oversized():",
+            *[f"    value_{index} = {index}" for index in range(1, 30)],
+            "    return review(value_29)",
+        ]
+    )
+    record = EvidenceRecord(
+        evidence_id=stable_evidence_id("services/large.py", 10, 40, long_snippet),
+        file_path="services/large.py",
+        start_line=10,
+        end_line=40,
+        snippet=long_snippet,
+        kind="symbol",
+        symbols=["oversized"],
+    )
+
+    compressed = EvidenceRetriever(context).compress_for_prompt(
+        record,
+        "review",
+        policy=RetrievalPolicy(query="review", compression_window_lines=6, max_snippet_chars=400),
+    )
+
+    assert compressed.evidence_id == record.evidence_id
+    assert compressed.start_line == 10
+    assert compressed.end_line == 40
+    assert compressed.excerpt_start_line > record.start_line
+    assert compressed.truncated is True
+    assert "return review(value_29)" in compressed.snippet
+    assert "value_1 = 1" not in compressed.snippet
+
+
+def test_retrieval_token_budget_uses_compressed_evidence(sample_context) -> None:
+    context = _retrieval_context(sample_context)
+    context.evidence.append(
+        EvidenceRecord(
+            evidence_id=stable_evidence_id("services/large.py", 1, 80, "\n".join(["review()"] * 80)),
+            file_path="services/large.py",
+            start_line=1,
+            end_line=80,
+            snippet="\n".join(["review()"] * 80),
+            kind="source",
+            symbols=["review"],
+        )
+    )
+
+    result = EvidenceRetriever(context).retrieve_with_policy(
+        RetrievalPolicy(
+            agent_role="CodeSmellAgent",
+            query="review",
+            limit=3,
+            token_budget=160,
+            compression_window_lines=4,
+            max_snippet_chars=180,
+        )
+    )
+
+    assert len(result.records) >= 2
+    assert result.stats.estimated_tokens <= 160

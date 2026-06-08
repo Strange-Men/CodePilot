@@ -22,14 +22,15 @@ class EvidenceGroundedAgent:
         self.last_retrieval_stats: RetrievalStats | None = None
 
     def review(self, context: ReviewContext) -> StructuredReviewDraft:
-        retrieval = EvidenceRetriever(context).retrieve_with_policy(self._retrieval_policy())
+        retrieval_policy = self._retrieval_policy()
+        retrieval = EvidenceRetriever(context).retrieve_with_policy(retrieval_policy)
         evidence_bundle = retrieval.records
         self.last_evidence_bundle = evidence_bundle
         self.last_retrieval_stats = retrieval.stats
         if not evidence_bundle:
             return StructuredReviewDraft()
 
-        prompt = self._render_prompt(context, evidence_bundle)
+        prompt = self._render_prompt(context, evidence_bundle, retrieval_policy)
         allowed_evidence_ids = {record.evidence_id for record in evidence_bundle}
         result = self.structured_client.generate_findings(prompt, allowed_evidence_ids=allowed_evidence_ids)
         validator = FindingValidator(context)
@@ -40,14 +41,23 @@ class EvidenceGroundedAgent:
         ]
         return StructuredReviewDraft(findings=findings)
 
-    def _render_prompt(self, context: ReviewContext, evidence_bundle: list[EvidenceRecord]) -> str:
-        evidence_lines = [
-            (
+    def _render_prompt(
+        self,
+        context: ReviewContext,
+        evidence_bundle: list[EvidenceRecord],
+        retrieval_policy: RetrievalPolicy | None = None,
+    ) -> str:
+        retrieval_policy = retrieval_policy or self._retrieval_policy()
+        retriever = EvidenceRetriever(context)
+        evidence_lines = []
+        for record in evidence_bundle:
+            compressed = retriever.compress_for_prompt(record, self.evidence_query, policy=retrieval_policy)
+            evidence_lines.append(
                 f"- evidence_id={record.evidence_id}; file={record.file_path}; "
-                f"lines={record.start_line}-{record.end_line}; snippet={record.snippet[:900]}"
+                f"lines={record.start_line}-{record.end_line}; "
+                f"excerpt_lines={compressed.excerpt_start_line}-{compressed.excerpt_end_line}; "
+                f"truncated={str(compressed.truncated).lower()}; snippet={compressed.snippet}"
             )
-            for record in evidence_bundle
-        ]
         return (
             f"You are CodePilot's {self.role}.\n"
             f"Review category: {self.category}. Target report section: {self.section}.\n"

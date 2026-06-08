@@ -33,6 +33,21 @@ class RetrievalPolicy:
     manifest_limit: int = 24
     symbol_limit: int = 16
     snippet_limit: int | None = None
+    compression_window_lines: int = 18
+    max_snippet_chars: int = 900
+
+
+@dataclass(frozen=True)
+class CompressedEvidence:
+    evidence_id: str
+    file_path: str
+    start_line: int
+    end_line: int
+    excerpt_start_line: int
+    excerpt_end_line: int
+    snippet: str
+    truncated: bool
+    estimated_tokens: int
 
 
 @dataclass(frozen=True)
@@ -308,18 +323,23 @@ class EvidenceRetriever:
         limit = policy.snippet_limit or policy.limit
         selected: list[EvidenceRecord] = []
         seen: set[str] = set()
+        seen_ranges: set[tuple[str, int, int]] = set()
         estimated_tokens = 0
         token_ceiling = max(policy.token_budget, 1)
         for score, _evidence_id, record in scored:
             if record.evidence_id in seen:
                 continue
+            range_key = (record.file_path, record.start_line, record.end_line)
+            if range_key in seen_ranges:
+                continue
             if score <= 0 and policy.query:
                 continue
-            record_tokens = self._estimate_record_tokens(record)
+            record_tokens = self.compress_for_prompt(record, policy.query, policy=policy).estimated_tokens
             if selected and estimated_tokens + record_tokens > token_ceiling:
                 continue
             selected.append(record)
             seen.add(record.evidence_id)
+            seen_ranges.add(range_key)
             estimated_tokens += record_tokens
             if len(selected) >= limit:
                 break
@@ -353,7 +373,10 @@ class EvidenceRetriever:
             for score, _evidence_id, record in scored
             if record in selected and (score > 0 or not query_tokens)
         }
-        estimated_tokens = sum(self._estimate_record_tokens(record) for record in selected)
+        estimated_tokens = sum(
+            self.compress_for_prompt(record, policy.query, policy=policy).estimated_tokens
+            for record in selected
+        )
         selected_count = len(selected)
         precision_like = len(selected_relevant) / selected_count if selected_count else 1.0
         recall_like = len(selected_relevant) / len(relevant_available) if relevant_available else 1.0
@@ -413,9 +436,72 @@ class EvidenceRetriever:
         symbol_tokens = set(self._tokens(" ".join(record.symbols)))
         return len(symbol_tokens.intersection(query_tokens)) * 1.25
 
+    @classmethod
+    def compress_for_prompt(
+        cls,
+        record: EvidenceRecord,
+        query: str,
+        *,
+        policy: RetrievalPolicy | None = None,
+    ) -> CompressedEvidence:
+        policy = policy or RetrievalPolicy(query=query)
+        lines = record.snippet.splitlines()
+        if not lines:
+            return CompressedEvidence(
+                evidence_id=record.evidence_id,
+                file_path=record.file_path,
+                start_line=record.start_line,
+                end_line=record.end_line,
+                excerpt_start_line=record.start_line,
+                excerpt_end_line=record.end_line,
+                snippet="",
+                truncated=False,
+                estimated_tokens=12,
+            )
+        query_tokens = set(cls._tokens(query))
+        if not query_tokens:
+            query_tokens = set(cls._tokens(f"{' '.join(record.symbols)} {record.file_path}"))
+        center_index = cls._best_line_index(lines, query_tokens)
+        window = max(1, policy.compression_window_lines)
+        half_window = max(1, window // 2)
+        start_index = max(0, center_index - half_window)
+        end_index = min(len(lines), start_index + window)
+        start_index = max(0, end_index - window)
+        excerpt_lines = lines[start_index:end_index]
+        excerpt = cls._number_excerpt_lines(excerpt_lines, record.start_line + start_index)
+        truncated = start_index > 0 or end_index < len(lines)
+        if len(excerpt) > policy.max_snippet_chars:
+            excerpt = excerpt[: policy.max_snippet_chars].rstrip() + "\n..."
+            truncated = True
+        return CompressedEvidence(
+            evidence_id=record.evidence_id,
+            file_path=record.file_path,
+            start_line=record.start_line,
+            end_line=record.end_line,
+            excerpt_start_line=record.start_line + start_index,
+            excerpt_end_line=record.start_line + end_index - 1,
+            snippet=excerpt,
+            truncated=truncated,
+            estimated_tokens=max(1, len(excerpt) // 4) + len(record.symbols) * 2 + 16,
+        )
+
+    @classmethod
+    def _best_line_index(cls, lines: list[str], query_tokens: set[str]) -> int:
+        if not query_tokens:
+            return 0
+        scored = [
+            (len(query_tokens.intersection(cls._tokens(line))), index)
+            for index, line in enumerate(lines)
+        ]
+        score, index = max(scored, key=lambda item: (item[0], -item[1]))
+        return index if score > 0 else 0
+
     @staticmethod
-    def _estimate_record_tokens(record: EvidenceRecord) -> int:
-        return max(1, len(record.snippet) // 4) + len(record.symbols) * 2 + 12
+    def _number_excerpt_lines(lines: list[str], start_line: int) -> str:
+        return "\n".join(
+            f"{line_number}: {line}"
+            for line_number, line in enumerate(lines, start=start_line)
+        )
 
     @staticmethod
     def _search_text(record: EvidenceRecord) -> str:
