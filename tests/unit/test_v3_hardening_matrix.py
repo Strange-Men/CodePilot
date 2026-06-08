@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from agents.orchestrator import AgentOrchestrator
+from backend.agents.orchestrator import AgentOrchestrator
 from backend.core.config import Settings
 from backend.llm.client import build_llm_client
 from backend.llm.structured import StructuredLLMClient

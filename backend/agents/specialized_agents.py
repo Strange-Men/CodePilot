@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agents.evidence_agent import EvidenceGroundedAgent
+from backend.agents.evidence_agent import EvidenceGroundedAgent
 from backend.core.report_contract import REPORT_SECTIONS
 
 

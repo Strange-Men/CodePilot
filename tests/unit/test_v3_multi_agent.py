@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents.evidence_agent import EvidenceGroundedAgent
-from agents.orchestrator import AgentOrchestrator
-from agents.specialized_agents import CodeSmellAgent
+from backend.agents.evidence_agent import EvidenceGroundedAgent
+from backend.agents.orchestrator import AgentOrchestrator
+from backend.agents.specialized_agents import CodeSmellAgent
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import MockLLMClient
 from backend.models.context import EvidenceRecord

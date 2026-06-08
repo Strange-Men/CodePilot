@@ -27,12 +27,13 @@ ReportGeneratorFactory = Callable[..., ReportGenerator]
 
 @dataclass(frozen=True)
 class ReviewPipelineResult:
-    total_python_files: int = 0
+    total_python_files: int = 0  # Deprecated: prefer total_source_files
     analyzed_files: int = 0
     skipped_files: int = 0
 
     @property
     def total_source_files(self) -> int:
+        """Preferred alias for total_python_files."""
         return self.total_python_files
 
 
@@ -65,7 +66,7 @@ class ReviewPipeline:
             manifest = self._build_manifest(repo_dir)
             context = self._build_context(task_id, repo_dir, repo_url, manifest)
             result = ReviewPipelineResult(
-                total_python_files=context.total_python_files,
+                total_python_files=context.total_source_files,
                 analyzed_files=context.analyzed_files,
                 skipped_files=context.skipped_files,
             )
@@ -116,7 +117,7 @@ class ReviewPipeline:
             "event=parse_completed task_id=%s language=%s total_source_files=%s analyzed_files=%s skipped_files=%s",
             task_id,
             parser.language,
-            context.total_python_files,
+            context.total_source_files,
             context.analyzed_files,
             context.skipped_files,
         )

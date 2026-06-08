@@ -52,7 +52,7 @@ class PromptRenderer:
                     "Repository Summary:",
                     f"Repository URL: {context.repo_url}",
                     f"Repository language: {context.language}",
-                    f"Total source files: {context.total_python_files}",
+                    f"Total source files: {context.total_source_files}",
                     f"Analyzed files: {context.analyzed_files}",
                     f"Skipped files: {context.skipped_files}",
                     f"Total lines: {context.total_lines}",

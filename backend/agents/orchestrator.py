@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from agents.architecture_agent import ArchitectureAgent
-from agents.evidence_agent import EvidenceGroundedAgent
-from agents.specialized_agents import CodeSmellAgent, MaintainabilityAgent, RefactorAgent
+from backend.agents.architecture_agent import ArchitectureAgent
+from backend.agents.evidence_agent import EvidenceGroundedAgent
+from backend.agents.specialized_agents import CodeSmellAgent, MaintainabilityAgent, RefactorAgent
 from backend.llm.client import LLMClient
 from backend.models.context import ReviewContext
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
