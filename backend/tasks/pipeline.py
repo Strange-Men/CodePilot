@@ -193,6 +193,9 @@ class ReviewPipeline:
             self.settings.final_prompt_token_budget,
             token_model=self.settings.openai_model,
         )
+        configure_engine = getattr(report_generator, "configure_engine", None)
+        if callable(configure_engine):
+            configure_engine(self.settings.review_engine)
         logger.info("event=export_started task_id=%s", task_id)
         report, export_path = report_generator.generate(task_id, context)
         logger.info("event=export_completed task_id=%s export_path=%s", task_id, export_path)

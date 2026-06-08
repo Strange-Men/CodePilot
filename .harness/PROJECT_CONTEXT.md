@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is transitioning from V2.6 to V3.0 with the safety, deep-context, and evidence foundation implemented, and 193 collected backend tests.
+CodePilot is transitioning from V2.6 to V3.0 with the safety, deep-context, evidence foundation, structured LLM client, and ArchitectureAgent implemented, and 198 collected backend tests.
 
 ## Release History
 
@@ -116,8 +116,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 193 tests on 2026-06-08.
-- Unit tests: 173 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- `pytest --collect-only -q` collected 198 tests on 2026-06-08.
+- Unit tests: 178 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, structured LLM agents, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
 - Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
@@ -141,6 +141,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 |----------|---------|---------|
 | `PYTHON_VERSION` | `3.11.11` | Runtime documentation in `.env.example`. |
 | `USE_MOCK_LLM` | `true` | Toggle deterministic mock LLM vs real API. |
+| `ENABLE_REAL_LLM` | `false` | Required opt-in guard before a real OpenAI-compatible client can be used. |
+| `REVIEW_ENGINE` | `v2` | Selects `v2`, `v3_single_agent`, or future V3 review engines. |
 | `OPENAI_API_KEY` | empty | Required only when `USE_MOCK_LLM=false`. |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible endpoint. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model name. |

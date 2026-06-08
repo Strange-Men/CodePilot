@@ -43,6 +43,7 @@ The app runs in mock LLM mode by default. To use a real OpenAI-compatible API, e
 
 ```text
 USE_MOCK_LLM=false
+ENABLE_REAL_LLM=true
 OPENAI_API_KEY=your-key
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini

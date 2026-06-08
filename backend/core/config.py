@@ -22,6 +22,8 @@ class Settings(BaseSettings):
         alias="CORS_ALLOW_ORIGIN_REGEX",
     )
     use_mock_llm: bool = Field(default=True, alias="USE_MOCK_LLM")
+    enable_real_llm: bool = Field(default=False, alias="ENABLE_REAL_LLM")
+    review_engine: str = Field(default="v2", alias="REVIEW_ENGINE")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")

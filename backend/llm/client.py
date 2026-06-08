@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from collections.abc import Callable
 from typing import Protocol
@@ -9,6 +10,7 @@ import httpx
 
 from backend.core.config import Settings
 from backend.core.report_contract import REPORT_SECTIONS, report_section_heading_list
+from backend.models.structured_review import RawLLMFinding
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY_SECONDS = 1.0
@@ -68,6 +70,27 @@ class MockLLMClient:
             + "\n".join(f"- {candidate}" for candidate in refactoring_lines)
             + "\n"
         )
+
+    def generate_structured_findings(self, prompt: str) -> list[RawLLMFinding]:
+        evidence_ids = list(dict.fromkeys(re.findall(r"\bev_[a-f0-9]{20}\b", prompt)))
+        if not evidence_ids:
+            return []
+        return [
+            RawLLMFinding(
+                title="Evidence-grounded architecture boundary",
+                description=(
+                    "The selected evidence highlights an architectural boundary that should be reviewed "
+                    "before changing entry points, core modules, or shared dependencies."
+                ),
+                category="architecture",
+                severity="medium",
+                confidence=0.72,
+                recommendation=(
+                    "Review the cited evidence and add contract tests around the boundary before refactoring."
+                ),
+                evidence_ids=evidence_ids[:3],
+            )
+        ]
 
     @staticmethod
     def _extract_after(prompt: str, label: str) -> str | None:
@@ -152,4 +175,6 @@ class OpenAICompatibleClient:
 def build_llm_client(settings: Settings) -> LLMClient:
     if settings.use_mock_llm:
         return MockLLMClient()
+    if not settings.enable_real_llm:
+        raise RuntimeError("ENABLE_REAL_LLM must be true before a real LLM client can be used.")
     return OpenAICompatibleClient(settings)
