@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 269 tests.
+`pytest --collect-only -q` collected 279 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 249 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 259 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |

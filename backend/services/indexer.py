@@ -142,6 +142,13 @@ class RepositoryIndexer:
         context.insights = RepositoryInsightEngine().generate(context)
         return context
 
+    # Tier cutoff ratios for large-repo mode.
+    # HIGH_TIER_RATIO: top 25% by importance get full analysis (high tier).
+    # MEDIUM_TIER_RATIO: next 45% (up to 70%) get reduced compression (medium tier).
+    # Remaining 30% get manifest-only retrieval (low tier).
+    HIGH_TIER_RATIO: float = 0.25
+    MEDIUM_TIER_RATIO: float = 0.70
+
     def _assign_analysis_tiers(self, summaries: list[CodeFileSummary], large_repo_mode: bool) -> dict[str, int]:
         if not large_repo_mode:
             for summary in summaries:
@@ -151,8 +158,8 @@ class RepositoryIndexer:
             summaries,
             key=lambda summary: (-summary.importance_score, -summary.fan_in, -summary.fan_out, summary.path),
         )
-        high_cutoff = max(1, math.ceil(len(ranked) * 0.25))
-        medium_cutoff = max(high_cutoff, math.ceil(len(ranked) * 0.7))
+        high_cutoff = max(1, math.ceil(len(ranked) * self.HIGH_TIER_RATIO))
+        medium_cutoff = max(high_cutoff, math.ceil(len(ranked) * self.MEDIUM_TIER_RATIO))
         high_paths = {
             summary.path
             for summary in ranked[:high_cutoff]

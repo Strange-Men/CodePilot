@@ -1,180 +1,22 @@
+"""Evidence retriever with BM25 scoring and compression."""
+
 from __future__ import annotations
 
-import hashlib
 import math
-import re
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import replace
 
 from backend.models.context import EvidenceRecord, ReviewContext
-from backend.parsers.base import ParsedSourceFile
-from backend.services.sandbox import SandboxFile
 
-TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]{1,}")
-SEMANTIC_RETRIEVAL_STATUS = "future_hook"
-
-
-@dataclass(frozen=True)
-class ManifestCandidate:
-    path: str
-    role: str
-    language: str
-    score: float
-    tier: str = "standard"
-
-
-@dataclass(frozen=True)
-class RetrievalPolicy:
-    agent_role: str = "EvidenceGroundedAgent"
-    query: str = ""
-    limit: int = 8
-    token_budget: int = 2000
-    manifest_limit: int = 24
-    symbol_limit: int = 16
-    snippet_limit: int | None = None
-    compression_window_lines: int = 18
-    max_snippet_chars: int = 900
-
-
-@dataclass(frozen=True)
-class CompressedEvidence:
-    evidence_id: str
-    file_path: str
-    start_line: int
-    end_line: int
-    excerpt_start_line: int
-    excerpt_end_line: int
-    snippet: str
-    truncated: bool
-    estimated_tokens: int
-
-
-@dataclass(frozen=True)
-class RetrievalStats:
-    agent_role: str
-    query: str
-    total_records: int
-    manifest_candidates: int
-    symbol_matches: int
-    selected_evidence: int
-    candidate_paths: int
-    latency_ms: float
-    estimated_tokens: int
-    token_budget: int
-    token_utilization: float
-    precision_like: float
-    recall_like: float
-    large_repo_mode: bool = False
-    semantic_status: str = SEMANTIC_RETRIEVAL_STATUS
-    level_counts: dict[str, int] = field(default_factory=dict)
-
-    def to_metadata(self) -> dict[str, str | int | float | bool | None]:
-        return {
-            "retrieval_agent_role": self.agent_role,
-            "retrieval_total_records": self.total_records,
-            "retrieval_manifest_candidates": self.manifest_candidates,
-            "retrieval_symbol_matches": self.symbol_matches,
-            "retrieval_selected_evidence": self.selected_evidence,
-            "retrieval_candidate_paths": self.candidate_paths,
-            "retrieval_latency_ms": round(self.latency_ms, 3),
-            "retrieval_estimated_tokens": self.estimated_tokens,
-            "retrieval_token_budget": self.token_budget,
-            "retrieval_token_utilization": round(self.token_utilization, 4),
-            "retrieval_precision_like": round(self.precision_like, 4),
-            "retrieval_recall_like": round(self.recall_like, 4),
-            "retrieval_large_repo_mode": self.large_repo_mode,
-            "retrieval_semantic_status": self.semantic_status,
-            "retrieval_level_1_manifest": self.level_counts.get("manifest", 0),
-            "retrieval_level_2_symbol": self.level_counts.get("symbol", 0),
-            "retrieval_level_3_snippet": self.level_counts.get("snippet", 0),
-            "retrieval_level_4_semantic": 0,
-        }
-
-
-@dataclass(frozen=True)
-class RetrievalResult:
-    records: list[EvidenceRecord]
-    manifest_candidates: list[ManifestCandidate]
-    symbol_paths: set[str]
-    stats: RetrievalStats
-
-
-def stable_evidence_id(file_path: str, start_line: int, end_line: int, snippet: str) -> str:
-    normalized = "\n".join(line.rstrip() for line in snippet.strip().splitlines())
-    normalized_path = file_path.replace("\\", "/")
-    payload = f"{normalized_path}:{start_line}:{end_line}:{normalized}".encode()
-    return f"ev_{hashlib.sha256(payload).hexdigest()[:20]}"
-
-
-class EvidenceStore:
-    def __init__(self, records: list[EvidenceRecord] | None = None) -> None:
-        self._records: dict[str, EvidenceRecord] = {}
-        for record in records or []:
-            self.add(record)
-
-    def add(self, record: EvidenceRecord) -> None:
-        existing = self._records.get(record.evidence_id)
-        if existing is not None and existing != record:
-            raise ValueError(f"Evidence ID collision: {record.evidence_id}")
-        self._records[record.evidence_id] = record
-
-    def resolve(self, evidence_id: str) -> EvidenceRecord:
-        try:
-            return self._records[evidence_id]
-        except KeyError as exc:
-            raise KeyError(f"Unknown evidence_id: {evidence_id}") from exc
-
-    def all(self) -> list[EvidenceRecord]:
-        return list(self._records.values())
-
-    @classmethod
-    def from_context(cls, context: ReviewContext) -> EvidenceStore:
-        return cls(context.evidence)
-
-
-def build_file_evidence(
-    sandbox_file: SandboxFile,
-    parsed: ParsedSourceFile,
-    *,
-    chunk_lines: int = 40,
-) -> list[EvidenceRecord]:
-    lines = sandbox_file.content.splitlines()
-    ranges: list[tuple[int, int, str, list[str]]] = []
-    for symbol in [*parsed.function_details, *parsed.class_details]:
-        if symbol.start_line <= 0:
-            continue
-        ranges.append(
-            (
-                symbol.start_line,
-                min(symbol.end_line or symbol.start_line, len(lines)),
-                "symbol",
-                [symbol.name],
-            )
-        )
-    if not ranges:
-        ranges.extend(
-            (start, min(start + chunk_lines - 1, len(lines)), "source", [])
-            for start in range(1, len(lines) + 1, chunk_lines)
-        )
-
-    records: list[EvidenceRecord] = []
-    for start, end, kind, symbols in ranges:
-        snippet = "\n".join(lines[start - 1 : end]).strip()
-        if not snippet:
-            continue
-        records.append(
-            EvidenceRecord(
-                evidence_id=stable_evidence_id(sandbox_file.path, start, end, snippet),
-                file_path=sandbox_file.path,
-                start_line=start,
-                end_line=end,
-                snippet=snippet,
-                kind=kind,
-                symbols=symbols,
-            )
-        )
-    return records
+from .models import (
+    TOKEN_PATTERN,
+    CompressedEvidence,
+    ManifestCandidate,
+    RetrievalPolicy,
+    RetrievalResult,
+    RetrievalStats,
+)
 
 
 class EvidenceRetriever:
@@ -192,6 +34,11 @@ class EvidenceRetriever:
             if self.document_tokens
             else 1.0
         )
+        # O(1) tier and summary lookups (precomputed once)
+        self._tier_cache: dict[str, str] = {
+            s.path: getattr(s, "analysis_tier", "standard") for s in context.file_summaries
+        }
+        self._summary_by_path: dict[str, object] = {s.path: s for s in context.file_summaries}
 
     def retrieve(
         self,
@@ -218,7 +65,7 @@ class EvidenceRetriever:
         symbol_paths = self._symbol_retrieval(query_tokens, limit=policy.symbol_limit)
         merged_candidate_paths = self._merge_candidate_paths(candidate_paths, manifest_paths, symbol_paths)
         scored = self._snippet_retrieval(query_tokens, merged_candidate_paths)
-        selected = self._select_records(scored, policy)
+        selected, compressed = self._select_records(scored, policy)
         latency_ms = (time.perf_counter() - started_at) * 1000
         stats = self._build_stats(
             policy,
@@ -227,6 +74,7 @@ class EvidenceRetriever:
             symbol_paths,
             scored,
             selected,
+            compressed,
             merged_candidate_paths,
             latency_ms,
         )
@@ -323,9 +171,10 @@ class EvidenceRetriever:
         self,
         scored: list[tuple[float, str, EvidenceRecord]],
         policy: RetrievalPolicy,
-    ) -> list[EvidenceRecord]:
+    ) -> tuple[list[EvidenceRecord], list[CompressedEvidence]]:
         limit = policy.snippet_limit or policy.limit
         selected: list[EvidenceRecord] = []
+        compressed: list[CompressedEvidence] = []
         seen: set[str] = set()
         seen_ranges: set[tuple[str, int, int]] = set()
         estimated_tokens = 0
@@ -338,16 +187,18 @@ class EvidenceRetriever:
                 continue
             if score <= 0 and policy.query:
                 continue
-            record_tokens = self.compress_for_prompt(record, policy.query, policy=policy).estimated_tokens
+            comp = self.compress_for_prompt(record, policy.query, policy=policy)
+            record_tokens = comp.estimated_tokens
             if selected and estimated_tokens + record_tokens > token_ceiling:
                 continue
             selected.append(record)
+            compressed.append(comp)
             seen.add(record.evidence_id)
             seen_ranges.add(range_key)
             estimated_tokens += record_tokens
             if len(selected) >= limit:
                 break
-        return selected
+        return selected, compressed
 
     @staticmethod
     def _merge_candidate_paths(
@@ -368,6 +219,7 @@ class EvidenceRetriever:
         symbol_paths: set[str],
         scored: list[tuple[float, str, EvidenceRecord]],
         selected: list[EvidenceRecord],
+        compressed: list[CompressedEvidence],
         candidate_paths: set[str] | None,
         latency_ms: float,
     ) -> RetrievalStats:
@@ -377,10 +229,8 @@ class EvidenceRetriever:
             for score, _evidence_id, record in scored
             if record in selected and (score > 0 or not query_tokens)
         }
-        estimated_tokens = sum(
-            self.compress_for_prompt(record, policy.query, policy=policy).estimated_tokens
-            for record in selected
-        )
+        # Use pre-compressed results instead of recompressing
+        estimated_tokens = sum(comp.estimated_tokens for comp in compressed)
         selected_count = len(selected)
         precision_like = len(selected_relevant) / selected_count if selected_count else 1.0
         recall_like = len(selected_relevant) / len(relevant_available) if relevant_available else 1.0
@@ -425,10 +275,7 @@ class EvidenceRetriever:
         return score
 
     def _dependency_score(self, file_path: str, query_tokens: list[str]) -> float:
-        summary = next(
-            (summary for summary in self.context.file_summaries if summary.path == file_path),
-            None,
-        )
+        summary = self._summary_by_path.get(file_path)
         if summary is None:
             return 0.0
         path_tokens = set(self._tokens(file_path))
@@ -450,14 +297,8 @@ class EvidenceRetriever:
     ) -> CompressedEvidence:
         policy = policy or RetrievalPolicy(query=query)
         if self.context.large_repo_mode and self._analysis_tier(record.file_path) == "medium":
-            policy = policy.__class__(
-                agent_role=policy.agent_role,
-                query=policy.query,
-                limit=policy.limit,
-                token_budget=policy.token_budget,
-                manifest_limit=policy.manifest_limit,
-                symbol_limit=policy.symbol_limit,
-                snippet_limit=policy.snippet_limit,
+            policy = replace(
+                policy,
                 compression_window_lines=max(4, policy.compression_window_lines // 2),
                 max_snippet_chars=max(240, policy.max_snippet_chars // 2),
             )
@@ -514,8 +355,7 @@ class EvidenceRetriever:
     def _analysis_tier(self, path: str) -> str:
         if not self.context.large_repo_mode:
             return "standard"
-        summary = next((summary for summary in self.context.file_summaries if summary.path == path), None)
-        return getattr(summary, "analysis_tier", "low") if summary is not None else "low"
+        return self._tier_cache.get(path, "low")
 
     @classmethod
     def _best_line_index(cls, lines: list[str], query_tokens: set[str]) -> int:
