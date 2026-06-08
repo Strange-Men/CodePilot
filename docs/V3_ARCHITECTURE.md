@@ -61,3 +61,7 @@ Until then, `ReviewState` and `AgentOrchestrator.run(state)` provide the require
 ## Limitations
 
 V3.1 does not add LangGraph, vector DB, retrieval/RAG, MCP, CLI, CI/PR integration, OAuth, SaaS, billing, RBAC, or enterprise features. JS/TS context remains best-effort lexical extraction.
+
+## V3.2 Retrieval Note
+
+V3.2 keeps the V3.1 contracts and upgrades retrieval inside `EvidenceRetriever` with manifest, symbol, and snippet tiers, deterministic context compression, large repo mode, and additive retrieval metrics. The stronger RAG decision is documented in `docs/V3_2_RETRIEVAL.md`; V3.2 intentionally does not add vector DBs, LangChain, LangGraph, or new agents.
