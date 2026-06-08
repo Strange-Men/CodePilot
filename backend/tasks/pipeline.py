@@ -15,6 +15,7 @@ from backend.parsers.registry import ParserRegistry, default_parser_registry
 from backend.reviewers.report_generator import ReportGenerator
 from backend.services.clone_service import CloneService
 from backend.services.indexer import RepositoryIndexer
+from backend.services.sandbox import SandboxFilter, SandboxManifest
 from backend.storage.sqlite import ReviewStore
 
 logger = get_logger(__name__)
@@ -61,7 +62,8 @@ class ReviewPipeline:
             logger.info("event=task_started task_id=%s repo_url=%s", task_id, repo_url)
 
             repo_dir = self._clone_repository(clone_service, task_id, repo_url)
-            context = self._build_context(task_id, repo_dir, repo_url)
+            manifest = self._build_manifest(repo_dir)
+            context = self._build_context(task_id, repo_dir, repo_url, manifest)
             result = ReviewPipelineResult(
                 total_python_files=context.total_python_files,
                 analyzed_files=context.analyzed_files,
@@ -83,11 +85,27 @@ class ReviewPipeline:
         logger.info("event=clone_completed task_id=%s repo_dir=%s", task_id, repo_dir)
         return repo_dir
 
-    def _build_context(self, task_id: str, repo_dir: Path, repo_url: str) -> ReviewContext:
+    def _build_manifest(self, repo_dir: Path) -> SandboxManifest:
+        return SandboxFilter().build_manifest(
+            repo_dir,
+            self.settings.max_files,
+            self.settings.max_file_size_bytes,
+        )
+
+    def _build_context(
+        self,
+        task_id: str,
+        repo_dir: Path,
+        repo_url: str,
+        manifest: SandboxManifest,
+    ) -> ReviewContext:
         self.store.update_status(task_id, ReviewStatus.parsing)
         logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
-        parser = self._select_parser(repo_dir)
+        parser = self._select_parser(repo_dir, manifest)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
+        set_manifest = getattr(indexer, "set_manifest", None)
+        if callable(set_manifest):
+            set_manifest(manifest)
         build_review_context = getattr(indexer, "build_review_context", None)
         if callable(build_review_context):
             context = build_review_context(repo_dir, repo_url)
@@ -104,7 +122,12 @@ class ReviewPipeline:
         )
         return context
 
-    def _select_parser(self, repo_dir: Path) -> SourceParser:
+    def _select_parser(self, repo_dir: Path, manifest: SandboxManifest | None = None) -> SourceParser:
+        if manifest is not None and manifest.files:
+            manifest_parser = self._select_parser_from_manifest(manifest)
+            if manifest_parser is not None:
+                return manifest_parser
+
         fallback_parser: SourceParser | None = None
         matching_parsers: list[SourceParser] = []
         first_parser: SourceParser | None = None
@@ -136,6 +159,25 @@ class ReviewPipeline:
         if first_parser is not None:
             return first_parser
         return self.parser_registry.create("python")
+
+    def _select_parser_from_manifest(self, manifest: SandboxManifest) -> SourceParser | None:
+        extensions = {file.extension for file in manifest.files}
+        language_extensions = {
+            "python": {".py"},
+            "javascript": {".js", ".jsx"},
+            "typescript": {".ts", ".tsx"},
+        }
+        languages = [
+            language
+            for language in self.parser_registry.languages()
+            if extensions.intersection(language_extensions.get(language, set()))
+        ]
+        if not languages:
+            return None
+        language_priority = {"python": 0, "javascript": 1, "typescript": 2}
+        languages = sorted(languages, key=lambda item: (language_priority.get(item, 99), item))
+        parsers = [self.parser_registry.create(language) for language in languages]
+        return CompositeSourceParser(parsers) if len(parsers) > 1 else parsers[0]
 
     def _record_summarized(self, task_id: str, context: ReviewContext) -> None:
         self.store.update_status(task_id, ReviewStatus.summarizing)

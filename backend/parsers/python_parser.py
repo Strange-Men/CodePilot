@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.parsers.base import ParsedClass, ParsedFunction, ParsedRoute, ParsedSourceFile, SourceParser
 from backend.services.scoring import detect_entry_point
 from backend.services.source_selection import source_file_priority
 
@@ -59,6 +59,9 @@ class PythonParser(SourceParser):
     def parse_file(self, repo_dir: Path, path: Path) -> ParsedPythonFile:
         source = path.read_text(encoding="utf-8", errors="replace")
         relative_path = path.relative_to(repo_dir).as_posix()
+        return self.parse_source(source, relative_path)
+
+    def parse_source(self, source: str, relative_path: str) -> ParsedPythonFile:
         module = self._parse_ast(source)
 
         if self._tree_sitter_parser:
@@ -84,6 +87,7 @@ class PythonParser(SourceParser):
         classes: list[str] = []
         functions: list[str] = []
         imports: list[str] = []
+        details = self._deep_context_from_module(module) if module is not None else _PythonDeepContext()
 
         def text(node) -> str:
             return source_bytes[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
@@ -125,6 +129,10 @@ class PythonParser(SourceParser):
             complexity_estimate=self._estimate_complexity(module) if module is not None else 0,
             is_entry_point=detect_entry_point(relative_path, source),
             dependency_imports=self._dependency_imports_from_module(module) if module is not None else [],
+            function_details=details.functions,
+            class_details=details.classes,
+            call_refs=details.call_refs,
+            route_patterns=details.routes,
         )
 
     def _parse_with_ast(
@@ -156,6 +164,7 @@ class PythonParser(SourceParser):
                 imports.extend(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.append(node.module)
+        details = self._deep_context_from_module(module)
         return ParsedPythonFile(
             path=relative_path,
             classes=classes,
@@ -167,6 +176,10 @@ class PythonParser(SourceParser):
             complexity_estimate=self._estimate_complexity(module),
             is_entry_point=detect_entry_point(relative_path, source),
             dependency_imports=self._dependency_imports_from_module(module),
+            function_details=details.functions,
+            class_details=details.classes,
+            call_refs=details.call_refs,
+            route_patterns=details.routes,
         )
 
     @staticmethod
@@ -212,6 +225,105 @@ class PythonParser(SourceParser):
                 complexity += max(0, len(node.values) - 1)
         return complexity
 
+    @classmethod
+    def _deep_context_from_module(cls, module: ast.Module) -> _PythonDeepContext:
+        functions: list[ParsedFunction] = []
+        classes: list[ParsedClass] = []
+        routes: list[ParsedRoute] = []
+        call_refs: list[str] = []
+
+        for node in ast.walk(module):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                function_calls = cls._calls_in_node(node)
+                decorators = [cls._expression_text(decorator) for decorator in node.decorator_list]
+                functions.append(
+                    ParsedFunction(
+                        name=node.name,
+                        params=[arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]],
+                        return_type=cls._expression_text(node.returns) if node.returns is not None else None,
+                        decorators=decorators,
+                        docstring=ast.get_docstring(node),
+                        start_line=getattr(node, "lineno", 0),
+                        end_line=getattr(node, "end_lineno", getattr(node, "lineno", 0)),
+                        calls=function_calls,
+                    )
+                )
+                call_refs.extend(function_calls)
+                routes.extend(cls._routes_from_function(node, decorators))
+            elif isinstance(node, ast.ClassDef):
+                classes.append(
+                    ParsedClass(
+                        name=node.name,
+                        bases=[cls._expression_text(base) for base in node.bases],
+                        decorators=[cls._expression_text(decorator) for decorator in node.decorator_list],
+                        docstring=ast.get_docstring(node),
+                        start_line=getattr(node, "lineno", 0),
+                        end_line=getattr(node, "end_lineno", getattr(node, "lineno", 0)),
+                        methods=[
+                            child.name
+                            for child in node.body
+                            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+                        ],
+                    )
+                )
+
+        return _PythonDeepContext(
+            functions=functions,
+            classes=classes,
+            routes=routes,
+            call_refs=list(dict.fromkeys(call_refs)),
+        )
+
+    @classmethod
+    def _routes_from_function(
+        cls,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        decorators: list[str],
+    ) -> list[ParsedRoute]:
+        routes: list[ParsedRoute] = []
+        for decorator, original in zip(decorators, node.decorator_list, strict=True):
+            if not isinstance(original, ast.Call) or not original.args:
+                continue
+            if not isinstance(original.args[0], ast.Constant) or not isinstance(original.args[0].value, str):
+                continue
+            method = decorator.split("(", 1)[0].rsplit(".", 1)[-1].upper()
+            if method in {"GET", "POST", "PUT", "PATCH", "DELETE", "ROUTE", "WEBSOCKET"}:
+                routes.append(
+                    ParsedRoute(
+                        method=method,
+                        path=original.args[0].value,
+                        handler=node.name,
+                        line=getattr(node, "lineno", 0),
+                    )
+                )
+        return routes
+
+    @classmethod
+    def _calls_in_node(cls, node: ast.AST) -> list[str]:
+        calls: list[str] = []
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                calls.append(cls._call_name(child.func))
+        return [call for call in dict.fromkeys(calls) if call]
+
+    @classmethod
+    def _call_name(cls, node: ast.AST) -> str:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            base = cls._call_name(node.value)
+            return f"{base}.{node.attr}" if base else node.attr
+        return ""
+
+    @staticmethod
+    def _expression_text(node: ast.AST | None) -> str:
+        if node is None:
+            return ""
+        try:
+            return ast.unparse(node)
+        except Exception:
+            return ""
+
     @staticmethod
     def _importance_key(path: Path) -> tuple[int, int, str]:
         return source_file_priority(
@@ -229,3 +341,11 @@ class PythonParser(SourceParser):
             return get_parser("python")
         except Exception:
             return None
+
+
+@dataclass(frozen=True)
+class _PythonDeepContext:
+    functions: list[ParsedFunction] = field(default_factory=list)
+    classes: list[ParsedClass] = field(default_factory=list)
+    routes: list[ParsedRoute] = field(default_factory=list)
+    call_refs: list[str] = field(default_factory=list)

@@ -1,16 +1,16 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-07
-> Verified with: `pytest --collect-only -q` on 2026-06-07
+> Last updated: 2026-06-08
+> Verified with: `pytest --collect-only -q` on 2026-06-08
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 187 tests.
+`pytest --collect-only -q` collected 193 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 167 | 22 | Validate contexts, prompts, structured reviews, backend services, parsers, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 173 | 23 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -41,6 +41,7 @@
 | `tests/unit/test_review_task_runner.py` | 7 | Submit/run behavior, status progression, parser selection, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 5 | Model encodings, Unicode, exact budgets, line preservation, and unknown-model fallback. |
+| `tests/unit/test_v3_sandbox_evidence.py` | 6 | Sandbox boundaries, secret redaction, deep context, stable evidence IDs, and lexical evidence retrieval. |
 | `tests/unit/test_structured_review.py` | 5 | Markdown parsing, structured findings, contract ordering, and lossless context-aware round trips. |
 
 ## Integration Tests

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
     max_files: int = 300
     max_file_size_bytes: int = 200 * 1024
-    final_prompt_token_budget: int = 5000
+    final_prompt_token_budget: int = 8000
 
     @property
     def cors_origins(self) -> list[str]:

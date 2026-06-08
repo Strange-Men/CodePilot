@@ -3,6 +3,44 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class SymbolContext(BaseModel):
+    name: str
+    kind: str
+    file_path: str
+    start_line: int = 0
+    end_line: int = 0
+    params: list[str] = Field(default_factory=list)
+    return_type: str | None = None
+    decorators: list[str] = Field(default_factory=list)
+    docstring: str | None = None
+    bases: list[str] = Field(default_factory=list)
+    calls: list[str] = Field(default_factory=list)
+
+
+class RouteContext(BaseModel):
+    method: str
+    path: str
+    handler: str
+    line: int = 0
+
+
+class DeepContextSummary(BaseModel):
+    symbol_index: dict[str, list[SymbolContext]] = Field(default_factory=dict)
+    file_contexts: dict[str, list[str]] = Field(default_factory=dict)
+    call_graph: dict[str, list[str]] = Field(default_factory=dict)
+    class_hierarchy: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class EvidenceRecord(BaseModel):
+    evidence_id: str
+    file_path: str
+    start_line: int
+    end_line: int
+    snippet: str
+    kind: str = "source"
+    symbols: list[str] = Field(default_factory=list)
+
+
 class CodeFileSummary(BaseModel):
     path: str
     classes: list[str] = Field(default_factory=list)
@@ -22,6 +60,11 @@ class CodeFileSummary(BaseModel):
     in_dependency_cycle: bool = False
     is_hub: bool = False
     is_orphan: bool = False
+    imports: list[str] = Field(default_factory=list)
+    symbols: list[SymbolContext] = Field(default_factory=list)
+    call_refs: list[str] = Field(default_factory=list)
+    routes: list[RouteContext] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 class RepositoryInsight(BaseModel):
@@ -73,6 +116,8 @@ class ReviewContext(BaseModel):
     files: FileAnalysisBundle = Field(default_factory=FileAnalysisBundle)
     dependencies: DependencyStructure = Field(default_factory=DependencyStructure)
     insights: InsightReport = Field(default_factory=InsightReport)
+    deep_context: DeepContextSummary = Field(default_factory=DeepContextSummary)
+    evidence: list[EvidenceRecord] = Field(default_factory=list)
 
     @property
     def repo_url(self) -> str:
@@ -159,6 +204,8 @@ class RepositoryContext(BaseModel):
     hub_files: list[str] = Field(default_factory=list)
     orphan_files: list[str] = Field(default_factory=list)
     insights: RepositoryInsights = Field(default_factory=RepositoryInsights)
+    deep_context: DeepContextSummary = Field(default_factory=DeepContextSummary)
+    evidence: list[EvidenceRecord] = Field(default_factory=list)
 
     def to_review_context(self) -> ReviewContext:
         return ReviewContext(
@@ -185,6 +232,8 @@ class RepositoryContext(BaseModel):
                 orphan_files=self.orphan_files,
             ),
             insights=InsightReport.model_validate(self.insights.model_dump()),
+            deep_context=self.deep_context,
+            evidence=self.evidence,
         )
 
     @classmethod
@@ -207,6 +256,8 @@ class RepositoryContext(BaseModel):
             hub_files=context.hub_files,
             orphan_files=context.orphan_files,
             insights=RepositoryInsights.model_validate(context.insights.model_dump()),
+            deep_context=context.deep_context,
+            evidence=context.evidence,
         )
 
 

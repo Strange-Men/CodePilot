@@ -1,12 +1,12 @@
 # CodePilot - Project Context
 
 > Harness version: v1.2
-> Last updated: 2026-06-07
-> Repository reality checked: 2026-06-07
+> Last updated: 2026-06-08
+> Repository reality checked: 2026-06-08
 
 ## Current Version
 
-CodePilot is at V2.6, the completed 2.x series: focused review context models, modular prompts, structured review drafts, deterministic architectural insights, mixed Python/JavaScript/TypeScript reviews, repository metrics, dependency graphs, graceful shutdown, and 187 collected backend tests.
+CodePilot is transitioning from V2.6 to V3.0 with the safety, deep-context, and evidence foundation implemented, and 193 collected backend tests.
 
 ## Release History
 
@@ -116,8 +116,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 187 tests on 2026-06-07.
-- Unit tests: 167 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- `pytest --collect-only -q` collected 193 tests on 2026-06-08.
+- Unit tests: 173 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
 - Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.

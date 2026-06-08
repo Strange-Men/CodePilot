@@ -5,31 +5,50 @@ from pathlib import Path
 from backend.models.context import (
     CodeFileSummary,
     DependencyStructure,
+    EvidenceRecord,
     FileAnalysisBundle,
     RepoMetadata,
     RepositoryContext,
     ReviewContext,
+    RouteContext,
+    SymbolContext,
 )
 from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.services.deep_context import DeepContextEngine
 from backend.services.dependency_graph import DependencyGraph
+from backend.services.evidence import build_file_evidence
 from backend.services.insights import RepositoryInsightEngine
 from backend.services.prioritization import paths_for_roles
+from backend.services.sandbox import SandboxFile, SandboxManifest
 from backend.services.scoring import ScoreInput, file_role, score_files
 
 
 class RepositoryIndexer:
-    def __init__(self, parser: SourceParser, max_files: int, max_file_size_bytes: int) -> None:
+    def __init__(
+        self,
+        parser: SourceParser,
+        max_files: int,
+        max_file_size_bytes: int,
+        manifest: SandboxManifest | None = None,
+    ) -> None:
         self.parser = parser
         self.max_files = max_files
         self.max_file_size_bytes = max_file_size_bytes
+        self.manifest = manifest
+
+    def set_manifest(self, manifest: SandboxManifest) -> None:
+        self.manifest = manifest
 
     def build_context(self, repo_dir: Path, repo_url: str) -> RepositoryContext:
         return RepositoryContext.from_review_context(self.build_review_context(repo_dir, repo_url))
 
     def build_review_context(self, repo_dir: Path, repo_url: str) -> ReviewContext:
-        files, total, skipped = self.parser.discover_files(repo_dir, self.max_files, self.max_file_size_bytes)
-        parsed_files = [self.parser.parse_file(repo_dir, path) for path in files]
+        files, total, skipped = self._discover_files(repo_dir)
+        parsed_files = [self._parse_selected_file(repo_dir, file) for file in files]
         summaries = [self._summarize_file(parsed) for parsed in parsed_files]
+        evidence_records, evidence_by_path = self._build_evidence(files, parsed_files)
+        for summary in summaries:
+            summary.evidence_ids = evidence_by_path.get(summary.path, [])
         dependency_graph = DependencyGraph(self.parser.language).build(parsed_files)
         cycle_files = {
             path
@@ -104,9 +123,61 @@ class RepositoryIndexer:
                 hub_files=list(dependency_graph.hub_files),
                 orphan_files=list(dependency_graph.orphan_files),
             ),
+            deep_context=DeepContextEngine().build(parsed_files),
+            evidence=evidence_records,
         )
         context.insights = RepositoryInsightEngine().generate(context)
         return context
+
+    def _discover_files(self, repo_dir: Path) -> tuple[list[Path | SandboxFile], int, int]:
+        if self.manifest is None:
+            return self.parser.discover_files(repo_dir, self.max_files, self.max_file_size_bytes)
+        extensions = self._extensions_for_parser()
+        files = self.manifest.for_extensions(extensions)
+        return files, self._total_for_extensions(extensions), self.manifest.skipped_files
+
+    def _parse_selected_file(self, repo_dir: Path, file: Path | SandboxFile) -> ParsedSourceFile:
+        if isinstance(file, SandboxFile):
+            parse_source = getattr(self.parser, "parse_source", None)
+            if callable(parse_source):
+                return parse_source(file.content, file.path)
+            return self.parser.parse_file(repo_dir, file.absolute_path)
+        return self.parser.parse_file(repo_dir, file)
+
+    def _build_evidence(
+        self,
+        files: list[Path | SandboxFile],
+        parsed_files: list[ParsedSourceFile],
+    ) -> tuple[list[EvidenceRecord], dict[str, list[str]]]:
+        if self.manifest is None:
+            return [], {}
+        sandbox_files = [file for file in files if isinstance(file, SandboxFile)]
+        evidence_records: list[EvidenceRecord] = []
+        evidence_by_path: dict[str, list[str]] = {}
+        for sandbox_file, parsed in zip(sandbox_files, parsed_files, strict=True):
+            records = build_file_evidence(sandbox_file, parsed)
+            evidence_records.extend(records)
+            evidence_by_path[parsed.path] = [record.evidence_id for record in records]
+        return evidence_records, evidence_by_path
+
+    def _extensions_for_parser(self) -> set[str]:
+        parser_languages = getattr(self.parser, "languages", None)
+        languages = set(parser_languages or (self.parser.language,))
+        extensions: set[str] = set()
+        if "python" in languages:
+            extensions.add(".py")
+        if "javascript" in languages:
+            extensions.update({".js", ".jsx"})
+        if "typescript" in languages:
+            extensions.update({".ts", ".tsx"})
+        if self.parser.language == "mixed":
+            extensions.update({".py", ".js", ".jsx", ".ts", ".tsx"})
+        return extensions
+
+    def _total_for_extensions(self, extensions: set[str]) -> int:
+        if self.manifest is None:
+            return 0
+        return sum(1 for file in self.manifest.files if file.extension in extensions)
 
     def _summarize_file(self, parsed: ParsedSourceFile) -> CodeFileSummary:
         purpose = self._infer_purpose(parsed)
@@ -117,6 +188,34 @@ class RepositoryIndexer:
         if exported_symbols:
             summary = f"{summary}; exports={', '.join(exported_symbols[:12])}"
         summary = f"{summary}."
+        symbols = [
+            SymbolContext(
+                name=function.name,
+                kind="function",
+                file_path=parsed.path,
+                start_line=function.start_line,
+                end_line=function.end_line,
+                params=function.params,
+                return_type=function.return_type,
+                decorators=function.decorators,
+                docstring=function.docstring,
+                calls=function.calls,
+            )
+            for function in parsed.function_details
+        ]
+        symbols.extend(
+            SymbolContext(
+                name=class_detail.name,
+                kind="class",
+                file_path=parsed.path,
+                start_line=class_detail.start_line,
+                end_line=class_detail.end_line,
+                decorators=class_detail.decorators,
+                docstring=class_detail.docstring,
+                bases=class_detail.bases,
+            )
+            for class_detail in parsed.class_details
+        )
         return CodeFileSummary(
             path=parsed.path,
             classes=parsed.classes[:20],
@@ -127,6 +226,18 @@ class RepositoryIndexer:
             function_count=parsed.function_count,
             complexity_estimate=parsed.complexity_estimate,
             is_entry_point=parsed.is_entry_point,
+            imports=parsed.imports,
+            symbols=symbols,
+            call_refs=parsed.call_refs,
+            routes=[
+                RouteContext(
+                    method=route.method,
+                    path=route.path,
+                    handler=route.handler,
+                    line=route.line,
+                )
+                for route in parsed.route_patterns
+            ],
         )
 
     def _summarize_repository(self, summaries: list[CodeFileSummary], total: int, skipped: int) -> str:

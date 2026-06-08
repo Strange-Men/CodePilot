@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from backend.parsers.base import ParsedSourceFile, SourceParser
+from backend.parsers.base import ParsedFunction, ParsedRoute, ParsedSourceFile, SourceParser
 from backend.services.scoring import detect_entry_point
 from backend.services.source_selection import source_file_priority
 
@@ -72,10 +72,14 @@ class JavaScriptParser(SourceParser):
     def parse_file(self, repo_dir: Path, path: Path) -> ParsedJavaScriptFile:
         source = path.read_text(encoding="utf-8", errors="replace")
         relative_path = path.relative_to(repo_dir).as_posix()
+        return self.parse_source(source, relative_path)
+
+    def parse_source(self, source: str, relative_path: str) -> ParsedJavaScriptFile:
         imports = self._extract_imports(source)
         classes = self._extract_classes(source)
         functions = self._extract_functions(source)
         exported_symbols = self._extract_exported_symbols(source)
+        function_details = self._extract_function_details(source)
         return ParsedJavaScriptFile(
             path=relative_path,
             classes=classes,
@@ -88,6 +92,9 @@ class JavaScriptParser(SourceParser):
             is_entry_point=detect_entry_point(relative_path, source),
             dependency_imports=self._extract_dependency_imports(source),
             exported_symbols=exported_symbols,
+            function_details=function_details,
+            call_refs=self._extract_call_refs(source),
+            route_patterns=self._extract_route_patterns(source),
         )
 
     @staticmethod
@@ -179,6 +186,58 @@ class JavaScriptParser(SourceParser):
         return _dedupe(exported)
 
     @staticmethod
+    def _extract_function_details(source: str) -> list[ParsedFunction]:
+        details: list[ParsedFunction] = []
+        patterns = [
+            r"^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(?P<name>[A-Za-z_$][\w$]*)\s*\((?P<params>[^)]*)\)",
+            r"^\s*(?:export\s+)?(?:const|let|var)\s+(?P<name>[A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\((?P<params>[^)]*)\)\s*=>",
+        ]
+        line_offsets = _line_offsets(source)
+        for pattern in patterns:
+            for match in re.finditer(pattern, source, re.MULTILINE):
+                details.append(
+                    ParsedFunction(
+                        name=match.group("name"),
+                        params=[
+                            param.strip().split("=", 1)[0].strip()
+                            for param in match.group("params").split(",")
+                            if param.strip()
+                        ],
+                        start_line=_line_for_offset(line_offsets, match.start()),
+                        end_line=_line_for_offset(line_offsets, match.end()),
+                    )
+                )
+        return details
+
+    @staticmethod
+    def _extract_call_refs(source: str) -> list[str]:
+        calls = [
+            match.group("name")
+            for match in re.finditer(r"\b(?P<name>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(", source)
+            if match.group("name") not in {"function", "if", "for", "while", "switch", "catch"}
+        ]
+        return _dedupe(calls)[:80]
+
+    @staticmethod
+    def _extract_route_patterns(source: str) -> list[ParsedRoute]:
+        routes: list[ParsedRoute] = []
+        line_offsets = _line_offsets(source)
+        pattern = (
+            r"\b(?:app|router|server)\.(?P<method>get|post|put|patch|delete|use)\s*"
+            r"\(\s*['\"](?P<path>[^'\"]+)['\"]\s*,\s*(?P<handler>[A-Za-z_$][\w$]*)?"
+        )
+        for match in re.finditer(pattern, source, re.IGNORECASE):
+            routes.append(
+                ParsedRoute(
+                    method=match.group("method").upper(),
+                    path=match.group("path"),
+                    handler=match.group("handler") or "inline",
+                    line=_line_for_offset(line_offsets, match.start()),
+                )
+            )
+        return routes
+
+    @staticmethod
     def _extract_leading_comment(source: str) -> str | None:
         stripped = source.lstrip()
         block = re.match(r"/\*\*(?P<body>.*?)\*/", stripped, re.DOTALL)
@@ -213,3 +272,19 @@ def _dedupe(items: list[str]) -> list[str]:
             seen.add(item)
             deduped.append(item)
     return deduped
+
+
+def _line_offsets(source: str) -> list[int]:
+    offsets = [0]
+    for match in re.finditer("\n", source):
+        offsets.append(match.end())
+    return offsets
+
+
+def _line_for_offset(offsets: list[int], offset: int) -> int:
+    line = 1
+    for index, line_offset in enumerate(offsets, start=1):
+        if line_offset > offset:
+            break
+        line = index
+    return line
