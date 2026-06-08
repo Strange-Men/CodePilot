@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V3.1 with structured finding persistence, agent state storage, graph-ready ReviewState, inspectable agent results, and LangGraph deferred, with 261 collected backend tests.
+CodePilot is at V3.3 with CLI, CI report mode, optional MCP serving, diff-aware V3 retrieval, structured persistence, graph-ready ReviewState, and 288 collected backend tests.
 
 ## Release History
 
@@ -23,6 +23,8 @@ CodePilot is at V3.1 with structured finding persistence, agent state storage, g
 | V2.6 | 2026-06-07 | `4ae27d2` onward | Context decomposition, versioned prompt system, structured review adapter, parser/lifecycle cleanup, V3-ready boundaries |
 | V3.0 | 2026-06-08 | `097dbee`~5 commits | Safety sandbox, deep context, evidence store, structured LLM, multi-agent review, V3 evaluation hardening |
 | V3.1 | 2026-06-08 | `097dbee` to `9fdc220` | Structured finding persistence, agent state storage, graph-ready ReviewState, LangGraph deferred, inspectable agent results |
+| V3.2 | 2026-06-08 | Through `636b7d8` | Tiered retrieval, deterministic context compression, large repo mode, retrieval metrics |
+| V3.3 | 2026-06-08 | Current work | CLI, CI report mode, optional MCP server integration, diff-aware review scope |
 
 ## Architecture Summary
 
@@ -58,6 +60,8 @@ Backend modules:
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
 - `backend/agents` - V3 evidence-grounded review agents and orchestrator.
+- `backend/workflows` - CLI/CI/MCP integration layer, safe summaries, severity gates, and diff parsing.
+- `backend/cli.py`, `backend/mcp_server.py` - Developer workflow entry points over the shared integration layer.
 
 ## Technology Stack
 
@@ -119,9 +123,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 261 tests on 2026-06-08.
-- Unit tests: 241 collected across context compatibility, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner.
-- Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
+- `pytest --collect-only -q` collected 288 tests on 2026-06-08.
+- Unit tests: 264 collected across context compatibility, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, report generation, storage, and task runner.
+- Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
@@ -175,7 +179,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 | Directory | Current State | Intended Use |
 |-----------|---------------|--------------|
-| `mcp/` | Not yet created | Future MCP integration (V3.3). |
+| `backend/mcp_server.py` | Optional integration | Registers V3.3 MCP tools when the external MCP SDK is installed. |
 
 ## Cross-References
 

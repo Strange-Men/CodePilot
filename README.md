@@ -56,6 +56,18 @@ REVIEW_ENGINE=v3_single_agent
 REVIEW_ENGINE=v3_multi_agent
 ```
 
+## Developer Workflows
+
+V3.3 adds CLI, CI, optional MCP, and diff-aware review wrappers around the existing pipeline:
+
+```powershell
+python -m backend.cli review https://github.com/owner/repo --output reports/review.md --json-output reports/review.json
+python -m backend.cli ci https://github.com/owner/repo --fail-on high --json-output reports/ci.json
+python -m backend.cli diff https://github.com/owner/repo --changed-file backend/main.py --output reports/diff.md
+```
+
+See `docs/V3_3_WORKFLOWS.md` for details.
+
 ## Stack
 
 - Frontend: Next.js, TypeScript, Tailwind, shadcn/ui-style components

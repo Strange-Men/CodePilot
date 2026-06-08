@@ -58,6 +58,7 @@ Browser
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
 | Agents | `backend/agents/` | V3 evidence-grounded review agents and fan-out/fan-in orchestration | Agents consume `ReviewContext` and `EvidenceRetriever`, produce structured findings, and cannot read files directly. |
+| Workflows | `backend/workflows/`, `backend/cli.py`, `backend/mcp_server.py` | CLI, CI, MCP, and diff-aware integration | Wraps `ReviewPipeline` and `ReviewStore`; MCP is optional and never reads raw repository files. |
 
 ## Frontend Module Map
 
@@ -288,7 +289,9 @@ V3.1 added structured persistence and graph-ready state:
 - Graph-ready `ReviewState` for future LangGraph migration (LangGraph deferred).
 - Inspectable agent results.
 
-V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. MCP remains unimplemented and reserved for future work (V3.3). See `docs/V3_ARCHITECTURE.md` and `docs/V3_AGENT_DEVELOPMENT.md`.
+V3.2 added tiered retrieval, context compression, large repo mode, and retrieval metrics.
+
+V3.3 adds `ReviewWorkflow`, CLI/CI commands, optional MCP SDK registration, and `ReviewScope` for changed-file plus dependency-neighbor retrieval. Full-repo behavior remains unchanged when no scope is supplied. V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. See `docs/V3_ARCHITECTURE.md`, `docs/V3_2_RETRIEVAL.md`, and `docs/V3_3_WORKFLOWS.md`.
 
 ## Cross-References
 

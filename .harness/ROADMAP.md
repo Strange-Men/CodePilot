@@ -64,13 +64,28 @@
 - [x] LangGraph deferred; ReviewState is migration-ready.
 - [x] Inspectable agent results.
 
+### V3.2 - Tiered Retrieval
+
+- [x] Manifest, symbol, and snippet retrieval tiers.
+- [x] Deterministic context compression.
+- [x] Large repository analysis tiers and disclosure.
+- [x] Persistable retrieval metrics without snippets.
+
+### V3.3 - Developer Workflow Integration
+
+- [x] CLI repository review with Markdown and JSON outputs.
+- [x] CI report mode with safe default and optional severity gates.
+- [x] Optional MCP server tools over the shared workflow/store layer.
+- [x] Diff-aware review with changed-file and dependency-neighbor scope.
+- [x] Network-free integration tests and workflow documentation.
+
 ## In Progress
 
-V3.1 is complete. No V3.2+ implementation is in progress.
+V3.3 is complete. No V3.4 implementation is in progress.
 
 ## Future Development Priorities
 
-Further product work requires a separately approved V3.2 plan.
+Further product work requires a separately approved V3.4 plan.
 
 Infrastructure work should only be planned when it directly enables these priorities.
 
@@ -138,15 +153,15 @@ Infrastructure work should only be planned when it directly enables these priori
 
 ### MCP Integration
 
-- [ ] Expose CodePilot as an MCP tool.
-- [ ] Add IDE integration path.
+- [x] Expose CodePilot as optional MCP tools.
+- [x] Add an MCP-compatible IDE integration path.
 - [ ] Support real-time analysis from editor context.
 
 ### Enterprise Direction
 
 - [ ] Team workspaces.
 - [ ] Custom review rules.
-- [ ] CI/CD review gates.
+- [x] Configurable CLI-based CI report gates.
 - [ ] Reporting dashboard.
 
 ## Technical Debt
@@ -166,7 +181,6 @@ Infrastructure work should only be planned when it directly enables these priori
 - Batch repository reviews.
 - Custom report templates.
 - PDF export.
-- CLI entry point.
 - GitHub App integration.
 - LLM cost tracking.
 

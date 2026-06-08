@@ -1,4 +1,4 @@
-# CodePilot V3.1 Architecture
+# CodePilot V3 Architecture
 
 CodePilot V3.1 keeps the V2.6 API, frontend contract, parser registry, mock mode, `ReviewContext`, and four-section report output intact. It adds graph-ready runtime state and additive SQLite tables for validated structured findings, safe evidence references, and per-agent execution state.
 
@@ -65,3 +65,14 @@ V3.1 does not add LangGraph, vector DB, retrieval/RAG, MCP, CLI, CI/PR integrati
 ## V3.2 Retrieval Note
 
 V3.2 keeps the V3.1 contracts and upgrades retrieval inside `EvidenceRetriever` with manifest, symbol, and snippet tiers, deterministic context compression, large repo mode, and additive retrieval metrics. The stronger RAG decision is documented in `docs/V3_2_RETRIEVAL.md`; V3.2 intentionally does not add vector DBs, LangChain, LangGraph, or new agents.
+
+## V3.3 Workflow Integration Note
+
+V3.3 adds developer workflow entry points without changing the review engine:
+
+- `backend.cli` exposes `review`, `ci`, and `diff` commands.
+- `backend.workflows.ReviewWorkflow` synchronously wraps `ReviewPipeline`, `ReviewStore`, and persisted structured artifacts.
+- `backend.mcp_server` optionally registers MCP tools when the MCP SDK is installed.
+- `ReviewScope` narrows V3 evidence retrieval to changed files and dependency neighbors for diff-aware reviews.
+
+The API, SQLite schema, `report_markdown`, `ReportResult`, four-section report contract, V2 path, V3.0/V3.1/V3.2 paths, evidence lineage, structured finding persistence, agent state storage, and `ReviewState` remain compatible.

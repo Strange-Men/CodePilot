@@ -6,12 +6,12 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 281 tests.
+`pytest --collect-only -q` collected 288 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 261 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
-| Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
+| Unit | 264 | 30 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Integration | 23 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, and diff mode. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
 | Frontend | 9 | 2 | Validate Markdown rendering, history, URL validation, API errors, and reliability fallbacks. |
@@ -43,6 +43,7 @@
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 6 | Model encodings, Unicode, exact budgets, line preservation, unknown-model fallback, and missing-dependency runtime fallback. |
 | `tests/unit/test_v3_2_retrieval.py` | 7 | Tiered retrieval, legacy compatibility, context compression, token budgeting, safe metadata, large repo tiers, and manifest-only low-priority files. |
+| `tests/unit/test_v3_3_diff_scope.py` | 3 | Changed-file scope, dependency-neighbor expansion, and candidate-path constrained evidence retrieval. |
 | `tests/unit/test_v3_sandbox_evidence.py` | 6 | Sandbox boundaries, secret redaction, deep context, stable evidence IDs, and lexical evidence retrieval. |
 | `tests/unit/test_v3_structured_agent.py` | 5 | Structured LLM retries, evidence-only validation, ArchitectureAgent mock behavior, V3 single-agent report contract, and real LLM opt-in guard. |
 | `tests/unit/test_v3_multi_agent.py` | 4 | Multi-agent failure isolation, conservative deduplication, per-section mock findings, and V3 multi-agent report rendering. |
@@ -57,6 +58,7 @@
 | `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JavaScript repository review completes and the generated report uses JavaScript language labeling. |
 | `tests/integration/test_multilanguage_review_pipeline.py` | 1 | Python, JavaScript, and TypeScript parsers merge into one insight-rich mock review. |
 | `tests/integration/test_reviews_api.py` | 17 | Create, canonical URL validation, history, item reads, structured errors, and export behavior. |
+| `tests/integration/test_v3_3_workflows.py` | 4 | CLI report outputs, configurable CI exit policy, fixture diff parsing, and safe MCP workflow wrappers. |
 
 ## Regression Tests
 

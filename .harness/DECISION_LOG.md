@@ -4,6 +4,24 @@
 > Last updated: 2026-06-08
 > Format: newest first, one significant decision per entry.
 
+## DECISION-028: Wrap The Existing Pipeline For V3.3 Developer Workflows
+
+- Date: 2026-06-08
+- Type: Architecture / Integration
+- Status: Approved
+
+### Context
+
+V3.3 needs CLI, CI, MCP, and diff-aware review access without creating another review engine, changing SQLite, exposing raw snippets, or disturbing the API/frontend paths.
+
+### Decision
+
+Add a thin `ReviewWorkflow` composition layer over `ReviewPipeline`, `ReviewStore`, and persisted structured artifacts. Use an optional `ReviewScope` to constrain V3.2 evidence retrieval for changed files and dependency neighbors. Keep MCP SDK registration optional and isolate it in `backend.mcp_server`.
+
+### Rationale
+
+All developer workflow entry points share the existing sandboxed review path and persistence contract. The optional scope leaves full-repository behavior unchanged, machine-readable outputs contain only persisted safe data, and the default dependency set remains unaffected by MCP.
+
 ## DECISION-027: Defer LangGraph Behind ReviewState
 
 - Date: 2026-06-08
