@@ -7,6 +7,7 @@ from backend.agents.orchestrator import AgentOrchestrator
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
+from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
 
@@ -25,11 +26,13 @@ class ReportGenerator:
         self.markdown_adapter = MarkdownReviewAdapter()
         self.review_engine = "v2"
         self.token_model = token_model
+        self.last_structured_draft: StructuredReviewDraft | None = None
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> tuple[str, Path]:
+        self.last_structured_draft = None
         if self.review_engine == "v3_single_agent":
             report = self._generate_v3_single_agent(context)
         elif self.review_engine == "v3_multi_agent":
@@ -46,6 +49,7 @@ class ReportGenerator:
         review_context = as_review_context(context)
         try:
             draft = ArchitectureAgent(self.llm_client, model=self.token_model).review(review_context)
+            self.last_structured_draft = draft
             architecture_body = draft.section_markdown(REPORT_SECTIONS[0])
         except Exception:
             architecture_body = ""
@@ -75,6 +79,7 @@ class ReportGenerator:
                 per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
             ).review(review_context)
             draft = result.draft
+            self.last_structured_draft = draft
         except Exception:
             draft = None
 

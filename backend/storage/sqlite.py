@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 
+from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
+from backend.models.structured_review import ReviewFinding
 
 
 class ReviewStore:
@@ -34,6 +37,45 @@ class ReviewStore:
                     export_path TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_findings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL,
+                    finding_index INTEGER NOT NULL,
+                    section TEXT NOT NULL,
+                    title TEXT,
+                    description TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    category TEXT,
+                    confidence REAL,
+                    recommendation TEXT,
+                    files_json TEXT NOT NULL,
+                    evidence_ids_json TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    validation_status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
+                    UNIQUE (task_id, finding_index)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_evidence_refs (
+                    task_id TEXT NOT NULL,
+                    evidence_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    start_line INTEGER NOT NULL,
+                    end_line INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    symbols_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
+                    PRIMARY KEY (task_id, evidence_id)
                 )
                 """
             )
@@ -89,6 +131,108 @@ class ReviewStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def replace_structured_findings(
+        self,
+        task_id: str,
+        findings: list[ReviewFinding],
+        evidence: list[EvidenceRecord],
+    ) -> None:
+        now = self._now()
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM review_findings WHERE task_id = ?", (task_id,))
+            conn.execute("DELETE FROM review_evidence_refs WHERE task_id = ?", (task_id,))
+            for index, finding in enumerate(findings):
+                conn.execute(
+                    """
+                    INSERT INTO review_findings (
+                        task_id, finding_index, section, title, description, severity, category,
+                        confidence, recommendation, files_json, evidence_ids_json, evidence_json,
+                        validation_status, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        task_id,
+                        index,
+                        finding.section,
+                        finding.title,
+                        finding.description,
+                        finding.severity,
+                        finding.category,
+                        finding.confidence,
+                        finding.recommendation,
+                        self._json(finding.files),
+                        self._json(finding.evidence_ids),
+                        self._json(finding.evidence),
+                        "validated",
+                        now,
+                    ),
+                )
+
+            referenced_evidence_ids = {
+                evidence_id
+                for finding in findings
+                for evidence_id in finding.evidence_ids
+            }
+            for record in evidence:
+                if record.evidence_id not in referenced_evidence_ids:
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO review_evidence_refs (
+                        task_id, evidence_id, file_path, start_line, end_line, kind, symbols_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        task_id,
+                        record.evidence_id,
+                        record.file_path,
+                        record.start_line,
+                        record.end_line,
+                        record.kind,
+                        self._json(record.symbols),
+                        now,
+                    ),
+                )
+            conn.commit()
+
+    def get_structured_findings(self, task_id: str) -> list[dict]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM review_findings
+                WHERE task_id = ?
+                ORDER BY finding_index ASC
+                """,
+                (task_id,),
+            ).fetchall()
+        return [self._decode_json_columns(dict(row)) for row in rows]
+
+    def get_evidence_refs(self, task_id: str) -> list[dict]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM review_evidence_refs
+                WHERE task_id = ?
+                ORDER BY evidence_id ASC
+                """,
+                (task_id,),
+            ).fetchall()
+        return [self._decode_json_columns(dict(row)) for row in rows]
+
     @staticmethod
     def _now() -> str:
         return datetime.now(UTC).isoformat()
+
+    @staticmethod
+    def _json(value: object) -> str:
+        return json.dumps(value, sort_keys=True)
+
+    @staticmethod
+    def _decode_json_columns(row: dict) -> dict:
+        decoded = dict(row)
+        for key in list(decoded):
+            if key.endswith("_json"):
+                decoded[key.removesuffix("_json")] = json.loads(decoded.pop(key))
+        return decoded

@@ -199,6 +199,9 @@ class ReviewPipeline:
             configure_engine(self.settings.review_engine)
         logger.info("event=export_started task_id=%s", task_id)
         report, export_path = report_generator.generate(task_id, context)
+        structured_draft = getattr(report_generator, "last_structured_draft", None)
+        if structured_draft is not None and structured_draft.findings:
+            self.store.replace_structured_findings(task_id, structured_draft.findings, context.evidence)
         logger.info("event=export_completed task_id=%s export_path=%s", task_id, export_path)
         logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(report))
         return report, export_path

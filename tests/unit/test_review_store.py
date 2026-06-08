@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
+from backend.models.structured_review import ReviewFinding
 from backend.storage.sqlite import ReviewStore
 
 
@@ -109,3 +111,75 @@ def test_list_reviews_applies_limit_without_schema_changes(tmp_path: Path) -> No
         "created_at",
         "updated_at",
     ]
+
+
+def test_store_persists_validated_findings_and_safe_evidence_refs(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    finding = ReviewFinding(
+        section="Architecture Summary",
+        title="Boundary",
+        description="A validated boundary finding.",
+        category="architecture",
+        severity="medium",
+        confidence=0.8,
+        files=["app.py"],
+        recommendation="Add a contract test.",
+        evidence_ids=["ev_safe"],
+        evidence=["ev_safe -> app.py:1-2"],
+    )
+    evidence = EvidenceRecord(
+        evidence_id="ev_safe",
+        file_path="app.py",
+        start_line=1,
+        end_line=2,
+        snippet="password=super-secret",
+        kind="symbol",
+        symbols=["create_app"],
+    )
+
+    store.replace_structured_findings("task-1", [finding], [evidence])
+
+    findings = store.get_structured_findings("task-1")
+    evidence_refs = store.get_evidence_refs("task-1")
+    assert findings[0]["validation_status"] == "validated"
+    assert findings[0]["evidence_ids"] == ["ev_safe"]
+    assert evidence_refs[0]["evidence_id"] == "ev_safe"
+    assert evidence_refs[0]["symbols"] == ["create_app"]
+    assert "snippet" not in evidence_refs[0]
+    with store._connect() as conn:
+        persisted = "\n".join(
+            str(value)
+            for row in conn.execute("SELECT * FROM review_evidence_refs").fetchall()
+            for value in row
+        )
+    assert "super-secret" not in persisted
+
+
+def test_replacing_structured_findings_is_idempotent(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    first = ReviewFinding(section="Architecture Summary", description="First", evidence_ids=["ev_first"])
+    second = ReviewFinding(section="Code Smells", description="Second", evidence_ids=["ev_second"])
+    evidence = [
+        EvidenceRecord(
+            evidence_id="ev_first",
+            file_path="first.py",
+            start_line=1,
+            end_line=1,
+            snippet="first",
+        ),
+        EvidenceRecord(
+            evidence_id="ev_second",
+            file_path="second.py",
+            start_line=2,
+            end_line=2,
+            snippet="second",
+        ),
+    ]
+
+    store.replace_structured_findings("task-1", [first], evidence)
+    store.replace_structured_findings("task-1", [second], evidence)
+
+    assert [row["description"] for row in store.get_structured_findings("task-1")] == ["Second"]
+    assert [row["evidence_id"] for row in store.get_evidence_refs("task-1")] == ["ev_second"]
