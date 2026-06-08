@@ -9,6 +9,7 @@ from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext
 from backend.models.review import ReviewStatus
+from backend.models.review_scope import ReviewScope
 from backend.parsers.base import SourceParser
 from backend.parsers.composite import CompositeSourceParser
 from backend.parsers.registry import ParserRegistry, default_parser_registry
@@ -47,6 +48,7 @@ class ReviewPipeline:
         clone_service_factory: CloneServiceFactory | None = None,
         indexer_factory: IndexerFactory | None = None,
         report_generator_factory: ReportGeneratorFactory | None = None,
+        review_scope: ReviewScope | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
@@ -55,6 +57,7 @@ class ReviewPipeline:
         self.clone_service_factory = clone_service_factory or CloneService
         self.indexer_factory = indexer_factory or RepositoryIndexer
         self.report_generator_factory = report_generator_factory or ReportGenerator
+        self.review_scope = review_scope
 
     def run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
         clone_service = self.clone_service_factory(self.settings.workspace_path)
@@ -200,6 +203,9 @@ class ReviewPipeline:
         configure_engine = getattr(report_generator, "configure_engine", None)
         if callable(configure_engine):
             configure_engine(self.settings.review_engine)
+        configure_review_scope = getattr(report_generator, "configure_review_scope", None)
+        if callable(configure_review_scope):
+            configure_review_scope(self.review_scope)
         logger.info("event=export_started task_id=%s", task_id)
         result = report_generator.generate(task_id, context)
         if result.structured_draft is not None and result.structured_draft.findings:
