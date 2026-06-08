@@ -40,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
         return CIExitPolicy(args.fail_on).exit_code(result.summary)
 
     if args.command == "diff":
+        if args.engine == "v2":
+            parser.error("diff mode requires --engine v3_single_agent or v3_multi_agent.")
         changed_paths = _diff_paths_from_args(args)
         scope = ReviewScope.for_changed_paths(
             changed_paths,

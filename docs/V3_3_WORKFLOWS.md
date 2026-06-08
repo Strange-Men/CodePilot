@@ -60,6 +60,8 @@ python -m backend.cli diff https://github.com/owner/repo `
 
 When `--engine` is omitted, diff mode uses `v3_multi_agent` so it can reuse V3.2 tiered retrieval. `ReviewScope` limits V3 evidence retrieval to changed files plus dependency-neighbor context. The scope is additive and optional; full-repo review behavior is unchanged.
 
+Diff mode accepts only `v3_single_agent` or `v3_multi_agent`; the V2 engine remains available for normal full-repository reviews.
+
 ## MCP Server
 
 `backend.mcp_server` provides optional MCP SDK integration. It registers:

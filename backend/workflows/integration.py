@@ -76,12 +76,13 @@ class ReviewWorkflow:
         task_id: str | None = None,
     ) -> ReviewWorkflowResult:
         settings = self._settings_for_run(engine_mode, use_mock_llm, review_scope)
+        llm_client = build_llm_client(settings)
         task_id = task_id or uuid4().hex
         self.store.create_review(task_id, repo_url)
         pipeline = ReviewPipeline(
             settings,
             self.store,
-            build_llm_client(settings),
+            llm_client,
             review_scope=review_scope,
         )
         pipeline.run(task_id, repo_url)
@@ -126,6 +127,8 @@ class ReviewWorkflow:
         engine = engine_mode or self.settings.review_engine
         if review_scope is not None and review_scope.is_diff_mode and engine_mode is None:
             engine = "v3_multi_agent"
+        if review_scope is not None and review_scope.is_diff_mode and engine == "v2":
+            raise ValueError("Diff-aware review requires v3_single_agent or v3_multi_agent.")
         settings = self.settings.model_copy(
             update={
                 "review_engine": engine,
