@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agents.architecture_agent import ArchitectureAgent
+from agents.orchestrator import AgentOrchestrator
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
@@ -31,6 +32,8 @@ class ReportGenerator:
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> tuple[str, Path]:
         if self.review_engine == "v3_single_agent":
             report = self._generate_v3_single_agent(context)
+        elif self.review_engine == "v3_multi_agent":
+            report = self._generate_v3_multi_agent(context)
         else:
             prompt = self._build_prompt(context)
             raw_report = self.llm_client.generate_review(prompt)
@@ -62,6 +65,26 @@ class ReportGenerator:
             "No validated evidence-grounded refactoring findings were produced by the single-agent V3 engine.\n"
         )
         return self._normalize_report(raw_report, review_context)
+
+    def _generate_v3_multi_agent(self, context: ReviewContext | RepositoryContext) -> str:
+        review_context = as_review_context(context)
+        try:
+            result = AgentOrchestrator(
+                self.llm_client,
+                model=self.token_model,
+                per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
+            ).review(review_context)
+            draft = result.draft
+        except Exception:
+            draft = None
+
+        section_bodies: list[str] = []
+        for section in REPORT_SECTIONS:
+            body = draft.section_markdown(section) if draft is not None else ""
+            if not body:
+                body = f"No validated evidence-grounded {section.lower()} findings were produced."
+            section_bodies.append(f"# {section}\n{body}")
+        return self._normalize_report("\n\n".join(section_bodies) + "\n", review_context)
 
     def _build_prompt(self, context: ReviewContext | RepositoryContext) -> str:
         return self.prompt_renderer.render(context)

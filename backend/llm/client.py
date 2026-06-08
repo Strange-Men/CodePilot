@@ -75,18 +75,33 @@ class MockLLMClient:
         evidence_ids = list(dict.fromkeys(re.findall(r"\bev_[a-f0-9]{20}\b", prompt)))
         if not evidence_ids:
             return []
+        category = self._extract_after(prompt, "Review category:") or "architecture"
+        category = category.split(".", 1)[0].strip()
+        title_by_category = {
+            "architecture": "Evidence-grounded architecture boundary",
+            "code_smell": "Evidence-grounded code smell",
+            "maintainability": "Evidence-grounded maintainability risk",
+            "refactor": "Evidence-grounded refactoring candidate",
+        }
+        recommendation_by_category = {
+            "architecture": "Add contract tests around the boundary before refactoring.",
+            "code_smell": "Inspect the cited code path and reduce the highest-complexity responsibility first.",
+            "maintainability": "Stabilize the cited dependency boundary and cover it with focused tests.",
+            "refactor": "Extract the cited responsibility behind a smaller interface.",
+        }
         return [
             RawLLMFinding(
-                title="Evidence-grounded architecture boundary",
+                title=title_by_category.get(category, "Evidence-grounded repository finding"),
                 description=(
-                    "The selected evidence highlights an architectural boundary that should be reviewed "
-                    "before changing entry points, core modules, or shared dependencies."
+                    "The selected evidence highlights a repository concern that should be reviewed "
+                    "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
                 ),
-                category="architecture",
+                category=category,
                 severity="medium",
                 confidence=0.72,
-                recommendation=(
-                    "Review the cited evidence and add contract tests around the boundary before refactoring."
+                recommendation=recommendation_by_category.get(
+                    category,
+                    "Review the cited evidence before changing code.",
                 ),
                 evidence_ids=evidence_ids[:3],
             )

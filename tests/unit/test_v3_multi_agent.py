@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from agents.evidence_agent import EvidenceGroundedAgent
+from agents.orchestrator import AgentOrchestrator
+from agents.specialized_agents import CodeSmellAgent
+from backend.core.report_contract import REPORT_SECTIONS
+from backend.llm.client import MockLLMClient
+from backend.models.context import EvidenceRecord
+from backend.models.structured_review import ReviewFinding
+from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
+from backend.reviewers.report_generator import ReportGenerator
+from backend.services.evidence import stable_evidence_id
+
+
+class FailingAgent(EvidenceGroundedAgent):
+    role = "FailingAgent"
+
+    def review(self, context):
+        raise RuntimeError("agent failed")
+
+
+def context_with_two_evidence_records(sample_context):
+    context = sample_context.to_review_context()
+    first = stable_evidence_id("app.py", 1, 2, "def create_app():\n    return App()")
+    second = stable_evidence_id("services/review.py", 1, 2, "def review():\n    pass")
+    context.evidence = [
+        EvidenceRecord(
+            evidence_id=first,
+            file_path="app.py",
+            start_line=1,
+            end_line=2,
+            snippet="def create_app():\n    return App()",
+            kind="symbol",
+            symbols=["create_app"],
+        ),
+        EvidenceRecord(
+            evidence_id=second,
+            file_path="services/review.py",
+            start_line=1,
+            end_line=2,
+            snippet="def review():\n    pass",
+            kind="symbol",
+            symbols=["review"],
+        ),
+    ]
+    return context
+
+
+def test_orchestrator_isolates_agent_failures(sample_context) -> None:
+    context = context_with_two_evidence_records(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        agent_classes=[FailingAgent, CodeSmellAgent],
+    )
+
+    result = orchestrator.review(context)
+
+    assert result.errors == {"FailingAgent": "agent failed"}
+    assert len(result.draft.findings) == 1
+    assert result.draft.findings[0].section == REPORT_SECTIONS[1]
+
+
+def test_dedup_keeps_unrelated_findings_with_same_title() -> None:
+    first = ReviewFinding(
+        section=REPORT_SECTIONS[1],
+        title="Shared title",
+        description="First",
+        category="code_smell",
+        confidence=0.4,
+        evidence_ids=["ev_first"],
+    )
+    stronger_duplicate = first.model_copy(update={"confidence": 0.9})
+    unrelated = first.model_copy(update={"description": "Second", "evidence_ids": ["ev_second"]})
+
+    deduplicated = AgentOrchestrator._deduplicate([first, stronger_duplicate, unrelated])
+
+    assert len(deduplicated) == 2
+    assert deduplicated[0].confidence == 0.9
+    assert {finding.evidence_ids[0] for finding in deduplicated} == {"ev_first", "ev_second"}
+
+
+def test_multi_agent_mock_generates_one_grounded_finding_per_section(sample_context) -> None:
+    context = context_with_two_evidence_records(sample_context)
+
+    result = AgentOrchestrator(MockLLMClient()).review(context)
+
+    assert not result.errors
+    assert {finding.section for finding in result.draft.findings} == set(REPORT_SECTIONS)
+    assert all(finding.evidence_ids for finding in result.draft.findings)
+
+
+def test_v3_multi_agent_report_preserves_contract_and_evidence(sample_context, tmp_path: Path) -> None:
+    context = context_with_two_evidence_records(sample_context)
+    generator = ReportGenerator(MockLLMClient(), tmp_path, 8000)
+    generator.configure_engine("v3_multi_agent")
+
+    report, export_path = generator.generate("task-multi", context)
+
+    assert list(MarkdownReviewAdapter.extract_sections(report)) == REPORT_SECTIONS
+    assert all(section in report for section in REPORT_SECTIONS)
+    assert context.evidence[0].evidence_id in report
+    assert export_path.exists()
