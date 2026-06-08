@@ -20,10 +20,17 @@ class EvidenceGroundedAgent:
         self.token_budget = token_budget
         self.last_evidence_bundle: list[EvidenceRecord] = []
         self.last_retrieval_stats: RetrievalStats | None = None
+        self.candidate_paths: set[str] | None = None
+
+    def set_candidate_paths(self, candidate_paths: set[str] | None) -> None:
+        self.candidate_paths = None if candidate_paths is None else set(candidate_paths)
 
     def review(self, context: ReviewContext) -> StructuredReviewDraft:
         retrieval_policy = self._retrieval_policy()
-        retrieval = EvidenceRetriever(context).retrieve_with_policy(retrieval_policy)
+        retrieval = EvidenceRetriever(context).retrieve_with_policy(
+            retrieval_policy,
+            candidate_paths=self.candidate_paths,
+        )
         evidence_bundle = retrieval.records
         self.last_evidence_bundle = evidence_bundle
         self.last_retrieval_stats = retrieval.stats

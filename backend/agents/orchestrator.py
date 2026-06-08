@@ -27,6 +27,7 @@ class AgentOrchestrator:
         model: str = "gpt-4o-mini",
         per_agent_token_budget: int = 2000,
         agent_classes: list[type[EvidenceGroundedAgent]] | None = None,
+        candidate_paths: set[str] | None = None,
     ) -> None:
         self.llm_client = llm_client
         self.model = model
@@ -37,6 +38,7 @@ class AgentOrchestrator:
             MaintainabilityAgent,
             RefactorAgent,
         ]
+        self.candidate_paths = candidate_paths
 
     def review(self, context: ReviewContext, *, task_id: str | None = None) -> AgentRunResult:
         state = self.run(ReviewState(task_id=task_id, context=context))
@@ -55,6 +57,7 @@ class AgentOrchestrator:
                 model=self.model,
                 token_budget=self.per_agent_token_budget,
             )
+            agent.set_candidate_paths(self.candidate_paths)
             try:
                 draft = agent.review(state.context)
                 findings.extend(draft.findings)

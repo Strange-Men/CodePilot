@@ -8,6 +8,7 @@ from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
 from backend.models.report_result import ReportResult
+from backend.models.review_scope import ReviewScope
 from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
@@ -28,9 +29,13 @@ class ReportGenerator:
         self.markdown_adapter = MarkdownReviewAdapter()
         self.review_engine = "v2"
         self.token_model = token_model
+        self.review_scope: ReviewScope | None = None
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
+
+    def configure_review_scope(self, review_scope: ReviewScope | None) -> None:
+        self.review_scope = review_scope
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> ReportResult:
         if self.review_engine == "v3_single_agent":
@@ -42,6 +47,8 @@ class ReportGenerator:
             raw_report = self.llm_client.generate_review(prompt)
             report = self._normalize_report(raw_report, context)
             draft, agent_states, review_state = None, [], None
+        if self.review_scope is not None and self.review_scope.is_diff_mode:
+            report = report.rstrip() + "\n\n" + self._diff_scope_section(as_review_context(context)) + "\n"
         export_path = self.reports_path / f"{task_id}.md"
         export_path.write_text(report, encoding="utf-8")
         return ReportResult(
@@ -63,6 +70,7 @@ class ReportGenerator:
         agent_states: list[AgentExecutionState] = []
         try:
             agent = ArchitectureAgent(self.llm_client, model=self.token_model)
+            agent.set_candidate_paths(self._candidate_paths(review_context))
             draft = agent.review(review_context)
             state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
             state.validated_findings = draft.findings
@@ -115,6 +123,7 @@ class ReportGenerator:
                 self.llm_client,
                 model=self.token_model,
                 per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
+                candidate_paths=self._candidate_paths(review_context),
             ).review(review_context, task_id=task_id)
             draft = result.draft
             agent_states = result.agent_states
@@ -142,3 +151,29 @@ class ReportGenerator:
 
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         return self.markdown_adapter.normalize(report, context)
+
+    def _candidate_paths(self, context: ReviewContext) -> set[str] | None:
+        if self.review_scope is None:
+            return None
+        return self.review_scope.candidate_paths(context)
+
+    def _diff_scope_section(self, context: ReviewContext) -> str:
+        assert self.review_scope is not None
+        metadata = self.review_scope.metadata(context)
+        changed_files = metadata["changed_files"]
+        candidate_files = metadata["candidate_files"]
+        changed_lines = [f"- `{path}`" for path in changed_files] or ["- None matched supported source files."]
+        candidate_lines = [f"- `{path}`" for path in candidate_files] or ["- None."]
+        return "\n".join(
+            [
+                "# Diff Review Scope",
+                f"- Source: {self.review_scope.source}",
+                f"- Dependency-neighbor context: {str(self.review_scope.include_dependency_neighbors).lower()}",
+                "",
+                "## Changed Files",
+                *changed_lines,
+                "",
+                "## Reviewed Files And Neighbors",
+                *candidate_lines,
+            ]
+        )

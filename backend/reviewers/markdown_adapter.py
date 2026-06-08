@@ -19,6 +19,7 @@ APPENDIX_SECTIONS = {
     "Repository Insights",
     "Repository Metrics",
     "Architecture Graph",
+    "Diff Review Scope",
 }
 
 
