@@ -113,7 +113,31 @@ class ReviewStore:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
             conn.commit()
+            existing = conn.execute(
+                "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
+            ).fetchone()
+            if existing is None:
+                conn.execute(
+                    "INSERT INTO schema_metadata (key, value) VALUES ('schema_version', '1')"
+                )
+                conn.commit()
+
+    @property
+    def schema_version(self) -> str | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
+            ).fetchone()
+        return row["value"] if row else None
 
     def create_review(self, task_id: str, repo_url: str) -> None:
         now = self._now()

@@ -114,12 +114,12 @@ def test_v3_single_agent_report_preserves_four_sections(sample_context, tmp_path
     generator = ReportGenerator(MockLLMClient(), tmp_path, 8000)
     generator.configure_engine("v3_single_agent")
 
-    report, export_path = generator.generate("task-v3", context)
+    result = generator.generate("task-v3", context)
 
-    sections = MarkdownReviewAdapter.extract_sections(report)
+    sections = MarkdownReviewAdapter.extract_sections(result.report)
     assert list(sections) == REPORT_SECTIONS
-    assert context.evidence[0].evidence_id in report
-    assert export_path.exists()
+    assert context.evidence[0].evidence_id in result.report
+    assert result.export_path.exists()
 
 
 def test_real_llm_requires_explicit_enable_flag() -> None:

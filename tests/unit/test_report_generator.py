@@ -32,13 +32,13 @@ def test_valid_report_generation_writes_markdown(tmp_path: Path, sample_context)
         "# Refactoring Suggestions\nKeep tests small.\n"
     )
 
-    report, export_path = ReportGenerator(llm, tmp_path, 5000).generate("task-1", sample_context)
+    result = ReportGenerator(llm, tmp_path, 5000).generate("task-1", sample_context)
 
-    assert_report_shape(report)
-    assert export_path == tmp_path / "task-1.md"
-    assert export_path.read_text(encoding="utf-8") == report
-    assert "# Repository Metrics" in report
-    assert "# Repository Insights" in report
+    assert_report_shape(result.report)
+    assert result.export_path == tmp_path / "task-1.md"
+    assert result.export_path.read_text(encoding="utf-8") == result.report
+    assert "# Repository Metrics" in result.report
+    assert "# Repository Insights" in result.report
 
 
 def test_mock_mode_generates_required_sections(sample_context) -> None:
@@ -54,29 +54,29 @@ def test_mock_mode_generates_required_sections(sample_context) -> None:
 
 
 def test_malformed_llm_response_is_normalized(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(StaticLLM("Unstructured reviewer note."), tmp_path, 5000).generate(
+    result = ReportGenerator(StaticLLM("Unstructured reviewer note."), tmp_path, 5000).generate(
         "task-1",
         sample_context,
     )
 
-    assert_report_shape(report)
-    assert "Unstructured reviewer note." in report
+    assert_report_shape(result.report)
+    assert "Unstructured reviewer note." in result.report
 
 
 def test_missing_sections_receive_default_content(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(
+    result = ReportGenerator(
         StaticLLM("# Architecture Summary\nOnly one section."),
         tmp_path,
         5000,
     ).generate("task-1", sample_context)
 
-    assert_report_shape(report)
-    assert "Only one section." in report
-    assert report.count("No critical findings detected") == 3
+    assert_report_shape(result.report)
+    assert "Only one section." in result.report
+    assert result.report.count("No critical findings detected") == 3
 
 
 def test_extra_sections_are_not_preserved(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(
+    result = ReportGenerator(
         StaticLLM(
             "# Architecture Summary\nArchitecture.\n\n"
             "# Security Review\nNot part of V1 report.\n\n"
@@ -86,8 +86,8 @@ def test_extra_sections_are_not_preserved(tmp_path: Path, sample_context) -> Non
         5000,
     ).generate("task-1", sample_context)
 
-    assert_report_shape(report)
-    assert "Security Review" not in report
+    assert_report_shape(result.report)
+    assert "Security Review" not in result.report
 
 
 def test_prompt_budget_trims_large_context(tmp_path: Path, sample_context) -> None:
@@ -190,12 +190,13 @@ def test_dependency_relationships_prioritize_important_files(sample_context) -> 
 
 
 def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(
+    result = ReportGenerator(
         StaticLLM("# Architecture Summary\nArchitecture."),
         tmp_path,
         5000,
     ).generate("task-1", sample_context)
 
+    report = result.report
     assert report.index("# Repository Metrics") > report.index("# Refactoring Suggestions")
     assert report.index("# Repository Insights") > report.index("# Refactoring Suggestions")
     assert report.index("# Repository Insights") < report.index("# Repository Metrics")
@@ -213,7 +214,7 @@ def test_repository_metrics_are_appended_after_contract_sections(tmp_path: Path,
 
 
 def test_section_order_is_stable(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(
+    result = ReportGenerator(
         StaticLLM(
             "# Refactoring Suggestions\nRefactor.\n\n"
             "# Architecture Summary\nArchitecture.\n\n"
@@ -224,17 +225,17 @@ def test_section_order_is_stable(tmp_path: Path, sample_context) -> None:
         5000,
     ).generate("task-1", sample_context)
 
-    positions = [report.index(f"# {section}") for section in REPORT_SECTIONS]
+    positions = [result.report.index(f"# {section}") for section in REPORT_SECTIONS]
     assert positions == sorted(positions)
 
 
 def test_report_ends_with_newline(tmp_path: Path, sample_context) -> None:
-    report, _ = ReportGenerator(StaticLLM("Unstructured reviewer note."), tmp_path, 5000).generate(
+    result = ReportGenerator(StaticLLM("Unstructured reviewer note."), tmp_path, 5000).generate(
         "task-1",
         sample_context,
     )
 
-    assert report.endswith("\n")
+    assert result.report.endswith("\n")
 
 
 def test_report_sections_are_loaded_from_shared_contract() -> None:

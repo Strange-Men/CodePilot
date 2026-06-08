@@ -201,19 +201,16 @@ class ReviewPipeline:
         if callable(configure_engine):
             configure_engine(self.settings.review_engine)
         logger.info("event=export_started task_id=%s", task_id)
-        report, export_path = report_generator.generate(task_id, context)
-        structured_draft = getattr(report_generator, "last_structured_draft", None)
-        if structured_draft is not None and structured_draft.findings:
-            self.store.replace_structured_findings(task_id, structured_draft.findings, context.evidence)
-        agent_states = getattr(report_generator, "last_agent_states", [])
-        if agent_states:
-            self.store.replace_agent_states(task_id, agent_states)
-        review_state = getattr(report_generator, "last_review_state", None)
-        if review_state is not None:
-            self.store.replace_review_state(task_id, review_state.safe_snapshot())
-        logger.info("event=export_completed task_id=%s export_path=%s", task_id, export_path)
-        logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(report))
-        return report, export_path
+        result = report_generator.generate(task_id, context)
+        if result.structured_draft is not None and result.structured_draft.findings:
+            self.store.replace_structured_findings(task_id, result.structured_draft.findings, context.evidence)
+        if result.agent_states:
+            self.store.replace_agent_states(task_id, result.agent_states)
+        if result.review_state is not None:
+            self.store.replace_review_state(task_id, result.review_state.safe_snapshot())
+        logger.info("event=export_completed task_id=%s export_path=%s", task_id, result.export_path)
+        logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(result.report))
+        return result.report, result.export_path
 
     def _complete_review(self, task_id: str, report: str, export_path: Path) -> None:
         self.store.update_status(

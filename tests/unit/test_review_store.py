@@ -225,6 +225,27 @@ def test_store_persists_agent_states_with_validation_status(tmp_path: Path) -> N
     assert by_agent["FailingAgent"]["validation_status"] == "failed"
 
 
+def test_store_initializes_schema_version(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+
+    assert store.schema_version == "1"
+
+
+def test_store_preserves_existing_schema_version(tmp_path: Path) -> None:
+    database_path = tmp_path / "reviews.db"
+    store = ReviewStore(database_path)
+    assert store.schema_version == "1"
+
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE schema_metadata SET value = '2' WHERE key = 'schema_version'"
+        )
+        conn.commit()
+
+    store2 = ReviewStore(database_path)
+    assert store2.schema_version == "2"
+
+
 def test_store_persists_review_state_for_internal_inspection(tmp_path: Path, sample_context) -> None:
     store = ReviewStore(tmp_path / "reviews.db")
     store.create_review("task-1", "https://github.com/example/one")

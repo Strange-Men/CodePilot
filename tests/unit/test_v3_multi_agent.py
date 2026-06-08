@@ -113,9 +113,9 @@ def test_v3_multi_agent_report_preserves_contract_and_evidence(sample_context, t
     generator = ReportGenerator(MockLLMClient(), tmp_path, 8000)
     generator.configure_engine("v3_multi_agent")
 
-    report, export_path = generator.generate("task-multi", context)
+    result = generator.generate("task-multi", context)
 
-    assert list(MarkdownReviewAdapter.extract_sections(report)) == REPORT_SECTIONS
-    assert all(section in report for section in REPORT_SECTIONS)
-    assert context.evidence[0].evidence_id in report
-    assert export_path.exists()
+    assert list(MarkdownReviewAdapter.extract_sections(result.report)) == REPORT_SECTIONS
+    assert all(section in result.report for section in REPORT_SECTIONS)
+    assert context.evidence[0].evidence_id in result.report
+    assert result.export_path.exists()

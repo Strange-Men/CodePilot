@@ -59,7 +59,7 @@ class AgentOrchestrator:
                 draft = agent.review(state.context)
                 findings.extend(draft.findings)
                 state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
-                state.agent_results.append(self._completed_state(agent.role, draft.findings, agent))
+                state.agent_results.append(self.build_completed_state(agent.role, draft.findings, agent))
             except Exception as exc:
                 state.errors[agent.role] = str(exc)
                 state.agent_results.append(
@@ -77,11 +77,11 @@ class AgentOrchestrator:
                 "agent_count": len(self.agent_classes),
             }
         )
-        state.metadata.update(self._retrieval_summary_metadata(state.agent_results))
+        state.metadata.update(self.build_retrieval_summary_metadata(state.agent_results))
         return state
 
     @staticmethod
-    def _completed_state(
+    def build_completed_state(
         agent_id: str,
         findings: list[ReviewFinding],
         agent: EvidenceGroundedAgent,
@@ -116,7 +116,7 @@ class AgentOrchestrator:
         return list(by_key.values())
 
     @staticmethod
-    def _retrieval_summary_metadata(
+    def build_retrieval_summary_metadata(
         agent_states: list[AgentExecutionState],
     ) -> dict[str, str | int | float | bool | None]:
         retrieval_states = [

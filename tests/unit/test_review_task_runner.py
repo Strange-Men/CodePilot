@@ -7,6 +7,7 @@ import pytest
 import backend.tasks.pipeline as pipeline_module
 from backend.core.config import Settings
 from backend.models.context import as_review_context
+from backend.models.report_result import ReportResult
 from backend.models.review import RepositoryContext, ReviewStatus
 from backend.models.review_state import ReviewState
 from backend.storage.sqlite import ReviewStore
@@ -81,20 +82,20 @@ class FakeReportGenerator:
         self.prompt_token_budget = prompt_token_budget
         self.token_model = token_model
         self.review_engine = "v2"
-        self.last_review_state = None
         self.llm_clients.append(llm_client)
         self.token_models.append(token_model)
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
 
-    def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
+    def generate(self, task_id: str, context: RepositoryContext) -> ReportResult:
         export_path = self.reports_path / f"{task_id}.md"
         report = "# Architecture Summary\nDone.\n"
         export_path.write_text(report, encoding="utf-8")
+        review_state = None
         if self.review_engine == "v3_multi_agent":
-            self.last_review_state = ReviewState(task_id=task_id, context=as_review_context(context))
-        return report, export_path
+            review_state = ReviewState(task_id=task_id, context=as_review_context(context))
+        return ReportResult(report=report, export_path=export_path, review_state=review_state)
 
 
 class FakeParser:
