@@ -1,8 +1,26 @@
 # CodePilot - Decision Log
 
 > Harness version: v1.2
-> Last updated: 2026-06-07
+> Last updated: 2026-06-08
 > Format: newest first, one significant decision per entry.
+
+## DECISION-027: Defer LangGraph Behind ReviewState
+
+- Date: 2026-06-08
+- Type: Architecture
+- Status: Approved
+
+### Context
+
+V3.1 needs graph-ready orchestration and inspectable state, but the current V3 agent workflow is still a fixed set of independent review agents with simple failure isolation and deterministic finding deduplication.
+
+### Decision
+
+Do not add LangGraph in V3.1. Introduce `ReviewState` and keep `AgentOrchestrator.run(state)` as the graph boundary while retaining the existing `review(context)` compatibility entry point.
+
+### Rationale
+
+The current workflow does not require conditional routing, cycles, human approval nodes, durable distributed execution, or checkpoint-resume. Deferring LangGraph avoids dependency cost and interface churn while keeping a direct migration path for future graph complexity.
 
 ## DECISION-026: Stabilize V2 Around Focused Context, Prompt, and Review Boundaries
 
