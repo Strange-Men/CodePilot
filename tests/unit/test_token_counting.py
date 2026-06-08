@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tiktoken
 
+import backend.services.token_counting as token_counting
 from backend.services.token_counting import PromptTokenCounter
 
 
@@ -46,3 +47,12 @@ def test_unknown_model_uses_stable_fallback_encoding() -> None:
 
     assert counter.encoding.name == "cl100k_base"
     assert counter.count("repository insight") > 0
+
+
+def test_missing_tiktoken_uses_runtime_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(token_counting, "tiktoken", None)
+
+    counter = PromptTokenCounter("gpt-4o-mini")
+
+    assert counter.encoding.name == "codepilot_fallback"
+    assert counter.count("repository insight") == 2

@@ -65,13 +65,27 @@ $GitProc = Start-Process powershell -ArgumentList @(
     "Set-Location '$SmokeRoot'; & '$Conda' run -n $EnvName python -m http.server $GitPort --bind 127.0.0.1"
 ) -WindowStyle Hidden -PassThru -RedirectStandardOutput $GitOut -RedirectStandardError $GitErr
 
-$ApiProc = Start-Process powershell -ArgumentList @(
-    "-NoProfile",
-    "-Command",
-    "Set-Location '$Root'; `$env:USE_MOCK_LLM='true'; & '$Conda' run -n $EnvName python -m uvicorn backend.main:app --host 127.0.0.1 --port $ApiPort"
-) -WindowStyle Hidden -PassThru -RedirectStandardOutput $ApiOut -RedirectStandardError $ApiErr
-
+$ApiProc = $null
 try {
+    for ($i = 0; $i -lt 30; $i++) {
+        try {
+            Invoke-RestMethod -Uri "http://127.0.0.1:$GitPort/sample.git/info/refs" -TimeoutSec 2 | Out-Null
+            break
+        }
+        catch {
+            Start-Sleep -Seconds 1
+        }
+        if ($i -eq 29) {
+            throw "Local git HTTP server did not become ready on port $GitPort."
+        }
+    }
+
+    $ApiProc = Start-Process powershell -ArgumentList @(
+        "-NoProfile",
+        "-Command",
+        "Set-Location '$Root'; `$env:USE_MOCK_LLM='true'; `$env:CODEPILOT_ALLOW_LOCAL_SMOKE_REPO='true'; `$env:NO_PROXY='127.0.0.1,localhost'; `$env:no_proxy='127.0.0.1,localhost'; & '$Conda' run -n $EnvName python -m uvicorn backend.main:app --host 127.0.0.1 --port $ApiPort"
+    ) -WindowStyle Hidden -PassThru -RedirectStandardOutput $ApiOut -RedirectStandardError $ApiErr
+
     $Ready = $false
     for ($i = 0; $i -lt 30; $i++) {
         try {

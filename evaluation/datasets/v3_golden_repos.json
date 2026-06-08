@@ -1,0 +1,46 @@
+{
+  "version": "3.0",
+  "description": "CodePilot V3.0 mock-only golden evaluation subset",
+  "repos": [
+    {
+      "id": "click",
+      "url": "https://github.com/pallets/click.git",
+      "name": "pallets/click",
+      "categories": {"size": "small", "language": "python", "health": "healthy"},
+      "tags": ["cli", "golden", "python"],
+      "expected": {"should_complete": true, "min_source_files": 10, "max_source_files": 80}
+    },
+    {
+      "id": "flask",
+      "url": "https://github.com/pallets/flask.git",
+      "name": "pallets/flask",
+      "categories": {"size": "medium", "language": "python", "health": "healthy"},
+      "tags": ["web", "golden", "python"],
+      "expected": {"should_complete": true, "min_source_files": 30, "max_source_files": 120}
+    },
+    {
+      "id": "express",
+      "url": "https://github.com/expressjs/express.git",
+      "name": "expressjs/express",
+      "categories": {"size": "small", "language": "javascript", "health": "healthy"},
+      "tags": ["node", "golden", "javascript"],
+      "expected": {"should_complete": true, "min_source_files": 1, "max_source_files": 200}
+    },
+    {
+      "id": "axios",
+      "url": "https://github.com/axios/axios.git",
+      "name": "axios/axios",
+      "categories": {"size": "medium", "language": "javascript", "health": "healthy"},
+      "tags": ["http-client", "golden", "typescript"],
+      "expected": {"should_complete": true, "min_source_files": 1, "max_source_files": 400}
+    },
+    {
+      "id": "jupyter",
+      "url": "https://github.com/jupyter/notebook.git",
+      "name": "jupyter/notebook",
+      "categories": {"size": "medium", "language": "mixed", "health": "healthy"},
+      "tags": ["mixed", "golden"],
+      "expected": {"should_complete": true, "min_source_files": 10, "max_source_files": 200}
+    }
+  ]
+}

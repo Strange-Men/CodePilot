@@ -1,6 +1,6 @@
 # V3 Readiness
 
-CodePilot V2.6 stops at architecture foundations. It does not implement agents, LangGraph, MCP, OAuth, SaaS, or enterprise behavior.
+CodePilot V3.0 implements the evidence-grounded review MVP while still excluding LangGraph, MCP, OAuth, SaaS, and enterprise behavior.
 
 ## Ready Boundaries
 
@@ -9,6 +9,8 @@ CodePilot V2.6 stops at architecture foundations. It does not implement agents, 
 - `StructuredReviewDraft` and `ReviewFinding` provide a provider-neutral internal review result.
 - `MarkdownReviewAdapter` preserves the current frontend, API, persistence, and export contract.
 - Parser Registry and `DependencyGraph` remain reusable analysis inputs.
+- `SandboxManifest`, `EvidenceStore`, `EvidenceRetriever`, and `DeepContextEngine` provide V3 grounding.
+- `AgentOrchestrator` fans out internal agents and deduplicates validated structured findings.
 
 ## Stable Contracts
 
@@ -30,4 +32,4 @@ CodePilot V2.6 stops at architecture foundations. It does not implement agents, 
 - Complexity and JavaScript/TypeScript parsing are heuristic.
 - Dependency resolution is static and does not infer cross-runtime calls.
 - Review jobs are in-process and are not durable across process restarts.
-- Structured findings are currently populated from Markdown; no agent orchestration exists.
+- Real LLM evaluation is manual and optional; CI remains mock-only.

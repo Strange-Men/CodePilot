@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from backend.models.structured_review import ReviewFinding
+
 
 @dataclass(frozen=True)
 class RepoResult:
@@ -56,6 +58,31 @@ class EvalReport:
     overall_average_runtime_seconds: float
     category_metrics: list[CategoryMetrics]
     repo_results: list[RepoResult]
+
+
+@dataclass(frozen=True)
+class HallucinationMetrics:
+    evidence_validity: float
+    unsupported_claim_rate: float
+    grounding_score: float
+    evidence_density: float
+
+
+@dataclass(frozen=True)
+class FindingQualityMetrics:
+    actionability: float
+    specificity: float
+    severity_distribution: dict[str, int]
+    average_confidence: float
+    evidence_density: float
+
+
+@dataclass(frozen=True)
+class AgentEvaluationMetrics:
+    agent_name: str
+    finding_count: int
+    hallucination: HallucinationMetrics
+    quality: FindingQualityMetrics
 
 
 def detect_clone_failure(details: str, status: str) -> bool:
@@ -155,6 +182,83 @@ def compute_eval_report(
     )
 
 
+def compute_hallucination_metrics(
+    findings: list[ReviewFinding],
+    valid_evidence_ids: set[str],
+) -> HallucinationMetrics:
+    if not findings:
+        return HallucinationMetrics(
+            evidence_validity=1.0,
+            unsupported_claim_rate=0.0,
+            grounding_score=1.0,
+            evidence_density=0.0,
+        )
+    total_evidence_refs = sum(len(finding.evidence_ids) for finding in findings)
+    valid_refs = sum(
+        1
+        for finding in findings
+        for evidence_id in finding.evidence_ids
+        if evidence_id in valid_evidence_ids
+    )
+    supported_findings = sum(
+        1
+        for finding in findings
+        if finding.evidence_ids and all(evidence_id in valid_evidence_ids for evidence_id in finding.evidence_ids)
+    )
+    evidence_validity = valid_refs / total_evidence_refs if total_evidence_refs else 0.0
+    unsupported_claim_rate = 1 - (supported_findings / len(findings))
+    grounding_score = (evidence_validity + (1 - unsupported_claim_rate)) / 2
+    return HallucinationMetrics(
+        evidence_validity=evidence_validity,
+        unsupported_claim_rate=unsupported_claim_rate,
+        grounding_score=grounding_score,
+        evidence_density=total_evidence_refs / len(findings),
+    )
+
+
+def compute_finding_quality_metrics(findings: list[ReviewFinding]) -> FindingQualityMetrics:
+    if not findings:
+        return FindingQualityMetrics(
+            actionability=0.0,
+            specificity=0.0,
+            severity_distribution={},
+            average_confidence=0.0,
+            evidence_density=0.0,
+        )
+    actionable = sum(1 for finding in findings if finding.recommendation)
+    specific = sum(1 for finding in findings if finding.files and finding.evidence_ids)
+    severity_distribution: dict[str, int] = {}
+    confidence_values: list[float] = []
+    evidence_refs = 0
+    for finding in findings:
+        severity_distribution[finding.severity] = severity_distribution.get(finding.severity, 0) + 1
+        if finding.confidence is not None:
+            confidence_values.append(finding.confidence)
+        evidence_refs += len(finding.evidence_ids)
+    return FindingQualityMetrics(
+        actionability=actionable / len(findings),
+        specificity=specific / len(findings),
+        severity_distribution=severity_distribution,
+        average_confidence=sum(confidence_values) / len(confidence_values) if confidence_values else 0.0,
+        evidence_density=evidence_refs / len(findings),
+    )
+
+
+def compute_agent_metrics(
+    findings_by_agent: dict[str, list[ReviewFinding]],
+    valid_evidence_ids: set[str],
+) -> list[AgentEvaluationMetrics]:
+    return [
+        AgentEvaluationMetrics(
+            agent_name=agent_name,
+            finding_count=len(findings),
+            hallucination=compute_hallucination_metrics(findings, valid_evidence_ids),
+            quality=compute_finding_quality_metrics(findings),
+        )
+        for agent_name, findings in sorted(findings_by_agent.items())
+    ]
+
+
 def report_to_dict(report: EvalReport) -> dict[str, Any]:
     """Convert EvalReport to a JSON-serializable dict."""
     return {
@@ -205,6 +309,29 @@ def report_to_dict(report: EvalReport) -> dict[str, Any]:
             for r in report.repo_results
         ],
     }
+
+
+def v3_metrics_to_dict(metrics: list[AgentEvaluationMetrics]) -> list[dict[str, Any]]:
+    return [
+        {
+            "agent_name": metric.agent_name,
+            "finding_count": metric.finding_count,
+            "hallucination": {
+                "evidence_validity": round(metric.hallucination.evidence_validity, 4),
+                "unsupported_claim_rate": round(metric.hallucination.unsupported_claim_rate, 4),
+                "grounding_score": round(metric.hallucination.grounding_score, 4),
+                "evidence_density": round(metric.hallucination.evidence_density, 2),
+            },
+            "quality": {
+                "actionability": round(metric.quality.actionability, 4),
+                "specificity": round(metric.quality.specificity, 4),
+                "severity_distribution": metric.quality.severity_distribution,
+                "average_confidence": round(metric.quality.average_confidence, 4),
+                "evidence_density": round(metric.quality.evidence_density, 2),
+            },
+        }
+        for metric in metrics
+    ]
 
 
 def report_to_markdown(report: EvalReport) -> str:

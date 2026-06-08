@@ -1,3 +1,4 @@
+import os
 from enum import StrEnum
 from urllib.parse import urlparse
 
@@ -34,6 +35,14 @@ class ReviewCreateRequest(BaseModel):
     def validate_github_repository_url(cls, value: HttpUrl) -> HttpUrl:
         parsed = urlparse(str(value))
         path_parts = [part for part in parsed.path.split("/") if part]
+        if (
+            os.getenv("CODEPILOT_ALLOW_LOCAL_SMOKE_REPO", "").lower() == "true"
+            and parsed.scheme == "http"
+            and parsed.username == "github.com"
+            and (parsed.hostname or "").lower() in {"127.0.0.1", "localhost"}
+            and len(path_parts) == 1
+        ):
+            return value
         if (
             parsed.scheme != "https"
             or (parsed.hostname or "").lower() != "github.com"

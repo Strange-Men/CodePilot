@@ -100,7 +100,7 @@ def classify_failure_stage(row: dict | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-def run_repo_eval(repo_url: str, base_dir: Path) -> EvalResult:
+def run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> EvalResult:
     from backend.core.config import Settings
     from backend.models.review import ReviewStatus
     from backend.storage.sqlite import ReviewStore
@@ -115,6 +115,7 @@ def run_repo_eval(repo_url: str, base_dir: Path) -> EvalResult:
         workspace_path=run_dir / "workspace",
         reports_path=run_dir / "reports",
         use_mock_llm=True,
+        review_engine=review_engine,
     )
     settings.workspace_path.mkdir(parents=True, exist_ok=True)
     settings.reports_path.mkdir(parents=True, exist_ok=True)
@@ -202,7 +203,8 @@ def run_dataset_eval(
         print(f"\n[{idx}/{total}] Evaluating {repo_name} ({repo_id})...")
 
         start = time.perf_counter()
-        eval_result = run_repo_eval(repo_url, base_dir)
+        review_engine = config.get("runner", {}).get("review_engine", "v3_multi_agent")
+        eval_result = run_repo_eval(repo_url, base_dir, review_engine=review_engine)
         elapsed = time.perf_counter() - start
 
         # Read back persisted report state; parser stats are returned from the in-memory pipeline result.

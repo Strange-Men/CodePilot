@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 202 tests.
+`pytest --collect-only -q` collected 255 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 182 | 25 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 235 | 27 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -20,7 +20,7 @@
 
 | File | Collected Tests | Coverage |
 |------|-----------------|----------|
-| `tests/unit/test_api_errors.py` | 3 | Known, framework, and unexpected structured API error envelopes. |
+| `tests/unit/test_api_errors.py` | 4 | Known, framework, and unexpected structured API error envelopes plus the internal smoke URL guard. |
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
 | `tests/unit/test_composite_parser.py` | 6 | Multi-language discovery limits, parser delegation, and unsupported extensions. |
 | `tests/unit/test_dependency_graph.py` | 5 | Internal dependency resolution, fan-in/fan-out, hubs, orphans, cycles, and mixed JS/TS edges. |
@@ -40,10 +40,12 @@
 | `tests/unit/test_review_context.py` | 4 | Focused context defaults and flat compatibility round trips. |
 | `tests/unit/test_review_task_runner.py` | 7 | Submit/run behavior, status progression, parser selection, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
-| `tests/unit/test_token_counting.py` | 5 | Model encodings, Unicode, exact budgets, line preservation, and unknown-model fallback. |
+| `tests/unit/test_token_counting.py` | 6 | Model encodings, Unicode, exact budgets, line preservation, unknown-model fallback, and missing-dependency runtime fallback. |
 | `tests/unit/test_v3_sandbox_evidence.py` | 6 | Sandbox boundaries, secret redaction, deep context, stable evidence IDs, and lexical evidence retrieval. |
 | `tests/unit/test_v3_structured_agent.py` | 5 | Structured LLM retries, evidence-only validation, ArchitectureAgent mock behavior, V3 single-agent report contract, and real LLM opt-in guard. |
 | `tests/unit/test_v3_multi_agent.py` | 4 | Multi-agent failure isolation, conservative deduplication, per-section mock findings, and V3 multi-agent report rendering. |
+| `tests/unit/test_v3_evaluation_metrics.py` | 3 | Hallucination, quality, and per-agent V3 evaluation metrics. |
+| `tests/unit/test_v3_hardening_matrix.py` | 48 | Secret redaction, sandbox boundaries, evidence stability, structured validation, real LLM opt-in, and deduplication matrix coverage. |
 | `tests/unit/test_structured_review.py` | 5 | Markdown parsing, structured findings, contract ordering, and lossless context-aware round trips. |
 
 ## Integration Tests

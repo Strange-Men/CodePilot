@@ -3,6 +3,8 @@
   "description": "Default CodePilot evaluation configuration",
   "runner": {
     "use_mock_llm": true,
+    "review_engine": "v3_multi_agent",
+    "real_llm_eval_required": false,
     "timeout_per_repo_seconds": 300,
     "max_retries": 0,
     "parallel": false

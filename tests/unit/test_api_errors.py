@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api.errors import APIError, install_error_handlers
+from backend.models.review import ReviewCreateRequest
 
 
 def test_api_error_handler_preserves_structured_fields() -> None:
@@ -54,3 +55,21 @@ def test_framework_http_errors_use_structured_envelope() -> None:
         "code": "http_404",
         "detail": "Not Found",
     }
+
+
+def test_local_smoke_repo_url_requires_explicit_internal_flag(monkeypatch) -> None:
+    url = "http://github.com@127.0.0.1:8123/sample.git"
+
+    monkeypatch.delenv("CODEPILOT_ALLOW_LOCAL_SMOKE_REPO", raising=False)
+    assert _request_is_valid(url) is False
+
+    monkeypatch.setenv("CODEPILOT_ALLOW_LOCAL_SMOKE_REPO", "true")
+    assert ReviewCreateRequest(repo_url=url).repo_url is not None
+
+
+def _request_is_valid(url: str) -> bool:
+    try:
+        ReviewCreateRequest(repo_url=url)
+    except ValueError:
+        return False
+    return True

@@ -1,8 +1,8 @@
 # CodePilot - Architecture
 
 > Harness version: v1.2
-> Last updated: 2026-06-07
-> Repository reality checked: 2026-06-07
+> Last updated: 2026-06-08
+> Repository reality checked: 2026-06-08
 
 ## System Overview
 
@@ -57,6 +57,7 @@ Browser
 | Scoring | `backend/services/scoring.py` | Classify and prioritize files | Uses an absolute saturating 0-100 scale so small repositories do not automatically receive Critical labels. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
+| Agents | `agents/` | V3 evidence-grounded review agents and fan-out/fan-in orchestration | Agents consume `ReviewContext` and `EvidenceRetriever`, produce structured findings, and cannot read files directly. |
 
 ## Frontend Module Map
 
@@ -271,15 +272,16 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 | Python runtime | 3.11.11 | `.python-version`, `runtime.txt` |
 | Node runtime | 20 | CI and Dockerfile |
 
-## V3 Readiness
+## V3
 
-The repository contains reserved top-level directories for future expansion:
+The repository now contains additive V3 evidence-grounded review modules:
 
-- `agents/` for specialized review agents.
-- `graph/` for call graph and dependency analysis.
-- `mcp/` for Model Context Protocol integration.
+- `backend/services/sandbox.py` for safe manifest-based file access and secret redaction.
+- `backend/services/evidence.py` for stable `evidence_id` generation, storage, and lexical retrieval.
+- `backend/services/deep_context.py` for symbol, call, and class context summaries.
+- `agents/` for Architecture, CodeSmell, Maintainability, Refactor, and orchestrator behavior.
 
-Current implementation does not orchestrate multiple agents. Future reviewers can consume `ReviewContext` and produce `StructuredReviewDraft` without changing the current API, SQLite schema, Markdown contract, or frontend. See `docs/V3_READINESS.md`.
+V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. MCP remains unimplemented and reserved for future work. See `docs/V3_ARCHITECTURE.md` and `docs/V3_AGENT_DEVELOPMENT.md`.
 
 ## Cross-References
 

@@ -19,7 +19,7 @@ def test_run_dataset_eval_uses_pipeline_parser_stats(
         }
     ]
 
-    def fake_run_repo_eval(repo_url: str, base_dir: Path) -> run_eval.EvalResult:
+    def fake_run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> run_eval.EvalResult:
         return run_eval.EvalResult(
             repo_url=repo_url,
             status="completed",
@@ -55,7 +55,7 @@ def test_run_dataset_eval_fails_completed_repo_below_min_source_files(
         }
     ]
 
-    def fake_run_repo_eval(repo_url: str, base_dir: Path) -> run_eval.EvalResult:
+    def fake_run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> run_eval.EvalResult:
         return run_eval.EvalResult(
             repo_url=repo_url,
             status="completed",
@@ -89,7 +89,7 @@ def test_run_dataset_eval_uses_language_min_source_files_from_config(
         }
     ]
 
-    def fake_run_repo_eval(repo_url: str, base_dir: Path) -> run_eval.EvalResult:
+    def fake_run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> run_eval.EvalResult:
         return run_eval.EvalResult(
             repo_url=repo_url,
             status="completed",
@@ -127,7 +127,7 @@ def test_run_dataset_eval_fails_completed_repo_above_max_source_files(
         }
     ]
 
-    def fake_run_repo_eval(repo_url: str, base_dir: Path) -> run_eval.EvalResult:
+    def fake_run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> run_eval.EvalResult:
         return run_eval.EvalResult(
             repo_url=repo_url,
             status="completed",

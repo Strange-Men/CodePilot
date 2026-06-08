@@ -49,6 +49,13 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
+V3 review engines are opt-in:
+
+```text
+REVIEW_ENGINE=v3_single_agent
+REVIEW_ENGINE=v3_multi_agent
+```
+
 ## Stack
 
 - Frontend: Next.js, TypeScript, Tailwind, shadcn/ui-style components

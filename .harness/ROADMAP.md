@@ -1,7 +1,7 @@
 # CodePilot - Roadmap
 
 > Harness version: v1.1
-> Last updated: 2026-06-07
+> Last updated: 2026-06-08
 
 ## Completed
 
@@ -48,9 +48,17 @@
 - [x] Shared prioritization, single-pass Python AST analysis, and graceful shutdown.
 - [x] 187 collected pytest tests and enforced Harness audit.
 
+### V3.0 - Evidence-Grounded Review MVP
+
+- [x] Sandbox manifest with path traversal protection, symlink rejection, limits, and secret redaction.
+- [x] Deep context, symbol index, evidence store, and evidence retrieval.
+- [x] Structured LLM client, validation retry, ArchitectureAgent, and real LLM opt-in guard.
+- [x] Basic multi-agent fan-out/fan-in with failure isolation and deduplication.
+- [x] Mock-only V3 evaluation metrics, golden subset, hardening tests, and V3 documentation.
+
 ## In Progress
 
-CodePilot 2.x is complete at V2.6. No V3 implementation is in progress.
+V3.0 is complete. No V3.1+ implementation is in progress.
 
 ## Future Development Priorities
 
@@ -104,18 +112,18 @@ Infrastructure work should only be planned when it directly enables these priori
 - [ ] Add basic security pattern scanning.
 - [ ] Correlate findings with test coverage where available.
 
-## Planned - V3.0
+## Planned - V3.x
 
 ### Multi-Agent Review
 
-- [ ] Define specialized reviewer agent contracts.
-- [ ] Add orchestrator for routing context to agents.
-- [ ] Add severity consensus and deduplication.
-- [ ] Add audit trail for agent findings.
+- [x] Define specialized reviewer agent contracts.
+- [x] Add orchestrator for routing context to agents.
+- [ ] Add severity consensus beyond per-agent confidence.
+- [ ] Add persisted audit trail for agent findings.
 
 ### Code Graph
 
-- [ ] Build call graph.
+- [x] Build lightweight call graph summary.
 - [x] Build import/dependency graph.
 - [ ] Add impact analysis.
 - [ ] Use graph signals for prompt context selection.

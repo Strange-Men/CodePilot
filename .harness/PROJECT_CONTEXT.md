@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is transitioning from V2.6 to V3.0 with the safety, deep-context, evidence foundation, structured LLM client, ArchitectureAgent, and basic multi-agent review implemented, and 202 collected backend tests.
+CodePilot is at V3.0 with the safety, deep-context, evidence foundation, structured LLM client, basic multi-agent review, and mock-only V3 evaluation hardening implemented, with 255 collected backend tests.
 
 ## Release History
 
@@ -116,8 +116,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 202 tests on 2026-06-08.
-- Unit tests: 182 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- `pytest --collect-only -q` collected 255 tests on 2026-06-08.
+- Unit tests: 235 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
 - Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.

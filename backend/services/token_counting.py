@@ -1,10 +1,28 @@
 from __future__ import annotations
 
-import tiktoken
+import re
+
+try:
+    import tiktoken
+except ModuleNotFoundError:
+    tiktoken = None
+
+
+class FallbackEncoding:
+    name = "codepilot_fallback"
+
+    def encode(self, text: str) -> list[str]:
+        return re.findall(r"\w+|[^\w\s]", text, flags=re.UNICODE)
+
+    def decode(self, tokens: list[str]) -> str:
+        return " ".join(tokens)
 
 
 class PromptTokenCounter:
     def __init__(self, model: str) -> None:
+        if tiktoken is None:
+            self.encoding = FallbackEncoding()
+            return
         try:
             self.encoding = tiktoken.encoding_for_model(model)
         except KeyError:
