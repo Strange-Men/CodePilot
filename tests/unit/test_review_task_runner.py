@@ -6,7 +6,9 @@ import pytest
 
 import backend.tasks.pipeline as pipeline_module
 from backend.core.config import Settings
+from backend.models.context import as_review_context
 from backend.models.review import RepositoryContext, ReviewStatus
+from backend.models.review_state import ReviewState
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import ReviewTaskRunner
 
@@ -78,13 +80,20 @@ class FakeReportGenerator:
         self.reports_path = reports_path
         self.prompt_token_budget = prompt_token_budget
         self.token_model = token_model
+        self.review_engine = "v2"
+        self.last_review_state = None
         self.llm_clients.append(llm_client)
         self.token_models.append(token_model)
+
+    def configure_engine(self, review_engine: str) -> None:
+        self.review_engine = review_engine
 
     def generate(self, task_id: str, context: RepositoryContext) -> tuple[str, Path]:
         export_path = self.reports_path / f"{task_id}.md"
         report = "# Architecture Summary\nDone.\n"
         export_path.write_text(report, encoding="utf-8")
+        if self.review_engine == "v3_multi_agent":
+            self.last_review_state = ReviewState(task_id=task_id, context=as_review_context(context))
         return report, export_path
 
 
@@ -239,6 +248,22 @@ def test_run_selects_javascript_parser_when_js_files_are_detected(
     runner._run("task-1", "https://github.com/expressjs/express")
 
     assert FakeRepositoryIndexer.parser_instances == [javascript_parser]
+
+
+def test_run_persists_v3_review_state_for_inspection(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-1", "https://github.com/pallets/flask")
+
+    runner._run("task-1", "https://github.com/pallets/flask")
+
+    state = store.get_review_state("task-1")
+    inspection = store.inspect_review("task-1")
+    assert state is not None
+    assert state.task_id == "task-1"
+    assert inspection is not None
+    assert inspection["review_state"]["task_id"] == "task-1"
 
 
 def test_shutdown_drains_executor_once_and_rejects_new_work(

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
-from backend.models.review_state import AgentExecutionState
+from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import ReviewFinding
 from backend.storage.sqlite import ReviewStore
 
@@ -223,3 +223,52 @@ def test_store_persists_agent_states_with_validation_status(tmp_path: Path) -> N
     assert by_agent["CodeSmellAgent"]["llm_calls"] == 1
     assert by_agent["FailingAgent"]["status"] == "failed"
     assert by_agent["FailingAgent"]["validation_status"] == "failed"
+
+
+def test_store_persists_review_state_for_internal_inspection(tmp_path: Path, sample_context) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    context = sample_context.to_review_context()
+    context.evidence = [
+        EvidenceRecord(
+            evidence_id="ev_safe",
+            file_path="app.py",
+            start_line=1,
+            end_line=2,
+            snippet="password=super-secret",
+            symbols=["create_app"],
+        )
+    ]
+    finding = ReviewFinding(
+        section="Architecture Summary",
+        description="Validated finding.",
+        evidence_ids=["ev_safe"],
+    )
+    state = ReviewState(
+        task_id="task-1",
+        context=context,
+        evidence_bundles={"ArchitectureAgent": context.evidence},
+        agent_results=[
+            AgentExecutionState(
+                agent_id="ArchitectureAgent",
+                status="completed",
+                findings=[finding],
+                evidence_ids=["ev_safe"],
+            )
+        ],
+        validated_findings=[finding],
+    )
+
+    store.replace_structured_findings("task-1", [finding], context.evidence)
+    store.replace_agent_states("task-1", state.agent_results)
+    store.replace_review_state("task-1", state.safe_snapshot())
+
+    persisted_state = store.get_review_state("task-1")
+    inspection = store.inspect_review("task-1")
+    assert persisted_state is not None
+    assert persisted_state.evidence_index[0].evidence_id == "ev_safe"
+    assert inspection is not None
+    assert inspection["structured_findings"][0]["evidence_ids"] == ["ev_safe"]
+    assert inspection["review_state"]["evidence_bundles"] == {"ArchitectureAgent": ["ev_safe"]}
+    assert "super-secret" not in str(inspection)
+    assert "snippet" not in str(inspection["review_state"])

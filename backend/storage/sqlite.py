@@ -8,7 +8,7 @@ from threading import Lock
 
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
-from backend.models.review_state import AgentExecutionState
+from backend.models.review_state import AgentExecutionState, PersistedReviewState
 from backend.models.structured_review import ReviewFinding
 
 
@@ -98,6 +98,18 @@ class ReviewStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
                     PRIMARY KEY (task_id, agent_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_graph_states (
+                    task_id TEXT PRIMARY KEY,
+                    state_json TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE
                 )
                 """
             )
@@ -286,6 +298,47 @@ class ReviewStore:
                 (task_id,),
             ).fetchall()
         return [self._decode_json_columns(dict(row)) for row in rows]
+
+    def replace_review_state(self, task_id: str, state: PersistedReviewState) -> None:
+        now = self._now()
+        state = state.model_copy(update={"task_id": task_id})
+        payload = state.model_dump(mode="json")
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO review_graph_states (task_id, state_json, schema_version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    state_json = excluded.state_json,
+                    schema_version = excluded.schema_version,
+                    updated_at = excluded.updated_at
+                """,
+                (task_id, self._json(payload), "v3.1", now, now),
+            )
+            conn.commit()
+
+    def get_review_state(self, task_id: str) -> PersistedReviewState | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT state_json FROM review_graph_states WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return PersistedReviewState.model_validate(json.loads(row["state_json"]))
+
+    def inspect_review(self, task_id: str) -> dict | None:
+        review = self.get_review(task_id)
+        if review is None:
+            return None
+        state = self.get_review_state(task_id)
+        return {
+            "review": review,
+            "structured_findings": self.get_structured_findings(task_id),
+            "evidence_refs": self.get_evidence_refs(task_id),
+            "agent_states": self.get_agent_states(task_id),
+            "review_state": state.model_dump(mode="json") if state is not None else None,
+        }
 
     @staticmethod
     def _now() -> str:

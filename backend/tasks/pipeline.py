@@ -205,6 +205,9 @@ class ReviewPipeline:
         agent_states = getattr(report_generator, "last_agent_states", [])
         if agent_states:
             self.store.replace_agent_states(task_id, agent_states)
+        review_state = getattr(report_generator, "last_review_state", None)
+        if review_state is not None:
+            self.store.replace_review_state(task_id, review_state.safe_snapshot())
         logger.info("event=export_completed task_id=%s export_path=%s", task_id, export_path)
         logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(report))
         return report, export_path
