@@ -60,6 +60,12 @@ def test_orchestrator_isolates_agent_failures(sample_context) -> None:
     assert result.errors == {"FailingAgent": "agent failed"}
     assert len(result.draft.findings) == 1
     assert result.draft.findings[0].section == REPORT_SECTIONS[1]
+    assert [(state.agent_id, state.status) for state in result.agent_states] == [
+        ("FailingAgent", "failed"),
+        ("CodeSmellAgent", "completed"),
+    ]
+    assert result.agent_states[0].validation_status == "failed"
+    assert result.agent_states[1].validation_status == "validated"
 
 
 def test_dedup_keeps_unrelated_findings_with_same_title() -> None:
@@ -89,6 +95,14 @@ def test_multi_agent_mock_generates_one_grounded_finding_per_section(sample_cont
     assert not result.errors
     assert {finding.section for finding in result.draft.findings} == set(REPORT_SECTIONS)
     assert all(finding.evidence_ids for finding in result.draft.findings)
+    assert {state.agent_id for state in result.agent_states} == {
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    }
+    assert all(state.status == "completed" for state in result.agent_states)
+    assert all(state.evidence_ids for state in result.agent_states)
 
 
 def test_v3_multi_agent_report_preserves_contract_and_evidence(sample_context, tmp_path: Path) -> None:

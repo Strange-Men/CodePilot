@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 257 tests.
+`pytest --collect-only -q` collected 258 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 237 | 27 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 238 | 27 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -36,7 +36,7 @@
 | `tests/unit/test_prompt_system.py` | 5 | Versioned sections, independent rendering, nested-context compatibility, and token budgets. |
 | `tests/unit/test_python_parser.py` | 12 | Parsing, metrics, discovery, dependency imports, non-ASCII handling, and single-pass AST reuse. |
 | `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
-| `tests/unit/test_review_store.py` | 11 | DB initialization, WAL mode, CRUD, report preservation, structured finding persistence, safe evidence refs, and schema-neutral history queries. |
+| `tests/unit/test_review_store.py` | 12 | DB initialization, WAL mode, CRUD, report preservation, structured finding persistence, agent state storage, safe evidence refs, and schema-neutral history queries. |
 | `tests/unit/test_review_context.py` | 4 | Focused context defaults and flat compatibility round trips. |
 | `tests/unit/test_review_task_runner.py` | 7 | Submit/run behavior, status progression, parser selection, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |

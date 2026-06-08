@@ -202,6 +202,9 @@ class ReviewPipeline:
         structured_draft = getattr(report_generator, "last_structured_draft", None)
         if structured_draft is not None and structured_draft.findings:
             self.store.replace_structured_findings(task_id, structured_draft.findings, context.evidence)
+        agent_states = getattr(report_generator, "last_agent_states", [])
+        if agent_states:
+            self.store.replace_agent_states(task_id, agent_states)
         logger.info("event=export_completed task_id=%s export_path=%s", task_id, export_path)
         logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(report))
         return report, export_path

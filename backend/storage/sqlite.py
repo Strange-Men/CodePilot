@@ -8,6 +8,7 @@ from threading import Lock
 
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding
 
 
@@ -76,6 +77,27 @@ class ReviewStore:
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
                     PRIMARY KEY (task_id, evidence_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_agent_states (
+                    task_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    error TEXT,
+                    findings_json TEXT NOT NULL,
+                    evidence_ids_json TEXT NOT NULL,
+                    prompt_tokens INTEGER,
+                    completion_tokens INTEGER,
+                    llm_calls INTEGER,
+                    validation_status TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
+                    PRIMARY KEY (task_id, agent_id)
                 )
                 """
             )
@@ -216,6 +238,50 @@ class ReviewStore:
                 SELECT * FROM review_evidence_refs
                 WHERE task_id = ?
                 ORDER BY evidence_id ASC
+                """,
+                (task_id,),
+            ).fetchall()
+        return [self._decode_json_columns(dict(row)) for row in rows]
+
+    def replace_agent_states(self, task_id: str, agent_states: list[AgentExecutionState]) -> None:
+        now = self._now()
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM review_agent_states WHERE task_id = ?", (task_id,))
+            for state in agent_states:
+                conn.execute(
+                    """
+                    INSERT INTO review_agent_states (
+                        task_id, agent_id, status, error, findings_json, evidence_ids_json,
+                        prompt_tokens, completion_tokens, llm_calls, validation_status,
+                        metadata_json, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        task_id,
+                        state.agent_id,
+                        state.status,
+                        state.error,
+                        self._json([finding.model_dump(mode="json") for finding in state.findings]),
+                        self._json(state.evidence_ids),
+                        state.prompt_tokens,
+                        state.completion_tokens,
+                        state.llm_calls,
+                        state.validation_status,
+                        self._json(state.metadata),
+                        now,
+                        now,
+                    ),
+                )
+            conn.commit()
+
+    def get_agent_states(self, task_id: str) -> list[dict]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM review_agent_states
+                WHERE task_id = ?
+                ORDER BY agent_id ASC
                 """,
                 (task_id,),
             ).fetchall()

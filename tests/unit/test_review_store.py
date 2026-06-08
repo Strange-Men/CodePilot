@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding
 from backend.storage.sqlite import ReviewStore
 
@@ -183,3 +184,42 @@ def test_replacing_structured_findings_is_idempotent(tmp_path: Path) -> None:
 
     assert [row["description"] for row in store.get_structured_findings("task-1")] == ["Second"]
     assert [row["evidence_id"] for row in store.get_evidence_refs("task-1")] == ["ev_second"]
+
+
+def test_store_persists_agent_states_with_validation_status(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    finding = ReviewFinding(
+        section="Code Smells",
+        description="Validated finding.",
+        evidence_ids=["ev_safe"],
+    )
+
+    store.replace_agent_states(
+        "task-1",
+        [
+            AgentExecutionState(
+                agent_id="CodeSmellAgent",
+                status="completed",
+                findings=[finding],
+                evidence_ids=["ev_safe"],
+                prompt_tokens=12,
+                completion_tokens=8,
+                llm_calls=1,
+            ),
+            AgentExecutionState(
+                agent_id="FailingAgent",
+                status="failed",
+                error="agent failed",
+                validation_status="failed",
+            ),
+        ],
+    )
+
+    rows = store.get_agent_states("task-1")
+    by_agent = {row["agent_id"]: row for row in rows}
+    assert by_agent["CodeSmellAgent"]["validation_status"] == "validated"
+    assert by_agent["CodeSmellAgent"]["findings"][0]["evidence_ids"] == ["ev_safe"]
+    assert by_agent["CodeSmellAgent"]["llm_calls"] == 1
+    assert by_agent["FailingAgent"]["status"] == "failed"
+    assert by_agent["FailingAgent"]["validation_status"] == "failed"

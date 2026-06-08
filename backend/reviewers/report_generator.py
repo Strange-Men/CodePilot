@@ -7,6 +7,7 @@ from backend.agents.orchestrator import AgentOrchestrator
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
@@ -27,12 +28,14 @@ class ReportGenerator:
         self.review_engine = "v2"
         self.token_model = token_model
         self.last_structured_draft: StructuredReviewDraft | None = None
+        self.last_agent_states: list[AgentExecutionState] = []
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> tuple[str, Path]:
         self.last_structured_draft = None
+        self.last_agent_states = []
         if self.review_engine == "v3_single_agent":
             report = self._generate_v3_single_agent(context)
         elif self.review_engine == "v3_multi_agent":
@@ -48,10 +51,22 @@ class ReportGenerator:
     def _generate_v3_single_agent(self, context: ReviewContext | RepositoryContext) -> str:
         review_context = as_review_context(context)
         try:
-            draft = ArchitectureAgent(self.llm_client, model=self.token_model).review(review_context)
+            agent = ArchitectureAgent(self.llm_client, model=self.token_model)
+            draft = agent.review(review_context)
             self.last_structured_draft = draft
+            self.last_agent_states = [
+                AgentOrchestrator._completed_state(agent.role, draft.findings, agent)
+            ]
             architecture_body = draft.section_markdown(REPORT_SECTIONS[0])
-        except Exception:
+        except Exception as exc:
+            self.last_agent_states = [
+                AgentExecutionState(
+                    agent_id=ArchitectureAgent.role,
+                    status="failed",
+                    error=str(exc),
+                    validation_status="failed",
+                )
+            ]
             architecture_body = ""
         if not architecture_body:
             architecture_body = (
@@ -80,6 +95,7 @@ class ReportGenerator:
             ).review(review_context)
             draft = result.draft
             self.last_structured_draft = draft
+            self.last_agent_states = result.agent_states
         except Exception:
             draft = None
 
