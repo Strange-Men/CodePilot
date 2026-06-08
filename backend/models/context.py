@@ -64,7 +64,7 @@ class CodeFileSummary(BaseModel):
     symbols: list[SymbolContext] = Field(default_factory=list)
     call_refs: list[str] = Field(default_factory=list)
     routes: list[RouteContext] = Field(default_factory=list)
-    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)  # Cross-reference to EvidenceRecord.evidence_id
 
 
 class RepositoryInsight(BaseModel):
@@ -124,8 +124,13 @@ class ReviewContext(BaseModel):
         return self.metadata.repo_url
 
     @property
-    def total_python_files(self) -> int:
+    def total_source_files(self) -> int:
         return self.metadata.total_source_files
+
+    @property
+    def total_python_files(self) -> int:
+        """Deprecated: use total_source_files instead."""
+        return self.total_source_files
 
     @property
     def analyzed_files(self) -> int:
@@ -188,7 +193,7 @@ class RepositoryContext(BaseModel):
     """Flat V2.5 context retained at external and extension boundaries."""
 
     repo_url: str
-    total_python_files: int
+    total_python_files: int  # Deprecated: prefer total_source_files
     analyzed_files: int
     skipped_files: int
     file_summaries: list[CodeFileSummary]
@@ -207,11 +212,16 @@ class RepositoryContext(BaseModel):
     deep_context: DeepContextSummary = Field(default_factory=DeepContextSummary)
     evidence: list[EvidenceRecord] = Field(default_factory=list)
 
+    @property
+    def total_source_files(self) -> int:
+        """Preferred alias for total_python_files."""
+        return self.total_python_files
+
     def to_review_context(self) -> ReviewContext:
         return ReviewContext(
             metadata=RepoMetadata(
                 repo_url=self.repo_url,
-                total_source_files=self.total_python_files,
+                total_source_files=self.total_source_files,
                 analyzed_files=self.analyzed_files,
                 skipped_files=self.skipped_files,
                 repository_summary=self.repository_summary,
@@ -240,7 +250,7 @@ class RepositoryContext(BaseModel):
     def from_review_context(cls, context: ReviewContext) -> RepositoryContext:
         return cls(
             repo_url=context.repo_url,
-            total_python_files=context.total_python_files,
+            total_python_files=context.total_source_files,
             analyzed_files=context.analyzed_files,
             skipped_files=context.skipped_files,
             file_summaries=context.file_summaries,

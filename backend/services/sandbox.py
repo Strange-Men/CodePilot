@@ -8,6 +8,7 @@ from backend.services.source_selection import source_file_priority
 
 ALLOWED_SOURCE_EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx"}
 IGNORE_DIRS = {
+    ".cache",
     ".git",
     ".next",
     ".turbo",

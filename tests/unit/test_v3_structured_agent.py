@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from agents.architecture_agent import ArchitectureAgent
-from agents.finding_validator import FindingValidator
+from backend.agents.architecture_agent import ArchitectureAgent
+from backend.agents.finding_validator import FindingValidator
 from backend.core.config import Settings
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import MockLLMClient, build_llm_client

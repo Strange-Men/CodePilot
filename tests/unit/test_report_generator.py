@@ -5,6 +5,7 @@ from pathlib import Path
 from backend.core.report_contract import load_report_sections
 from backend.llm.client import REPORT_SECTIONS, MockLLMClient
 from backend.models.review import CodeFileSummary
+from backend.prompts import PromptRenderer
 from backend.reviewers.report_generator import ReportGenerator
 
 
@@ -180,7 +181,7 @@ def test_dependency_relationships_prioritize_important_files(sample_context) -> 
         "helpers/format.py": [],
     }
 
-    relationships = ReportGenerator._important_dependency_relationships(sample_context, limit=2)
+    relationships = PromptRenderer.important_dependency_relationships(sample_context, limit=2)
 
     assert relationships == [
         ("app.py", "services/review.py"),

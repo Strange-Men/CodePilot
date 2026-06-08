@@ -86,7 +86,7 @@ class MarkdownReviewAdapter:
     def repository_metrics_section(cls, context: ReviewContext) -> str:
         lines = [
             "# Repository Metrics",
-            f"- Total source files: {context.total_python_files}",
+            f"- Total source files: {context.total_source_files}",
             f"- Analyzed files: {context.analyzed_files}",
             f"- Skipped files: {context.skipped_files}",
             f"- Total lines: {context.total_lines}",

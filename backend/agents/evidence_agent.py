@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agents.finding_validator import FindingValidator
+from backend.agents.finding_validator import FindingValidator
 from backend.llm.client import LLMClient
 from backend.llm.structured import StructuredLLMClient
 from backend.models.context import EvidenceRecord, ReviewContext

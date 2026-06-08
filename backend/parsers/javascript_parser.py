@@ -5,20 +5,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.parsers.base import ParsedFunction, ParsedRoute, ParsedSourceFile, SourceParser
+from backend.services.sandbox import IGNORE_DIRS
 from backend.services.scoring import detect_entry_point
 from backend.services.source_selection import source_file_priority
-
-IGNORE_DIRS = {
-    "node_modules",
-    "dist",
-    "build",
-    "coverage",
-    ".git",
-    ".next",
-    ".turbo",
-    ".cache",
-    "vendor",
-}
 
 JAVASCRIPT_EXTENSIONS = {".js", ".jsx"}
 TYPESCRIPT_EXTENSIONS = {".ts", ".tsx"}

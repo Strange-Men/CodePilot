@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents.architecture_agent import ArchitectureAgent
-from agents.orchestrator import AgentOrchestrator
+from backend.agents.architecture_agent import ArchitectureAgent
+from backend.agents.orchestrator import AgentOrchestrator
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
@@ -98,22 +98,3 @@ class ReportGenerator:
     def _normalize_report(self, report: str, context: RepositoryContext | None = None) -> str:
         return self.markdown_adapter.normalize(report, context)
 
-    @staticmethod
-    def _repository_insights_section(context: RepositoryContext) -> str:
-        return MarkdownReviewAdapter.repository_insights_section(as_review_context(context))
-
-    @staticmethod
-    def _architecture_graph_section(context: RepositoryContext) -> str:
-        return MarkdownReviewAdapter.architecture_graph_section(as_review_context(context))
-
-    @staticmethod
-    def _important_dependency_relationships(
-        context: ReviewContext | RepositoryContext,
-        *,
-        limit: int,
-    ) -> list[tuple[str, str]]:
-        return PromptRenderer.important_dependency_relationships(context, limit=limit)
-
-    @staticmethod
-    def _extract_sections(report: str) -> dict[str, str]:
-        return MarkdownReviewAdapter.extract_sections(report)

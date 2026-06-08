@@ -5,20 +5,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.parsers.base import ParsedClass, ParsedFunction, ParsedRoute, ParsedSourceFile, SourceParser
+from backend.services.sandbox import IGNORE_DIRS
 from backend.services.scoring import detect_entry_point
 from backend.services.source_selection import source_file_priority
 
-IGNORE_DIRS = {
-    "node_modules",
-    "dist",
-    "build",
-    ".venv",
-    "venv",
-    "vendor",
-    ".git",
-    "__pycache__",
-    ".next",
-}
 PYTHON_ENTRY_NAMES = {"main.py", "app.py", "__init__.py"}
 PYTHON_CORE_PATH_PARTS = {"api", "services", "core", "models", "parsers", "reviewers", "llm"}
 
@@ -36,13 +26,13 @@ class PythonParser(SourceParser):
 
     def discover_files(self, repo_dir: Path, max_files: int, max_file_size_bytes: int) -> tuple[list[Path], int, int]:
         candidates: list[Path] = []
-        total_python_files = 0
+        total_source_files = 0
         skipped = 0
 
         for path in repo_dir.rglob("*.py"):
             if any(part in IGNORE_DIRS for part in path.parts):
                 continue
-            total_python_files += 1
+            total_source_files += 1
             try:
                 if path.stat().st_size > max_file_size_bytes:
                     skipped += 1
@@ -54,7 +44,7 @@ class PythonParser(SourceParser):
 
         selected = sorted(candidates, key=self._importance_key)[:max_files]
         skipped += max(0, len(candidates) - len(selected))
-        return selected, total_python_files, skipped
+        return selected, total_source_files, skipped
 
     def parse_file(self, repo_dir: Path, path: Path) -> ParsedPythonFile:
         source = path.read_text(encoding="utf-8", errors="replace")
