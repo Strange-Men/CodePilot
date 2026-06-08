@@ -104,6 +104,9 @@ class ReviewPipeline:
         logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
         parser = self._select_parser(repo_dir, manifest)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
+        set_large_repo_threshold = getattr(indexer, "set_large_repo_threshold", None)
+        if callable(set_large_repo_threshold):
+            set_large_repo_threshold(self.settings.large_repo_threshold)
         set_manifest = getattr(indexer, "set_manifest", None)
         if callable(set_manifest):
             set_manifest(manifest)

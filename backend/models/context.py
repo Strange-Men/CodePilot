@@ -65,6 +65,7 @@ class CodeFileSummary(BaseModel):
     call_refs: list[str] = Field(default_factory=list)
     routes: list[RouteContext] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)  # Cross-reference to EvidenceRecord.evidence_id
+    analysis_tier: str = "standard"
 
 
 class RepositoryInsight(BaseModel):
@@ -95,6 +96,10 @@ class RepoMetadata(BaseModel):
     language: str = "Python"
     total_lines: int = 0
     avg_complexity: float = 0.0
+    large_repo_mode: bool = False
+    large_repo_threshold: int = 300
+    analysis_disclosure: str | None = None
+    analysis_tiers: dict[str, int] = Field(default_factory=dict)
 
 
 class FileAnalysisBundle(BaseModel):
@@ -157,6 +162,22 @@ class ReviewContext(BaseModel):
         return self.metadata.avg_complexity
 
     @property
+    def large_repo_mode(self) -> bool:
+        return self.metadata.large_repo_mode
+
+    @property
+    def large_repo_threshold(self) -> int:
+        return self.metadata.large_repo_threshold
+
+    @property
+    def analysis_disclosure(self) -> str | None:
+        return self.metadata.analysis_disclosure
+
+    @property
+    def analysis_tiers(self) -> dict[str, int]:
+        return self.metadata.analysis_tiers
+
+    @property
     def file_summaries(self) -> list[CodeFileSummary]:
         return self.files.summaries
 
@@ -201,6 +222,10 @@ class RepositoryContext(BaseModel):
     language: str = "Python"
     total_lines: int = 0
     avg_complexity: float = 0.0
+    large_repo_mode: bool = False
+    large_repo_threshold: int = 300
+    analysis_disclosure: str | None = None
+    analysis_tiers: dict[str, int] = Field(default_factory=dict)
     entry_points: list[str] = Field(default_factory=list)
     core_modules: list[str] = Field(default_factory=list)
     supporting_modules: list[str] = Field(default_factory=list)
@@ -228,6 +253,10 @@ class RepositoryContext(BaseModel):
                 language=self.language,
                 total_lines=self.total_lines,
                 avg_complexity=self.avg_complexity,
+                large_repo_mode=self.large_repo_mode,
+                large_repo_threshold=self.large_repo_threshold,
+                analysis_disclosure=self.analysis_disclosure,
+                analysis_tiers=self.analysis_tiers,
             ),
             files=FileAnalysisBundle(
                 summaries=self.file_summaries,
@@ -258,6 +287,10 @@ class RepositoryContext(BaseModel):
             language=context.language,
             total_lines=context.total_lines,
             avg_complexity=context.avg_complexity,
+            large_repo_mode=context.metadata.large_repo_mode,
+            large_repo_threshold=context.metadata.large_repo_threshold,
+            analysis_disclosure=context.metadata.analysis_disclosure,
+            analysis_tiers=context.metadata.analysis_tiers,
             entry_points=context.entry_points,
             core_modules=context.core_modules,
             supporting_modules=context.supporting_modules,

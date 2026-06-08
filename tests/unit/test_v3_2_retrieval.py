@@ -4,7 +4,11 @@ from backend.agents.orchestrator import AgentOrchestrator
 from backend.agents.specialized_agents import CodeSmellAgent
 from backend.llm.client import MockLLMClient
 from backend.models.context import EvidenceRecord, SymbolContext
+from backend.parsers.python_parser import PythonParser
+from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
 from backend.services.evidence import EvidenceRetriever, RetrievalPolicy, stable_evidence_id
+from backend.services.indexer import RepositoryIndexer
+from backend.services.sandbox import SandboxFilter
 
 
 def _retrieval_context(sample_context):
@@ -169,3 +173,50 @@ def test_retrieval_token_budget_uses_compressed_evidence(sample_context) -> None
 
     assert len(result.records) >= 2
     assert result.stats.estimated_tokens <= 160
+
+
+def test_large_repo_mode_marks_tiers_and_discloses_metadata(temp_repo) -> None:
+    for index in range(6):
+        name = "app.py" if index == 0 else f"module_{index}.py"
+        (temp_repo / name).write_text(
+            f"def function_{index}():\n    return {index}\n",
+            encoding="utf-8",
+        )
+    manifest = SandboxFilter().build_manifest(temp_repo, max_files=10, max_file_size_bytes=1000)
+
+    context = RepositoryIndexer(
+        PythonParser(),
+        max_files=10,
+        max_file_size_bytes=1000,
+        manifest=manifest,
+        large_repo_threshold=3,
+    ).build_review_context(temp_repo, "https://github.com/example/large")
+
+    assert context.large_repo_mode is True
+    assert context.analysis_tiers["high"] >= 1
+    assert context.analysis_tiers["low"] >= 1
+    assert "Large repo mode enabled" in (context.analysis_disclosure or "")
+    report = MarkdownReviewAdapter.repository_metrics_section(context)
+    assert "Large repo mode: enabled at threshold 3" in report
+    assert "Analysis tiers:" in report
+
+
+def test_large_repo_low_tier_is_manifest_only(sample_context) -> None:
+    context = _retrieval_context(sample_context)
+    context.metadata.large_repo_mode = True
+    context.metadata.analysis_tiers = {"high": 1, "medium": 0, "low": 1}
+    context.file_summaries[0].analysis_tier = "high"
+    context.file_summaries[1].analysis_tier = "low"
+
+    result = EvidenceRetriever(context).retrieve_with_policy(
+        RetrievalPolicy(
+            agent_role="MaintainabilityAgent",
+            query="review",
+            limit=2,
+            token_budget=500,
+        )
+    )
+
+    assert "services/review.py" in {candidate.path for candidate in result.manifest_candidates}
+    assert "services/review.py" not in {record.file_path for record in result.records}
+    assert result.stats.large_repo_mode is True

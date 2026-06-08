@@ -91,12 +91,25 @@ class MarkdownReviewAdapter:
             f"- Skipped files: {context.skipped_files}",
             f"- Total lines: {context.total_lines}",
             f"- Average complexity: {context.avg_complexity:.2f}",
-            "",
-            "## Top Files",
-            "",
-            "| File | Lines | Complexity | Score | Label |",
-            "| --- | ---: | ---: | ---: | --- |",
         ]
+        if context.large_repo_mode:
+            lines.extend(
+                [
+                    f"- Large repo mode: enabled at threshold {context.large_repo_threshold}",
+                    f"- Analysis tiers: {cls._format_analysis_tiers(context.analysis_tiers)}",
+                ]
+            )
+            if context.analysis_disclosure:
+                lines.append(f"- Analysis disclosure: {context.analysis_disclosure}")
+        lines.extend(
+            [
+                "",
+                "## Top Files",
+                "",
+                "| File | Lines | Complexity | Score | Label |",
+                "| --- | ---: | ---: | ---: | --- |",
+            ]
+        )
         top_files = cls.top_important_files(context, limit=10)
         if top_files:
             for summary in top_files:
@@ -202,3 +215,9 @@ class MarkdownReviewAdapter:
         limit: int,
     ) -> list[CodeFileSummary]:
         return top_important_files(context, limit=limit)
+
+    @staticmethod
+    def _format_analysis_tiers(tiers: dict[str, int]) -> str:
+        if not tiers:
+            return "none"
+        return ", ".join(f"{tier}={count}" for tier, count in sorted(tiers.items()))

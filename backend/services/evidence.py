@@ -65,6 +65,7 @@ class RetrievalStats:
     token_utilization: float
     precision_like: float
     recall_like: float
+    large_repo_mode: bool = False
     semantic_status: str = SEMANTIC_RETRIEVAL_STATUS
     level_counts: dict[str, int] = field(default_factory=dict)
 
@@ -82,6 +83,7 @@ class RetrievalStats:
             "retrieval_token_utilization": round(self.token_utilization, 4),
             "retrieval_precision_like": round(self.precision_like, 4),
             "retrieval_recall_like": round(self.recall_like, 4),
+            "retrieval_large_repo_mode": self.large_repo_mode,
             "retrieval_semantic_status": self.semantic_status,
             "retrieval_level_1_manifest": self.level_counts.get("manifest", 0),
             "retrieval_level_2_symbol": self.level_counts.get("symbol", 0),
@@ -309,6 +311,8 @@ class EvidenceRetriever:
         for record, tokens in zip(self.records, self.document_tokens, strict=True):
             if candidate_paths is not None and record.file_path not in candidate_paths:
                 continue
+            if self._analysis_tier(record.file_path) == "low":
+                continue
             score = self._bm25(query_tokens, tokens)
             score += self._dependency_score(record.file_path, query_tokens)
             score += self._symbol_score(record, query_tokens)
@@ -395,6 +399,7 @@ class EvidenceRetriever:
             token_utilization=min(1.0, estimated_tokens / token_budget),
             precision_like=precision_like,
             recall_like=recall_like,
+            large_repo_mode=self.context.large_repo_mode,
             level_counts={
                 "manifest": len(manifest_candidates),
                 "symbol": len(symbol_paths),
@@ -436,15 +441,36 @@ class EvidenceRetriever:
         symbol_tokens = set(self._tokens(" ".join(record.symbols)))
         return len(symbol_tokens.intersection(query_tokens)) * 1.25
 
-    @classmethod
     def compress_for_prompt(
-        cls,
+        self,
         record: EvidenceRecord,
         query: str,
         *,
         policy: RetrievalPolicy | None = None,
     ) -> CompressedEvidence:
         policy = policy or RetrievalPolicy(query=query)
+        if self.context.large_repo_mode and self._analysis_tier(record.file_path) == "medium":
+            policy = policy.__class__(
+                agent_role=policy.agent_role,
+                query=policy.query,
+                limit=policy.limit,
+                token_budget=policy.token_budget,
+                manifest_limit=policy.manifest_limit,
+                symbol_limit=policy.symbol_limit,
+                snippet_limit=policy.snippet_limit,
+                compression_window_lines=max(4, policy.compression_window_lines // 2),
+                max_snippet_chars=max(240, policy.max_snippet_chars // 2),
+            )
+        return self._compress_record_for_prompt(record, query, policy=policy)
+
+    @classmethod
+    def _compress_record_for_prompt(
+        cls,
+        record: EvidenceRecord,
+        query: str,
+        *,
+        policy: RetrievalPolicy,
+    ) -> CompressedEvidence:
         lines = record.snippet.splitlines()
         if not lines:
             return CompressedEvidence(
@@ -484,6 +510,12 @@ class EvidenceRetriever:
             truncated=truncated,
             estimated_tokens=max(1, len(excerpt) // 4) + len(record.symbols) * 2 + 16,
         )
+
+    def _analysis_tier(self, path: str) -> str:
+        if not self.context.large_repo_mode:
+            return "standard"
+        summary = next((summary for summary in self.context.file_summaries if summary.path == path), None)
+        return getattr(summary, "analysis_tier", "low") if summary is not None else "low"
 
     @classmethod
     def _best_line_index(cls, lines: list[str], query_tokens: set[str]) -> int:

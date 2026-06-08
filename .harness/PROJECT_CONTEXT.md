@@ -156,6 +156,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `CORS_ALLOW_ORIGIN_REGEX` | `https?://(localhost|127\.0\.0\.1):\d+` | Local dev origin regex. |
 | `MAX_FILES` | `300` | Maximum source files analyzed. |
 | `MAX_FILE_SIZE_BYTES` | `204800` | Per-file size limit. |
+| `LARGE_REPO_THRESHOLD` | `300` | Enables V3.2 large repo retrieval tiering when supported source files exceed this count. |
 | `FINAL_PROMPT_TOKEN_BUDGET` | `5000` | Approximate prompt token budget. |
 | `NEXT_PUBLIC_API_BASE` | `http://localhost:8000` | Frontend API base URL. |
 

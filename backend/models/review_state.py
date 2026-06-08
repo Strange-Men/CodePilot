@@ -51,6 +51,10 @@ class ReviewContextSummary(BaseModel):
     analyzed_files: int
     skipped_files: int
     repository_summary: str
+    large_repo_mode: bool = False
+    large_repo_threshold: int = 300
+    analysis_disclosure: str | None = None
+    analysis_tiers: dict[str, int] = Field(default_factory=dict)
 
     @classmethod
     def from_context(cls, context: ReviewContext) -> ReviewContextSummary:
@@ -61,6 +65,10 @@ class ReviewContextSummary(BaseModel):
             analyzed_files=context.analyzed_files,
             skipped_files=context.skipped_files,
             repository_summary=context.repository_summary,
+            large_repo_mode=context.large_repo_mode,
+            large_repo_threshold=context.large_repo_threshold,
+            analysis_disclosure=context.analysis_disclosure,
+            analysis_tiers=context.analysis_tiers,
         )
 
 

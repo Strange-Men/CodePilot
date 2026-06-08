@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from backend.models.context import (
@@ -30,14 +31,19 @@ class RepositoryIndexer:
         max_files: int,
         max_file_size_bytes: int,
         manifest: SandboxManifest | None = None,
+        large_repo_threshold: int = 300,
     ) -> None:
         self.parser = parser
         self.max_files = max_files
         self.max_file_size_bytes = max_file_size_bytes
         self.manifest = manifest
+        self.large_repo_threshold = large_repo_threshold
 
     def set_manifest(self, manifest: SandboxManifest) -> None:
         self.manifest = manifest
+
+    def set_large_repo_threshold(self, threshold: int) -> None:
+        self.large_repo_threshold = threshold
 
     def build_context(self, repo_dir: Path, repo_url: str) -> RepositoryContext:
         return RepositoryContext.from_review_context(self.build_review_context(repo_dir, repo_url))
@@ -81,6 +87,9 @@ class RepositoryIndexer:
             summary.importance_score = scored.score
             summary.importance_label = scored.label
             summary.file_role = scored.role
+        large_repo_mode = total > self.large_repo_threshold
+        tier_counts = self._assign_analysis_tiers(summaries, large_repo_mode)
+        disclosure = self._analysis_disclosure(total, len(summaries), skipped, tier_counts) if large_repo_mode else None
         repo_summary = self._summarize_repository(summaries, total, skipped)
         total_lines = sum(summary.line_count for summary in summaries)
         avg_complexity = (
@@ -99,6 +108,10 @@ class RepositoryIndexer:
                 language=self._language_label(),
                 total_lines=total_lines,
                 avg_complexity=avg_complexity,
+                large_repo_mode=large_repo_mode,
+                large_repo_threshold=self.large_repo_threshold,
+                analysis_disclosure=disclosure,
+                analysis_tiers=tier_counts,
             ),
             files=FileAnalysisBundle(
                 summaries=summaries,
@@ -128,6 +141,57 @@ class RepositoryIndexer:
         )
         context.insights = RepositoryInsightEngine().generate(context)
         return context
+
+    def _assign_analysis_tiers(self, summaries: list[CodeFileSummary], large_repo_mode: bool) -> dict[str, int]:
+        if not large_repo_mode:
+            for summary in summaries:
+                summary.analysis_tier = "standard"
+            return {"standard": len(summaries)}
+        ranked = sorted(
+            summaries,
+            key=lambda summary: (-summary.importance_score, -summary.fan_in, -summary.fan_out, summary.path),
+        )
+        high_cutoff = max(1, math.ceil(len(ranked) * 0.25))
+        medium_cutoff = max(high_cutoff, math.ceil(len(ranked) * 0.7))
+        high_paths = {
+            summary.path
+            for summary in ranked[:high_cutoff]
+            if summary.importance_score > 0
+        }
+        high_paths.update(
+            summary.path
+            for summary in summaries
+            if summary.is_entry_point or summary.is_hub or summary.in_dependency_cycle
+        )
+        medium_paths = {
+            summary.path
+            for summary in ranked[high_cutoff:medium_cutoff]
+            if summary.path not in high_paths
+        }
+        counts = {"high": 0, "medium": 0, "low": 0}
+        for summary in summaries:
+            if summary.path in high_paths:
+                summary.analysis_tier = "high"
+            elif summary.path in medium_paths:
+                summary.analysis_tier = "medium"
+            else:
+                summary.analysis_tier = "low"
+            counts[summary.analysis_tier] += 1
+        return counts
+
+    def _analysis_disclosure(
+        self,
+        total: int,
+        analyzed: int,
+        skipped: int,
+        tier_counts: dict[str, int],
+    ) -> str:
+        return (
+            f"Large repo mode enabled because {total} supported files exceed threshold "
+            f"{self.large_repo_threshold}; analyzed {analyzed}, skipped {skipped}. "
+            f"Tiers: high={tier_counts.get('high', 0)}, medium={tier_counts.get('medium', 0)}, "
+            f"low={tier_counts.get('low', 0)}."
+        )
 
     def _discover_files(self, repo_dir: Path) -> tuple[list[Path | SandboxFile], int, int]:
         if self.manifest is None:
