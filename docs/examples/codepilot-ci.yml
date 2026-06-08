@@ -1,0 +1,25 @@
+name: CodePilot Report
+
+on:
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r backend/requirements.txt
+      - name: Generate non-blocking CodePilot report
+        run: >-
+          python -m backend.cli ci
+          https://github.com/${{ github.repository }}
+          --mock-llm
+          --output artifacts/codepilot-report.md
+          --json-output artifacts/codepilot-summary.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codepilot-report
+          path: artifacts/
