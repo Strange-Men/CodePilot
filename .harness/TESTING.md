@@ -2,11 +2,11 @@
 
 > Harness version: v1.2
 > Last updated: 2026-06-08
-> Verified with: `pytest --collect-only -q` on 2026-06-08
+> Verified with: `pytest` on 2026-06-08
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 289 tests.
+`pytest` collected 289 tests: 288 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|

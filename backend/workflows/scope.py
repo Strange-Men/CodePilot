@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 
 def parse_changed_files(values: list[str] | tuple[str, ...]) -> set[str]:
     paths: set[str] = set()
@@ -28,10 +26,6 @@ def parse_unified_diff_paths(diff_text: str) -> set[str]:
                 if path:
                     paths.add(path)
     return paths
-
-
-def parse_diff_file(path: Path) -> set[str]:
-    return parse_unified_diff_paths(path.read_text(encoding="utf-8"))
 
 
 def _normalize_candidate(candidate: str) -> str:
