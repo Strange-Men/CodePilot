@@ -7,7 +7,7 @@ from backend.agents.evidence_agent import EvidenceGroundedAgent
 from backend.agents.specialized_agents import CodeSmellAgent, MaintainabilityAgent, RefactorAgent
 from backend.llm.client import LLMClient
 from backend.models.context import ReviewContext
-from backend.models.review_state import AgentExecutionState
+from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 
 
@@ -16,6 +16,7 @@ class AgentRunResult:
     draft: StructuredReviewDraft
     errors: dict[str, str] = field(default_factory=dict)
     agent_states: list[AgentExecutionState] = field(default_factory=list)
+    state: ReviewState | None = None
 
 
 class AgentOrchestrator:
@@ -37,10 +38,17 @@ class AgentOrchestrator:
             RefactorAgent,
         ]
 
-    def review(self, context: ReviewContext) -> AgentRunResult:
+    def review(self, context: ReviewContext, *, task_id: str | None = None) -> AgentRunResult:
+        state = self.run(ReviewState(task_id=task_id, context=context))
+        return AgentRunResult(
+            draft=StructuredReviewDraft(findings=state.validated_findings),
+            errors=state.errors,
+            agent_states=state.agent_results,
+            state=state,
+        )
+
+    def run(self, state: ReviewState) -> ReviewState:
         findings: list[ReviewFinding] = []
-        errors: dict[str, str] = {}
-        agent_states: list[AgentExecutionState] = []
         for agent_class in self.agent_classes:
             agent = agent_class(
                 self.llm_client,
@@ -48,12 +56,13 @@ class AgentOrchestrator:
                 token_budget=self.per_agent_token_budget,
             )
             try:
-                draft = agent.review(context)
+                draft = agent.review(state.context)
                 findings.extend(draft.findings)
-                agent_states.append(self._completed_state(agent.role, draft.findings, agent))
+                state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
+                state.agent_results.append(self._completed_state(agent.role, draft.findings, agent))
             except Exception as exc:
-                errors[agent.role] = str(exc)
-                agent_states.append(
+                state.errors[agent.role] = str(exc)
+                state.agent_results.append(
                     AgentExecutionState(
                         agent_id=agent.role,
                         status="failed",
@@ -61,11 +70,14 @@ class AgentOrchestrator:
                         validation_status="failed",
                     )
                 )
-        return AgentRunResult(
-            draft=StructuredReviewDraft(findings=self._deduplicate(findings)),
-            errors=errors,
-            agent_states=agent_states,
+        state.validated_findings = self._deduplicate(findings)
+        state.metadata.update(
+            {
+                "orchestrator": type(self).__name__,
+                "agent_count": len(self.agent_classes),
+            }
         )
+        return state
 
     @staticmethod
     def _completed_state(
@@ -78,7 +90,7 @@ class AgentOrchestrator:
             agent_id=agent_id,
             status="completed",
             findings=findings,
-            evidence_ids=sorted({evidence_id for finding in findings for evidence_id in finding.evidence_ids}),
+            evidence_ids=[record.evidence_id for record in agent.last_evidence_bundle],
             prompt_tokens=getattr(cost_tracker, "prompt_tokens", None),
             completion_tokens=getattr(cost_tracker, "completion_tokens", None),
             llm_calls=getattr(cost_tracker, "calls", None),

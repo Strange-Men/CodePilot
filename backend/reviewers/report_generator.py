@@ -7,7 +7,7 @@ from backend.agents.orchestrator import AgentOrchestrator
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
-from backend.models.review_state import AgentExecutionState
+from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
@@ -29,6 +29,7 @@ class ReportGenerator:
         self.token_model = token_model
         self.last_structured_draft: StructuredReviewDraft | None = None
         self.last_agent_states: list[AgentExecutionState] = []
+        self.last_review_state: ReviewState | None = None
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
@@ -36,10 +37,11 @@ class ReportGenerator:
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> tuple[str, Path]:
         self.last_structured_draft = None
         self.last_agent_states = []
+        self.last_review_state = None
         if self.review_engine == "v3_single_agent":
-            report = self._generate_v3_single_agent(context)
+            report = self._generate_v3_single_agent(task_id, context)
         elif self.review_engine == "v3_multi_agent":
-            report = self._generate_v3_multi_agent(context)
+            report = self._generate_v3_multi_agent(task_id, context)
         else:
             prompt = self._build_prompt(context)
             raw_report = self.llm_client.generate_review(prompt)
@@ -48,15 +50,19 @@ class ReportGenerator:
         export_path.write_text(report, encoding="utf-8")
         return report, export_path
 
-    def _generate_v3_single_agent(self, context: ReviewContext | RepositoryContext) -> str:
+    def _generate_v3_single_agent(self, task_id: str, context: ReviewContext | RepositoryContext) -> str:
         review_context = as_review_context(context)
+        state = ReviewState(task_id=task_id, context=review_context)
         try:
             agent = ArchitectureAgent(self.llm_client, model=self.token_model)
             draft = agent.review(review_context)
             self.last_structured_draft = draft
+            state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
+            state.validated_findings = draft.findings
             self.last_agent_states = [
                 AgentOrchestrator._completed_state(agent.role, draft.findings, agent)
             ]
+            state.agent_results = self.last_agent_states
             architecture_body = draft.section_markdown(REPORT_SECTIONS[0])
         except Exception as exc:
             self.last_agent_states = [
@@ -67,7 +73,10 @@ class ReportGenerator:
                     validation_status="failed",
                 )
             ]
+            state.agent_results = self.last_agent_states
+            state.errors[ArchitectureAgent.role] = str(exc)
             architecture_body = ""
+        self.last_review_state = state
         if not architecture_body:
             architecture_body = (
                 "No validated evidence-grounded architecture findings were produced. "
@@ -85,17 +94,18 @@ class ReportGenerator:
         )
         return self._normalize_report(raw_report, review_context)
 
-    def _generate_v3_multi_agent(self, context: ReviewContext | RepositoryContext) -> str:
+    def _generate_v3_multi_agent(self, task_id: str, context: ReviewContext | RepositoryContext) -> str:
         review_context = as_review_context(context)
         try:
             result = AgentOrchestrator(
                 self.llm_client,
                 model=self.token_model,
                 per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
-            ).review(review_context)
+            ).review(review_context, task_id=task_id)
             draft = result.draft
             self.last_structured_draft = draft
             self.last_agent_states = result.agent_states
+            self.last_review_state = result.state
         except Exception:
             draft = None
 

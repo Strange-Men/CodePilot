@@ -18,9 +18,11 @@ class EvidenceGroundedAgent:
     def __init__(self, llm_client: LLMClient, *, model: str = "gpt-4o-mini", token_budget: int = 2000) -> None:
         self.structured_client = StructuredLLMClient(llm_client, model=model)
         self.token_budget = token_budget
+        self.last_evidence_bundle: list[EvidenceRecord] = []
 
     def review(self, context: ReviewContext) -> StructuredReviewDraft:
         evidence_bundle = EvidenceRetriever(context).retrieve(self.evidence_query, limit=self.evidence_limit)
+        self.last_evidence_bundle = evidence_bundle
         if not evidence_bundle:
             return StructuredReviewDraft()
 

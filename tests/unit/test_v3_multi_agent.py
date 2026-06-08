@@ -93,7 +93,10 @@ def test_multi_agent_mock_generates_one_grounded_finding_per_section(sample_cont
     result = AgentOrchestrator(MockLLMClient()).review(context)
 
     assert not result.errors
+    assert result.state is not None
+    assert result.state.task_id is None
     assert {finding.section for finding in result.draft.findings} == set(REPORT_SECTIONS)
+    assert result.state.validated_findings == result.draft.findings
     assert all(finding.evidence_ids for finding in result.draft.findings)
     assert {state.agent_id for state in result.agent_states} == {
         "ArchitectureAgent",

@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 258 tests.
+`pytest --collect-only -q` collected 259 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 238 | 27 | Validate contexts, prompts, structured reviews, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 239 | 28 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -38,6 +38,7 @@
 | `tests/unit/test_report_generator.py` | 14 | Mock generation, malformed output, shared contract, formatting-preserving budgets, structural/graph context, edge prioritization, report appendices, ordering, and trailing newline. |
 | `tests/unit/test_review_store.py` | 12 | DB initialization, WAL mode, CRUD, report preservation, structured finding persistence, agent state storage, safe evidence refs, and schema-neutral history queries. |
 | `tests/unit/test_review_context.py` | 4 | Focused context defaults and flat compatibility round trips. |
+| `tests/unit/test_review_state.py` | 1 | Graph-ready ReviewState safe snapshots exclude source snippets while preserving evidence lineage. |
 | `tests/unit/test_review_task_runner.py` | 7 | Submit/run behavior, status progression, parser selection, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 6 | Model encodings, Unicode, exact budgets, line preservation, unknown-model fallback, and missing-dependency runtime fallback. |
