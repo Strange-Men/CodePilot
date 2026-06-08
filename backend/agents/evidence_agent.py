@@ -5,7 +5,7 @@ from backend.llm.client import LLMClient
 from backend.llm.structured import StructuredLLMClient
 from backend.models.context import EvidenceRecord, ReviewContext
 from backend.models.structured_review import StructuredReviewDraft
-from backend.services.evidence import EvidenceRetriever
+from backend.services.evidence import EvidenceRetriever, RetrievalPolicy, RetrievalStats
 
 
 class EvidenceGroundedAgent:
@@ -19,10 +19,13 @@ class EvidenceGroundedAgent:
         self.structured_client = StructuredLLMClient(llm_client, model=model)
         self.token_budget = token_budget
         self.last_evidence_bundle: list[EvidenceRecord] = []
+        self.last_retrieval_stats: RetrievalStats | None = None
 
     def review(self, context: ReviewContext) -> StructuredReviewDraft:
-        evidence_bundle = EvidenceRetriever(context).retrieve(self.evidence_query, limit=self.evidence_limit)
+        retrieval = EvidenceRetriever(context).retrieve_with_policy(self._retrieval_policy())
+        evidence_bundle = retrieval.records
         self.last_evidence_bundle = evidence_bundle
+        self.last_retrieval_stats = retrieval.stats
         if not evidence_bundle:
             return StructuredReviewDraft()
 
@@ -57,4 +60,14 @@ class EvidenceGroundedAgent:
             f"Summary: {context.repository_summary}\n"
             "Evidence:\n"
             + "\n".join(evidence_lines)
+        )
+
+    def _retrieval_policy(self) -> RetrievalPolicy:
+        return RetrievalPolicy(
+            agent_role=self.role,
+            query=self.evidence_query,
+            limit=self.evidence_limit,
+            token_budget=self.token_budget,
+            manifest_limit=max(self.evidence_limit * 3, 12),
+            symbol_limit=max(self.evidence_limit * 2, 8),
         )

@@ -86,6 +86,8 @@ class AgentOrchestrator:
         agent: EvidenceGroundedAgent,
     ) -> AgentExecutionState:
         cost_tracker = getattr(getattr(agent, "structured_client", None), "cost_tracker", None)
+        retrieval_stats = getattr(agent, "last_retrieval_stats", None)
+        metadata = retrieval_stats.to_metadata() if retrieval_stats is not None else {}
         return AgentExecutionState(
             agent_id=agent_id,
             status="completed",
@@ -95,6 +97,7 @@ class AgentOrchestrator:
             completion_tokens=getattr(cost_tracker, "completion_tokens", None),
             llm_calls=getattr(cost_tracker, "calls", None),
             validation_status="validated",
+            metadata=metadata,
         )
 
     @staticmethod
