@@ -57,7 +57,7 @@ Browser
 | Scoring | `backend/services/scoring.py` | Classify and prioritize files | Uses an absolute saturating 0-100 scale so small repositories do not automatically receive Critical labels. |
 | Storage | `backend/storage/sqlite.py` | SQLite persistence | Uses WAL mode, busy timeout, and thread lock. |
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
-| Agents | `agents/` | V3 evidence-grounded review agents and fan-out/fan-in orchestration | Agents consume `ReviewContext` and `EvidenceRetriever`, produce structured findings, and cannot read files directly. |
+| Agents | `backend/agents/` | V3 evidence-grounded review agents and fan-out/fan-in orchestration | Agents consume `ReviewContext` and `EvidenceRetriever`, produce structured findings, and cannot read files directly. |
 
 ## Frontend Module Map
 
@@ -274,14 +274,21 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 
 ## V3
 
-The repository now contains additive V3 evidence-grounded review modules:
+V3.0 introduced evidence-grounded review with the following modules:
 
 - `backend/services/sandbox.py` for safe manifest-based file access and secret redaction.
 - `backend/services/evidence.py` for stable `evidence_id` generation, storage, and lexical retrieval.
 - `backend/services/deep_context.py` for symbol, call, and class context summaries.
-- `agents/` for Architecture, CodeSmell, Maintainability, Refactor, and orchestrator behavior.
+- `backend/agents/` for Architecture, CodeSmell, Maintainability, Refactor, and orchestrator behavior.
 
-V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. MCP remains unimplemented and reserved for future work. See `docs/V3_ARCHITECTURE.md` and `docs/V3_AGENT_DEVELOPMENT.md`.
+V3.1 added structured persistence and graph-ready state:
+
+- Structured finding persistence in SQLite alongside Markdown reports.
+- Agent state storage for per-agent intermediate results.
+- Graph-ready `ReviewState` for future LangGraph migration (LangGraph deferred).
+- Inspectable agent results.
+
+V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. MCP remains unimplemented and reserved for future work (V3.3). See `docs/V3_ARCHITECTURE.md` and `docs/V3_AGENT_DEVELOPMENT.md`.
 
 ## Cross-References
 

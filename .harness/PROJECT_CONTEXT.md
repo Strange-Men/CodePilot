@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at V3.0 with the safety, deep-context, evidence foundation, structured LLM client, basic multi-agent review, and mock-only V3 evaluation hardening implemented, with 255 collected backend tests.
+CodePilot is at V3.1 with structured finding persistence, agent state storage, graph-ready ReviewState, inspectable agent results, and LangGraph deferred, with 261 collected backend tests.
 
 ## Release History
 
@@ -21,6 +21,8 @@ CodePilot is at V3.0 with the safety, deep-context, evidence foundation, structu
 | V2.4 | 2026-06-07 | `f8be650` onward | CI audit repair, LLM retries, structural architecture context, calibrated scoring, quality coverage |
 | V2.5 | 2026-06-07 | `8b6347e` onward | Insight engine, mixed-language reviews, history, structured errors, URL validation, exact token counting, frontend reliability |
 | V2.6 | 2026-06-07 | `4ae27d2` onward | Context decomposition, versioned prompt system, structured review adapter, parser/lifecycle cleanup, V3-ready boundaries |
+| V3.0 | 2026-06-08 | `097dbee`~5 commits | Safety sandbox, deep context, evidence store, structured LLM, multi-agent review, V3 evaluation hardening |
+| V3.1 | 2026-06-08 | `097dbee` to `9fdc220` | Structured finding persistence, agent state storage, graph-ready ReviewState, LangGraph deferred, inspectable agent results |
 
 ## Architecture Summary
 
@@ -55,6 +57,7 @@ Backend modules:
 - `backend/services` - Clone service, repository indexer, dependency graph, calibrated scoring, insight engine, and token counting.
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
+- `backend/agents` - V3 evidence-grounded review agents and orchestrator.
 
 ## Technology Stack
 
@@ -116,8 +119,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest --collect-only -q` collected 255 tests on 2026-06-08.
-- Unit tests: 235 collected across context compatibility, prompts, structured reviews, lifecycle, API errors, clone service, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, metrics, dependency graph, scoring, insights, token counting, LLM retries, report generation, evaluation, storage, and task orchestration.
+- `pytest --collect-only -q` collected 261 tests on 2026-06-08.
+- Unit tests: 241 collected across context compatibility, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner.
 - Integration tests: 19 collected for review API/history/errors and single- or mixed-language review pipeline completion.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
@@ -171,8 +174,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 | Directory | Current State | Intended Use |
 |-----------|---------------|--------------|
-| `agents/` | Empty/reserved project area | Future multi-agent review orchestration. |
-| `mcp/` | Empty/reserved project area | Future MCP integration. |
+| `mcp/` | Not yet created | Future MCP integration (V3.3). |
 
 ## Cross-References
 

@@ -56,13 +56,21 @@
 - [x] Basic multi-agent fan-out/fan-in with failure isolation and deduplication.
 - [x] Mock-only V3 evaluation metrics, golden subset, hardening tests, and V3 documentation.
 
+### V3.1 - Graph Orchestration and Structured Storage
+
+- [x] Structured finding persistence with additive SQLite storage.
+- [x] Agent state storage for per-agent intermediate results.
+- [x] Graph-ready ReviewState for future LangGraph migration.
+- [x] LangGraph deferred; ReviewState is migration-ready.
+- [x] Inspectable agent results.
+
 ## In Progress
 
-V3.0 is complete. No V3.1+ implementation is in progress.
+V3.1 is complete. No V3.2+ implementation is in progress.
 
 ## Future Development Priorities
 
-Further product work requires a separately approved V3 plan.
+Further product work requires a separately approved V3.2 plan.
 
 Infrastructure work should only be planned when it directly enables these priorities.
 

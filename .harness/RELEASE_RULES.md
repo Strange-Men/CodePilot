@@ -25,7 +25,7 @@ Format: `v<MAJOR>.<MINOR>.<PATCH>`.
 | MINOR | New features, significant capability expansion, deployment target changes. |
 | PATCH | Bug fixes, documentation, small config changes, dependency maintenance. |
 
-Current project version: V2.6.
+Current project version: V3.1.
 
 ## Hard Gates
 
