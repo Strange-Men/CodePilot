@@ -110,6 +110,9 @@ def test_agent_retrieval_policy_is_persistable_without_snippets(sample_context) 
     assert state.metadata["retrieval_level_3_snippet"] > 0
     assert "def create_app" not in state.model_dump_json()
     assert "return [item for item in items]" not in state.model_dump_json()
+    assert result.state is not None
+    assert result.state.metadata["retrieval_agents_with_stats"] == 1
+    assert result.state.metadata["retrieval_average_precision_like"] >= 0
 
 
 def test_context_compression_keeps_evidence_lineage_and_relevant_lines(sample_context) -> None:

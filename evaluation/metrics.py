@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding
 
 
@@ -83,6 +84,17 @@ class AgentEvaluationMetrics:
     finding_count: int
     hallucination: HallucinationMetrics
     quality: FindingQualityMetrics
+
+
+@dataclass(frozen=True)
+class RetrievalEvaluationMetrics:
+    agent_count: int
+    average_precision_like: float
+    average_recall_like: float
+    average_token_utilization: float
+    total_latency_ms: float
+    total_selected_evidence: int
+    large_repo_mode: bool
 
 
 def detect_clone_failure(details: str, status: str) -> bool:
@@ -259,6 +271,40 @@ def compute_agent_metrics(
     ]
 
 
+def compute_retrieval_metrics(agent_states: list[AgentExecutionState]) -> RetrievalEvaluationMetrics:
+    retrieval_states = [
+        state
+        for state in agent_states
+        if "retrieval_precision_like" in state.metadata
+    ]
+    if not retrieval_states:
+        return RetrievalEvaluationMetrics(
+            agent_count=0,
+            average_precision_like=0.0,
+            average_recall_like=0.0,
+            average_token_utilization=0.0,
+            total_latency_ms=0.0,
+            total_selected_evidence=0,
+            large_repo_mode=False,
+        )
+    return RetrievalEvaluationMetrics(
+        agent_count=len(retrieval_states),
+        average_precision_like=_average_metadata(retrieval_states, "retrieval_precision_like"),
+        average_recall_like=_average_metadata(retrieval_states, "retrieval_recall_like"),
+        average_token_utilization=_average_metadata(retrieval_states, "retrieval_token_utilization"),
+        total_latency_ms=sum(float(state.metadata.get("retrieval_latency_ms") or 0.0) for state in retrieval_states),
+        total_selected_evidence=sum(
+            int(state.metadata.get("retrieval_selected_evidence") or 0)
+            for state in retrieval_states
+        ),
+        large_repo_mode=any(bool(state.metadata.get("retrieval_large_repo_mode")) for state in retrieval_states),
+    )
+
+
+def _average_metadata(agent_states: list[AgentExecutionState], key: str) -> float:
+    return sum(float(state.metadata.get(key) or 0.0) for state in agent_states) / len(agent_states)
+
+
 def report_to_dict(report: EvalReport) -> dict[str, Any]:
     """Convert EvalReport to a JSON-serializable dict."""
     return {
@@ -332,6 +378,18 @@ def v3_metrics_to_dict(metrics: list[AgentEvaluationMetrics]) -> list[dict[str, 
         }
         for metric in metrics
     ]
+
+
+def retrieval_metrics_to_dict(metrics: RetrievalEvaluationMetrics) -> dict[str, Any]:
+    return {
+        "agent_count": metrics.agent_count,
+        "average_precision_like": round(metrics.average_precision_like, 4),
+        "average_recall_like": round(metrics.average_recall_like, 4),
+        "average_token_utilization": round(metrics.average_token_utilization, 4),
+        "total_latency_ms": round(metrics.total_latency_ms, 3),
+        "total_selected_evidence": metrics.total_selected_evidence,
+        "large_repo_mode": metrics.large_repo_mode,
+    }
 
 
 def report_to_markdown(report: EvalReport) -> str:

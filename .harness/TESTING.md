@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest --collect-only -q` collected 268 tests.
+`pytest --collect-only -q` collected 269 tests.
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 248 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
+| Unit | 249 | 29 | Validate contexts, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, lifecycle, API errors, LLM behavior, report generation, storage, and task runner. |
 | Integration | 19 | 3 | Validate FastAPI history/errors and single- or mixed-language review pipeline completion. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -46,7 +46,7 @@
 | `tests/unit/test_v3_sandbox_evidence.py` | 6 | Sandbox boundaries, secret redaction, deep context, stable evidence IDs, and lexical evidence retrieval. |
 | `tests/unit/test_v3_structured_agent.py` | 5 | Structured LLM retries, evidence-only validation, ArchitectureAgent mock behavior, V3 single-agent report contract, and real LLM opt-in guard. |
 | `tests/unit/test_v3_multi_agent.py` | 4 | Multi-agent failure isolation, conservative deduplication, per-section mock findings, and V3 multi-agent report rendering. |
-| `tests/unit/test_v3_evaluation_metrics.py` | 3 | Hallucination, quality, and per-agent V3 evaluation metrics. |
+| `tests/unit/test_v3_evaluation_metrics.py` | 4 | Hallucination, quality, per-agent, and deterministic retrieval evaluation metrics. |
 | `tests/unit/test_v3_hardening_matrix.py` | 48 | Secret redaction, sandbox boundaries, evidence stability, structured validation, real LLM opt-in, and deduplication matrix coverage. |
 | `tests/unit/test_structured_review.py` | 5 | Markdown parsing, structured findings, contract ordering, and lossless context-aware round trips. |
 

@@ -77,6 +77,7 @@ class AgentOrchestrator:
                 "agent_count": len(self.agent_classes),
             }
         )
+        state.metadata.update(self._retrieval_summary_metadata(state.agent_results))
         return state
 
     @staticmethod
@@ -113,3 +114,39 @@ class AgentOrchestrator:
             if existing is None or (finding.confidence or 0.0) > (existing.confidence or 0.0):
                 by_key[key] = finding
         return list(by_key.values())
+
+    @staticmethod
+    def _retrieval_summary_metadata(
+        agent_states: list[AgentExecutionState],
+    ) -> dict[str, str | int | float | bool | None]:
+        retrieval_states = [
+            state
+            for state in agent_states
+            if "retrieval_latency_ms" in state.metadata
+        ]
+        if not retrieval_states:
+            return {}
+        total_latency = sum(float(state.metadata.get("retrieval_latency_ms") or 0.0) for state in retrieval_states)
+        average_precision = sum(
+            float(state.metadata.get("retrieval_precision_like") or 0.0)
+            for state in retrieval_states
+        ) / len(retrieval_states)
+        average_recall = sum(
+            float(state.metadata.get("retrieval_recall_like") or 0.0)
+            for state in retrieval_states
+        ) / len(retrieval_states)
+        average_token_utilization = sum(
+            float(state.metadata.get("retrieval_token_utilization") or 0.0)
+            for state in retrieval_states
+        ) / len(retrieval_states)
+        return {
+            "retrieval_agents_with_stats": len(retrieval_states),
+            "retrieval_total_latency_ms": round(total_latency, 3),
+            "retrieval_average_precision_like": round(average_precision, 4),
+            "retrieval_average_recall_like": round(average_recall, 4),
+            "retrieval_average_token_utilization": round(average_token_utilization, 4),
+            "retrieval_large_repo_mode": any(
+                bool(state.metadata.get("retrieval_large_repo_mode"))
+                for state in retrieval_states
+            ),
+        }

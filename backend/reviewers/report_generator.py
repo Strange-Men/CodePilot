@@ -63,6 +63,7 @@ class ReportGenerator:
                 AgentOrchestrator._completed_state(agent.role, draft.findings, agent)
             ]
             state.agent_results = self.last_agent_states
+            state.metadata.update(AgentOrchestrator._retrieval_summary_metadata(self.last_agent_states))
             architecture_body = draft.section_markdown(REPORT_SECTIONS[0])
         except Exception as exc:
             self.last_agent_states = [
