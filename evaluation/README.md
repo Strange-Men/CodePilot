@@ -76,3 +76,15 @@ Reports are written to `evaluation/reports/` (gitignored):
 No additional dependencies beyond the main backend requirements.
 The harness uses `USE_MOCK_LLM=true` through local settings.
 Network access is required to clone public GitHub repositories.
+
+## V3.4 Deterministic Report Quality
+
+V3.4 also includes a local, network-free report quality suite:
+
+```powershell
+python -m evaluation.report_quality
+```
+
+It uses synthetic Flask-like, test-heavy, and circular-dependency signals with validated structured findings. The suite
+checks classification, production-first recommendations, readable cycles, agent visibility, actionable next steps,
+evidence grounding, bounded output, and snippet leakage. It does not call a real LLM.

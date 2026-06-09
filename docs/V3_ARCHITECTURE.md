@@ -76,3 +76,13 @@ V3.3 adds developer workflow entry points without changing the review engine:
 - `ReviewScope` narrows V3 evidence retrieval to changed files and dependency neighbors for diff-aware reviews.
 
 The API, SQLite schema, `report_markdown`, `ReportResult`, four-section report contract, V2 path, V3.0/V3.1/V3.2 paths, evidence lineage, structured finding persistence, agent state storage, and `ReviewState` remain compatible.
+
+## V3.4 Report Quality Note
+
+V3.4 adds `HumanReadableReportComposer` after validated V3 findings are produced. It builds an additive overview,
+agent summary, action plan, and snippet-free evidence appendix while retaining the original four sections and
+`report_markdown` export contract. V2 continues to use `MarkdownReviewAdapter`.
+
+Repository insights now classify common repository types with web-framework precedence over CLI signals, prioritize
+production code in user-facing recommendations, separate test hotspots, and render long dependency cycles as bounded
+groups. Deterministic report quality checks live in `evaluation/report_quality.py`.

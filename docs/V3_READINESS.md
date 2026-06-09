@@ -1,6 +1,8 @@
 # V3 Readiness
 
-CodePilot V3.3 implements evidence-grounded review plus developer workflow integration while still excluding LangGraph, OAuth, SaaS, private repo support, GitHub App behavior, and enterprise features.
+CodePilot V3.4 implements evidence-grounded review, developer workflow integration, human-readable report composition,
+agent visibility, actionable guidance, and deterministic report quality checks. It still excludes LangGraph, OAuth,
+SaaS, private repo support, GitHub App behavior, and enterprise features.
 
 ## Ready Boundaries
 
@@ -12,6 +14,8 @@ CodePilot V3.3 implements evidence-grounded review plus developer workflow integ
 - `SandboxManifest`, `EvidenceStore`, `EvidenceRetriever`, and `DeepContextEngine` provide V3 grounding.
 - `AgentOrchestrator` fans out internal agents and deduplicates validated structured findings.
 - `ReviewWorkflow`, `backend.cli`, and optional `backend.mcp_server` expose the pipeline to CLI, CI, MCP, and diff-aware review workflows.
+- `HumanReadableReportComposer` presents validated findings without changing the persisted Markdown or four-section contract.
+- `evaluation.report_quality` provides mock-only quality regression checks that do not require credentials or network access.
 
 ## Stable Contracts
 
@@ -36,3 +40,4 @@ CodePilot V3.3 implements evidence-grounded review plus developer workflow integ
 - Review jobs are in-process and are not durable across process restarts.
 - Real LLM evaluation is manual and optional; CI remains mock-only.
 - MCP serving requires the optional MCP SDK; the pure workflow tools remain testable without it.
+- Test-file matching for validation guidance is name-based and does not infer dynamic test coverage.

@@ -1,12 +1,14 @@
 # CodePilot - Project Context
 
 > Harness version: v1.2
-> Last updated: 2026-06-08
-> Repository reality checked: 2026-06-08
+> Last updated: 2026-06-09
+> Repository reality checked: 2026-06-09
 
 ## Current Version
 
-CodePilot is at the V3.4 development baseline with CLI, CI report mode, optional MCP serving, diff-aware V3 retrieval, structured persistence, graph-ready ReviewState, and 296 collected backend tests (295 passed, 1 skipped).
+CodePilot V3.4 includes CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval, human-readable reports,
+agent visibility, actionable recommendations, deterministic report quality evaluation, and 298 collected backend tests
+(297 passed, 1 skipped).
 
 ## Release History
 
@@ -24,7 +26,8 @@ CodePilot is at the V3.4 development baseline with CLI, CI report mode, optional
 | V3.0 | 2026-06-08 | `097dbee`~5 commits | Safety sandbox, deep context, evidence store, structured LLM, multi-agent review, V3 evaluation hardening |
 | V3.1 | 2026-06-08 | `097dbee` to `9fdc220` | Structured finding persistence, agent state storage, graph-ready ReviewState, LangGraph deferred, inspectable agent results |
 | V3.2 | 2026-06-08 | Through `636b7d8` | Tiered retrieval, deterministic context compression, large repo mode, retrieval metrics |
-| V3.3 | 2026-06-08 | Current work | CLI, CI report mode, optional MCP server integration, diff-aware review scope |
+| V3.3 | 2026-06-08 | Through `2cb94c9` | CLI, CI report mode, optional MCP server integration, diff-aware review scope |
+| V3.4 | 2026-06-09 | `8e06909` onward | Repository classification, human-readable composer, agent visibility, actionable guidance, report quality evaluation |
 
 ## Architecture Summary
 
@@ -41,8 +44,9 @@ FastAPI backend
   -> classify roles, infer purpose, and score files
   -> build focused ReviewContext and deterministic repository insights
   -> render a versioned, token-budgeted prompt
-  -> adapt the LLM Markdown through StructuredReviewDraft
-  -> generate normalized shared-contract four-section report plus insight appendices
+  -> validate structured findings against safe evidence IDs
+  -> compose a human-readable V3 report with agent summaries and actionable guidance
+  -> preserve the shared-contract four sections and snippet-free evidence appendix
   -> persist in SQLite
   -> export Markdown
 ```
@@ -55,7 +59,7 @@ Backend modules:
 - `backend/models` - API schemas, focused review context models, compatibility context, and structured review findings.
 - `backend/prompts` - Versioned prompt templates, sections, rendering, and token budgeting.
 - `backend/parsers` - Parser protocol, registry, composite parser, and Python/JavaScript/TypeScript discovery and extraction.
-- `backend/reviewers` - Structured Markdown adaptation, report normalization, appendices, and export orchestration.
+- `backend/reviewers` - V2 Markdown adaptation, V3 human-readable composition, safe appendices, and export orchestration.
 - `backend/services` - Clone service, repository indexer, dependency graph, calibrated scoring, insight engine, and token counting.
 - `backend/storage` - SQLite review store using WAL mode.
 - `backend/tasks` - Background task runner using `ThreadPoolExecutor(max_workers=2)` plus review pipeline orchestration.
@@ -123,11 +127,11 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 296 tests on 2026-06-09: 295 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
-- Unit tests: 265 collected across context compatibility, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, report generation, storage, and task runner.
+- `pytest` collected 298 tests on 2026-06-09: 297 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- Unit tests: 274 collected across context compatibility, prompts, structured reviews, report composition and quality, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
-- Frontend tests: 9 passing tests for report rendering, history, validation, API error handling, and loading/error fallbacks.
+- Frontend tests: 10 passing tests for Markdown and agent-card rendering, history, validation, API error handling, and loading/error fallbacks.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
 ## Release Certification Evidence
@@ -141,6 +145,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - V2.0 result: click passed with 63 source files; express passed with 141 JavaScript files; axios passed with 178 JavaScript files.
 - V2.0.1 integrity evaluation ran on 2026-06-05 with enforced `min_source_files` thresholds against `pallets/click` and `expressjs/express`.
 - V2.0.1 result: click passed with 63 source files; express passed with 141 JavaScript files. Reports were generated at `evaluation/reports/eval-20260605-153358.*` and `evaluation/reports/eval-20260605-153343.*`.
+- V3.4 deterministic report quality evaluation ran on 2026-06-09 with no network or real LLM.
+- V3.4 result: 8/8 checks passed; the sample report was 5,516 characters and 102 lines with no snippet leakage.
 
 ## Environment Variables
 
@@ -149,7 +155,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `PYTHON_VERSION` | `3.11.11` | Runtime documentation in `.env.example`. |
 | `USE_MOCK_LLM` | `true` | Toggle deterministic mock LLM vs real API. |
 | `ENABLE_REAL_LLM` | `false` | Required opt-in guard before a real OpenAI-compatible client can be used. |
-| `REVIEW_ENGINE` | `v2` | Selects `v2`, `v3_single_agent`, or future V3 review engines. |
+| `REVIEW_ENGINE` | `v2` | Selects `v2`, `v3_single_agent`, or `v3_multi_agent`. |
 | `OPENAI_API_KEY` | empty | Required only when `USE_MOCK_LLM=false`. |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible endpoint. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model name. |
@@ -174,6 +180,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 6. Free-tier hosting can have cold starts and ephemeral local filesystem limits.
 7. Local scripts and CI are Windows-first.
 8. `RepositoryContext` is a V2.5 compatibility layer; new internal work uses `ReviewContext`.
+9. V3.4 responsibility labels and related-test matching are static heuristics; mock mode does not claim deep semantics.
 
 ## Reserved Directories
 

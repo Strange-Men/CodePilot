@@ -1,13 +1,17 @@
 # Roadmap
 
-CodePilot V2.6 completes the 2.x architecture stabilization work. It intentionally avoids agents, orchestration frameworks, MCP, authentication, SaaS, and enterprise features.
+CodePilot V3.4 is complete through evidence-grounded agents, tiered retrieval, CLI/CI/MCP/diff workflows,
+human-readable reports, agent visibility, actionable guidance, and deterministic report quality checks.
 
-Completed V2.6 foundations:
+Next approved milestone:
 
-- Focused `ReviewContext` models with a flat `RepositoryContext` compatibility adapter.
-- Versioned prompt templates, sections, rendering, and token budgeting.
-- Structured review drafts with lossless Markdown adaptation.
-- Shared prioritization and source-selection helpers.
-- Single-pass Python AST analysis and graceful task-runner shutdown.
+- **V3.5 real-LLM evaluation platform:** versioned datasets, model/provider metadata, cost and latency comparison,
+  rubric or human scoring, and regression reports.
 
-Future work requires a separately approved V3 plan. The migration boundary is documented in `docs/V3_READINESS.md`; no V3 runtime is implemented.
+Deferred beyond V3.5:
+
+- LangGraph or another orchestration dependency until conditional routing, durable resume, or human approval nodes exist.
+- Vector databases or full RAG until deterministic retrieval no longer meets measured quality needs.
+- GitHub App, auto-fix, auto-commit, private repositories, OAuth, SaaS, billing, RBAC, and enterprise features.
+
+The migration and stable compatibility boundaries are documented in `docs/V3_READINESS.md`.

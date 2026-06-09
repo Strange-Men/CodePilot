@@ -1,17 +1,20 @@
 # CodePilot
 
-CodePilot is a repository-intelligence MVP for reviewing Python, JavaScript, TypeScript, and mixed GitHub repositories.
+CodePilot is a repository-intelligence tool for reviewing Python, JavaScript, TypeScript, and mixed GitHub repositories.
 
 Workflow:
 
 `GitHub Repo URL -> Clone Repo -> Parse Source -> Build Review Context -> Generate Review Report -> Display Report -> Export Markdown`
 
-The review report contains exactly:
+Every report preserves these four compatible sections:
 
 1. Architecture Summary
 2. Code Smells
 3. Maintainability Issues
 4. Refactoring Suggestions
+
+V3.4 engines add a human-readable executive summary, repository and architecture map, agent summary, grouped findings,
+action plan, and snippet-free evidence appendix around those sections.
 
 ## Quick Start
 
@@ -67,6 +70,8 @@ python -m backend.cli diff https://github.com/owner/repo --changed-file backend/
 ```
 
 See `docs/V3_3_WORKFLOWS.md` for details.
+
+V3.4 report design and deterministic quality checks are documented in `docs/V3_4_REPORT_QUALITY.md`.
 
 ## Stack
 
