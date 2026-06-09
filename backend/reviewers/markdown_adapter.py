@@ -16,6 +16,13 @@ from backend.services.prioritization import top_important_files
 
 DEFAULT_SECTION_CONTENT = "No critical findings detected from the available repository summaries."
 APPENDIX_SECTIONS = {
+    "Executive Summary",
+    "What This Repository Is",
+    "How It Works",
+    "Key Architecture Map",
+    "Agent Findings",
+    "Action Plan",
+    "Evidence Appendix",
     "Repository Insights",
     "Repository Metrics",
     "Architecture Graph",

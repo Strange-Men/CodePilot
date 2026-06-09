@@ -118,6 +118,9 @@ def test_v3_single_agent_report_preserves_four_sections(sample_context, tmp_path
 
     sections = MarkdownReviewAdapter.extract_sections(result.report)
     assert list(sections) == REPORT_SECTIONS
+    assert "# Executive Summary" in result.report
+    assert "# What This Repository Is" in result.report
+    assert "# Evidence Appendix" in result.report
     assert context.evidence[0].evidence_id in result.report
     assert result.export_path.exists()
 

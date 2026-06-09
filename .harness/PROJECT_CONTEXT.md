@@ -6,7 +6,7 @@
 
 ## Current Version
 
-CodePilot is at the V3.4 development baseline with CLI, CI report mode, optional MCP serving, diff-aware V3 retrieval, structured persistence, graph-ready ReviewState, and 293 collected backend tests (292 passed, 1 skipped).
+CodePilot is at the V3.4 development baseline with CLI, CI report mode, optional MCP serving, diff-aware V3 retrieval, structured persistence, graph-ready ReviewState, and 295 collected backend tests (294 passed, 1 skipped).
 
 ## Release History
 
@@ -123,7 +123,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 293 tests on 2026-06-09: 292 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- `pytest` collected 295 tests on 2026-06-09: 294 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 - Unit tests: 265 collected across context compatibility, prompts, structured reviews, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, report generation, storage, and task runner.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.

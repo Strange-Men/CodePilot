@@ -4,7 +4,6 @@ from pathlib import Path
 
 from backend.agents.architecture_agent import ArchitectureAgent
 from backend.agents.orchestrator import AgentOrchestrator
-from backend.core.report_contract import REPORT_SECTIONS
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
 from backend.models.report_result import ReportResult
@@ -13,6 +12,7 @@ from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
+from backend.reviewers.report_composer import HumanReadableReportComposer
 
 
 class ReportGenerator:
@@ -27,6 +27,7 @@ class ReportGenerator:
         self.reports_path = reports_path
         self.prompt_renderer = PromptRenderer(prompt_token_budget, token_model)
         self.markdown_adapter = MarkdownReviewAdapter()
+        self.report_composer = HumanReadableReportComposer()
         self.review_engine = "v2"
         self.token_model = token_model
         self.review_scope: ReviewScope | None = None
@@ -79,7 +80,6 @@ class ReportGenerator:
             ]
             state.agent_results = agent_states
             state.metadata.update(AgentOrchestrator.build_retrieval_summary_metadata(agent_states))
-            architecture_body = draft.section_markdown(REPORT_SECTIONS[0])
         except Exception as exc:
             agent_states = [
                 AgentExecutionState(
@@ -91,23 +91,7 @@ class ReportGenerator:
             ]
             state.agent_results = agent_states
             state.errors[ArchitectureAgent.role] = str(exc)
-            architecture_body = ""
-        if not architecture_body:
-            architecture_body = (
-                "No validated evidence-grounded architecture findings were produced. "
-                "CodePilot preserved the four-section report contract and skipped unsupported claims."
-            )
-        raw_report = (
-            f"# {REPORT_SECTIONS[0]}\n"
-            f"{architecture_body}\n\n"
-            f"# {REPORT_SECTIONS[1]}\n"
-            "No validated evidence-grounded code smell findings were produced by the single-agent V3 engine.\n\n"
-            f"# {REPORT_SECTIONS[2]}\n"
-            "No validated evidence-grounded maintainability findings were produced by the single-agent V3 engine.\n\n"
-            f"# {REPORT_SECTIONS[3]}\n"
-            "No validated evidence-grounded refactoring findings were produced by the single-agent V3 engine.\n"
-        )
-        return self._normalize_report(raw_report, review_context), draft, agent_states, state
+        return self.report_composer.compose(review_context, draft), draft, agent_states, state
 
     def _generate_v3_multi_agent(
         self,
@@ -131,13 +115,7 @@ class ReportGenerator:
         except Exception:
             draft = None
 
-        section_bodies: list[str] = []
-        for section in REPORT_SECTIONS:
-            body = draft.section_markdown(section) if draft is not None else ""
-            if not body:
-                body = f"No validated evidence-grounded {section.lower()} findings were produced."
-            section_bodies.append(f"# {section}\n{body}")
-        report = self._normalize_report("\n\n".join(section_bodies) + "\n", review_context)
+        report = self.report_composer.compose(review_context, draft)
         return report, draft, agent_states, review_state
 
     def _build_prompt(self, context: ReviewContext | RepositoryContext) -> str:

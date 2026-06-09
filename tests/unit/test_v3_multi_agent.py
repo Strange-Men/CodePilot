@@ -117,5 +117,8 @@ def test_v3_multi_agent_report_preserves_contract_and_evidence(sample_context, t
 
     assert list(MarkdownReviewAdapter.extract_sections(result.report)) == REPORT_SECTIONS
     assert all(section in result.report for section in REPORT_SECTIONS)
+    assert "# Executive Summary" in result.report
+    assert "# Action Plan" in result.report
+    assert "# Evidence Appendix" in result.report
     assert context.evidence[0].evidence_id in result.report
     assert result.export_path.exists()
