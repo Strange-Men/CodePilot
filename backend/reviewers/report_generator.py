@@ -91,7 +91,7 @@ class ReportGenerator:
             ]
             state.agent_results = agent_states
             state.errors[ArchitectureAgent.role] = str(exc)
-        return self.report_composer.compose(review_context, draft), draft, agent_states, state
+        return self.report_composer.compose(review_context, draft, agent_states), draft, agent_states, state
 
     def _generate_v3_multi_agent(
         self,
@@ -115,7 +115,7 @@ class ReportGenerator:
         except Exception:
             draft = None
 
-        report = self.report_composer.compose(review_context, draft)
+        report = self.report_composer.compose(review_context, draft, agent_states)
         return report, draft, agent_states, review_state
 
     def _build_prompt(self, context: ReviewContext | RepositoryContext) -> str:

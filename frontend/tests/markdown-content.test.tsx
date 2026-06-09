@@ -4,6 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { MarkdownContent } from "../components/MarkdownContent";
+import { ReportRenderer } from "../components/ReportRenderer";
 import { parseReport } from "../lib/report";
 
 test("renders GFM tables and highlighted fenced code", () => {
@@ -29,4 +30,37 @@ test("parses optional repository intelligence appendices separately", () => {
   assert.equal(sections["Repository Metrics"].trim(), "Metrics.");
   assert.equal(sections["Architecture Graph"].trim(), "Graph.");
   assert.equal(sections["Architecture Summary"].trim(), "Architecture.");
+});
+
+test("renders agent summary and grouped findings as report cards", () => {
+  const markdown = [
+    "# Executive Summary",
+    "Summary.",
+    "# Agent Summary",
+    "| Agent | Status | Findings |",
+    "| --- | --- | ---: |",
+    "| ArchitectureAgent | completed | 1 |",
+    "# Agent Findings",
+    "## ArchitectureAgent",
+    "| Severity | Finding |",
+    "| --- | --- |",
+    "| medium | Boundary risk |",
+    "# Architecture Summary",
+    "Architecture.",
+    "# Code Smells",
+    "None.",
+    "# Maintainability Issues",
+    "None.",
+    "# Refactoring Suggestions",
+    "None."
+  ].join("\n");
+
+  const html = renderToStaticMarkup(
+    <ReportRenderer isRunning={false} reportMarkdown={markdown} />
+  );
+
+  assert.match(html, /Agent Summary/);
+  assert.match(html, /ArchitectureAgent/);
+  assert.match(html, /Boundary risk/);
+  assert.ok(html.indexOf("Executive Summary") < html.indexOf("Architecture Summary"));
 });

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.models.context import EvidenceRecord
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
 from backend.reviewers.report_composer import HumanReadableReportComposer
@@ -38,13 +39,22 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
         ]
     )
 
-    report = HumanReadableReportComposer().compose(context, draft)
+    agent_states = [
+        AgentExecutionState(
+            agent_id="MaintainabilityAgent",
+            status="completed",
+            findings=draft.findings,
+            evidence_ids=[evidence_id],
+        )
+    ]
+    report = HumanReadableReportComposer().compose(context, draft, agent_states)
 
     for heading in [
         "# Executive Summary",
         "# What This Repository Is",
         "# How It Works",
         "# Key Architecture Map",
+        "# Agent Summary",
         "# Agent Findings",
         "# Action Plan",
         "# Evidence Appendix",
@@ -57,6 +67,8 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
     assert "**Why it matters:**" in report
     assert "**First step:**" in report
     assert "**Validation hint:**" in report
+    assert "| MaintainabilityAgent | completed | 1 | high=1 | 0.88 | 1 |" in report
+    assert "## MaintainabilityAgent" in report
 
 
 def test_composer_bounds_top_risks_and_action_plan(sample_context) -> None:

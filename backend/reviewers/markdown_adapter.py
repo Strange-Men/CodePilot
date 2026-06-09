@@ -20,6 +20,7 @@ APPENDIX_SECTIONS = {
     "What This Repository Is",
     "How It Works",
     "Key Architecture Map",
+    "Agent Summary",
     "Agent Findings",
     "Action Plan",
     "Evidence Appendix",

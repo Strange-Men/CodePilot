@@ -4,6 +4,7 @@ from collections import Counter
 
 from backend.core.report_contract import REPORT_SECTIONS
 from backend.models.context import EvidenceRecord, ReviewContext
+from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.reviewers.markdown_adapter import DEFAULT_SECTION_CONTENT, MarkdownReviewAdapter
 
@@ -23,14 +24,17 @@ class HumanReadableReportComposer:
         self,
         context: ReviewContext,
         draft: StructuredReviewDraft | None,
+        agent_states: list[AgentExecutionState] | None = None,
     ) -> str:
         findings = self._unique_findings(draft.findings if draft is not None else [])
+        agent_states = agent_states or []
         sections = [
             self._executive_summary(context, findings),
             self._repository_identity(context),
             self._how_it_works(context),
             self._architecture_map(context),
-            self._agent_findings_overview(findings),
+            self._agent_summary(agent_states),
+            self._agent_findings(agent_states, findings),
             self._contract_sections(findings),
             self._action_plan(findings),
             self._evidence_appendix(context, findings),
@@ -147,19 +151,100 @@ class HumanReadableReportComposer:
         return "\n".join(lines)
 
     @staticmethod
-    def _agent_findings_overview(findings: list[ReviewFinding]) -> str:
+    def _agent_summary(agent_states: list[AgentExecutionState]) -> str:
+        lines = [
+            "# Agent Summary",
+            "",
+            "| Agent | Status | Findings | Severity Mix | Avg Confidence | Evidence |",
+            "| --- | --- | ---: | --- | ---: | ---: |",
+        ]
+        if not agent_states:
+            lines.append("| Not available | not_applicable | 0 | none | n/a | 0 |")
+            return "\n".join(lines)
+        for state in agent_states:
+            severity_mix = Counter(
+                HumanReadableReportComposer._severity(finding)
+                for finding in state.findings
+            )
+            severity = ", ".join(
+                f"{name}={count}"
+                for name, count in sorted(severity_mix.items(), key=lambda item: SEVERITY_ORDER[item[0]])
+            ) or "none"
+            confidences = [
+                finding.confidence
+                for finding in state.findings
+                if finding.confidence is not None
+            ]
+            average_confidence = (
+                f"{sum(confidences) / len(confidences):.2f}"
+                if confidences
+                else "n/a"
+            )
+            evidence_count = len(
+                {
+                    *state.evidence_ids,
+                    *(
+                        evidence_id
+                        for finding in state.findings
+                        for evidence_id in finding.evidence_ids
+                    ),
+                }
+            )
+            lines.append(
+                f"| {state.agent_id} | {state.status} | {len(state.findings)} | {severity} | "
+                f"{average_confidence} | {evidence_count} |"
+            )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _agent_findings(
+        agent_states: list[AgentExecutionState],
+        findings: list[ReviewFinding],
+    ) -> str:
         lines = [
             "# Agent Findings",
             (
-                "Validated structured findings are summarized below. Detailed descriptions remain in the four "
-                "compatible report sections."
+                "Findings are grouped by the agent that produced them. "
+                "Evidence references remain compact and snippet-free."
             ),
         ]
-        if not findings:
-            lines.append("- No validated finding was produced.")
+        if not agent_states:
+            if not findings:
+                lines.append("- No validated finding was produced.")
+            else:
+                lines.extend(HumanReadableReportComposer._compact_finding_line(finding) for finding in findings[:12])
             return "\n".join(lines)
-        lines.extend(HumanReadableReportComposer._compact_finding_line(finding) for finding in findings[:12])
+        for state in agent_states:
+            lines.extend(
+                [
+                    "",
+                    f"## {state.agent_id}",
+                    f"Status: **{state.status}**; validation: **{state.validation_status}**.",
+                ]
+            )
+            if not state.findings:
+                detail = f" Error: {state.error}" if state.error else ""
+                lines.append(f"No validated findings.{detail}")
+                continue
+            lines.extend(
+                [
+                    "",
+                    "| Severity | Finding | Confidence | Files | Evidence |",
+                    "| --- | --- | ---: | --- | --- |",
+                ]
+            )
+            lines.extend(HumanReadableReportComposer._agent_finding_row(finding) for finding in state.findings[:8])
         return "\n".join(lines)
+
+    @staticmethod
+    def _agent_finding_row(finding: ReviewFinding) -> str:
+        title = HumanReadableReportComposer._table_cell(finding.title or finding.description)
+        files = HumanReadableReportComposer._path_list(finding.files, 3)
+        evidence = ", ".join(f"`{item}`" for item in finding.evidence_ids[:3]) or "none"
+        return (
+            f"| {HumanReadableReportComposer._severity(finding)} | {title} | "
+            f"{(finding.confidence or 0.0):.2f} | {files} | {evidence} |"
+        )
 
     @staticmethod
     def _contract_sections(findings: list[ReviewFinding]) -> str:
@@ -272,6 +357,10 @@ class HumanReadableReportComposer:
         if len(paths) > limit:
             visible += f", +{len(paths) - limit} more"
         return visible
+
+    @staticmethod
+    def _table_cell(value: str) -> str:
+        return " ".join(value.split()).replace("|", r"\|")
 
     @staticmethod
     def _unique_findings(findings: list[ReviewFinding]) -> list[ReviewFinding]:
