@@ -7,8 +7,8 @@
 ## Current Version
 
 CodePilot V3.4 includes CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval, human-readable reports,
-agent visibility, actionable recommendations, deterministic report quality evaluation, and 298 collected backend tests
-(297 passed, 1 skipped).
+agent visibility, actionable recommendations, deterministic report quality evaluation, and 299 collected backend tests
+(298 passed, 1 skipped).
 
 ## Release History
 
@@ -28,6 +28,7 @@ agent visibility, actionable recommendations, deterministic report quality evalu
 | V3.2 | 2026-06-08 | Through `636b7d8` | Tiered retrieval, deterministic context compression, large repo mode, retrieval metrics |
 | V3.3 | 2026-06-08 | Through `2cb94c9` | CLI, CI report mode, optional MCP server integration, diff-aware review scope |
 | V3.4 | 2026-06-09 | `8e06909` onward | Repository classification, human-readable composer, agent visibility, actionable guidance, report quality evaluation |
+| V3.4.1 | 2026-06-09 | `bd8aea1` onward | Shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact |
 
 ## Architecture Summary
 
@@ -127,8 +128,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 298 tests on 2026-06-09: 297 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
-- Unit tests: 274 collected across context compatibility, prompts, structured reviews, report composition and quality, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner.
+- `pytest` collected 299 tests on 2026-06-09: 298 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- Unit tests: 275 collected across context compatibility, prompts, structured reviews, report composition and quality, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 10 passing tests for Markdown and agent-card rendering, history, validation, API error handling, and loading/error fallbacks.
@@ -147,6 +148,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - V2.0.1 result: click passed with 63 source files; express passed with 141 JavaScript files. Reports were generated at `evaluation/reports/eval-20260605-153358.*` and `evaluation/reports/eval-20260605-153343.*`.
 - V3.4 deterministic report quality evaluation ran on 2026-06-09 with no network or real LLM.
 - V3.4 result: 8/8 checks passed; the sample report was 5,516 characters and 102 lines with no snippet leakage.
+- V3.4 report artifact persisted at `reports/v34-flask-quality-sample.md` (5,516 chars, 102 lines, Flask-like sample).
+- V3.4.1 patch: shared report constants, reduced classification false positives, evaluation report markdown persistence.
 
 ## Environment Variables
 

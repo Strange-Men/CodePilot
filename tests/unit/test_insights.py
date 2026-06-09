@@ -157,6 +157,19 @@ def test_flask_like_framework_is_not_classified_as_cli() -> None:
     assert insights.repository_type == "Python web framework"
 
 
+def test_generic_request_response_library_is_not_classified_as_web_framework() -> None:
+    """Generic 'Request' and 'Response' class names alone must not trigger web framework classification."""
+    context = build_context(
+        summary("src/client/request.py", classes=["Request"], functions=["send"]),
+        summary("src/client/response.py", classes=["Response"], functions=["parse"]),
+        summary("src/client/session.py", classes=["Session"], functions=["open", "close"]),
+    )
+
+    insights = RepositoryInsightEngine().generate(context)
+
+    assert "web framework" not in insights.repository_type.lower()
+
+
 def test_test_hotspots_do_not_displace_production_hotspots_or_recommendations() -> None:
     context = build_context(
         summary(

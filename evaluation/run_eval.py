@@ -217,10 +217,12 @@ def run_dataset_eval(
         skipped = eval_result.skipped_files
         has_report = False
         has_all_sections = False
+        report_markdown = ""
 
         db_path = run_dir / "reviews.db"
         if db_path.exists():
             from backend.storage.sqlite import ReviewStore
+            from evaluation.metrics import REPORT_MARKDOWN_MAX_CHARS
 
             store = ReviewStore(db_path)
             row = store.get_review("eval")
@@ -230,6 +232,8 @@ def run_dataset_eval(
                 has_all_sections = all(
                     f"# {s}" in report_md for s in REPORT_SECTIONS
                 )
+                if report_md:
+                    report_markdown = report_md[:REPORT_MARKDOWN_MAX_CHARS]
 
         passed, details = apply_expectations(
             entry,
@@ -254,6 +258,7 @@ def run_dataset_eval(
             skipped_files=skipped,
             has_report=has_report,
             has_all_sections=has_all_sections,
+            report_markdown=report_markdown,
         )
         results.append(repo_result)
 

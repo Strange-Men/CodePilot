@@ -6,7 +6,7 @@ from backend.core.report_contract import REPORT_SECTIONS
 from backend.models.context import EvidenceRecord, ReviewContext
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
-from backend.reviewers.markdown_adapter import DEFAULT_SECTION_CONTENT, MarkdownReviewAdapter
+from backend.reviewers.constants import DEFAULT_SECTION_CONTENT, format_cycle_group
 from backend.services.prioritization import is_test_path
 
 SEVERITY_ORDER = {
@@ -145,7 +145,7 @@ class HumanReadableReportComposer:
         if context.circular_dependencies:
             lines.extend(["", "## Cycle Groups"])
             lines.extend(
-                MarkdownReviewAdapter._format_cycle_group(cycle)
+                format_cycle_group(cycle)
                 for cycle in context.circular_dependencies[:5]
                 if cycle
             )

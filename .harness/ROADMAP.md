@@ -79,13 +79,19 @@
 - [x] Diff-aware review with changed-file and dependency-neighbor scope.
 - [x] Network-free integration tests and workflow documentation.
 
+### V3.4 - Report Quality and Agent Visibility
+
+- [x] Repository classification with web framework, CLI, SDK, and mixed-language detection.
+- [x] `HumanReadableReportComposer` producing bounded V3 reports with agent summaries and actionable guidance.
+- [x] Agent visibility: per-agent status, finding counts, severity mix, confidence, and evidence counts.
+- [x] Actionable recommendations with first-step, change-risk, evidence, and validation-test hints.
+- [x] Deterministic report quality evaluation with 8 quality gates (network-free).
+- [x] Report quality and agent visibility prioritized over LangGraph/V3.5 scope.
+- [x] V3.4.1 patch: shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact.
+
 ## In Progress
 
-V3.3 is complete. No V3.4 implementation is in progress.
-
-## Future Development Priorities
-
-Further product work requires a separately approved V3.4 plan.
+V3.4 is complete. No V3.5 implementation is in progress.
 
 Infrastructure work should only be planned when it directly enables these priorities.
 

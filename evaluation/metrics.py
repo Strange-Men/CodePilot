@@ -6,6 +6,8 @@ from typing import Any
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding
 
+REPORT_MARKDOWN_MAX_CHARS = 5000
+
 
 @dataclass(frozen=True)
 class RepoResult:
@@ -25,6 +27,7 @@ class RepoResult:
     skipped_files: int
     has_report: bool
     has_all_sections: bool
+    report_markdown: str = ""
 
 
 @dataclass
@@ -351,6 +354,7 @@ def report_to_dict(report: EvalReport) -> dict[str, Any]:
                 "skipped_files": r.skipped_files,
                 "has_report": r.has_report,
                 "has_all_sections": r.has_all_sections,
+                "report_markdown": r.report_markdown,
             }
             for r in report.repo_results
         ],

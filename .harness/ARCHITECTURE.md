@@ -293,6 +293,14 @@ V3.2 added tiered retrieval, context compression, large repo mode, and retrieval
 
 V3.3 adds `ReviewWorkflow`, CLI/CI commands, optional MCP SDK registration, and `ReviewScope` for changed-file plus dependency-neighbor retrieval. Full-repo behavior remains unchanged when no scope is supplied. V3 remains opt-in through `REVIEW_ENGINE`; `v2` remains the default. See `docs/V3_ARCHITECTURE.md`, `docs/V3_2_RETRIEVAL.md`, and `docs/V3_3_WORKFLOWS.md`.
 
+V3.4 adds report quality and agent visibility:
+
+- `backend/services/insights.py` `_repository_type()` classifies repositories as web framework, CLI tool, SDK, mixed-language, etc.
+- `backend/reviewers/report_composer.py` `HumanReadableReportComposer` produces bounded V3 reports with executive summary, repository identity, architecture map, agent summary, agent findings, actionable recommendations, and snippet-free evidence appendix.
+- `backend/reviewers/constants.py` holds shared report constants (`DEFAULT_SECTION_CONTENT`, `format_cycle_group`) used by both the V2 adapter and V3 composer.
+- `evaluation/report_quality.py` runs 8 deterministic quality gates (classification, ranking, cycles, agents, actionability, grounding, bounds, leakage) without network or real LLM.
+- V3.4.1 reduces false-positive classification markers by removing generic `application`/`request`/`response` from framework detection.
+
 ## Cross-References
 
 - Product goal: `GOAL.md`

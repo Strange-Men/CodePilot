@@ -4,6 +4,24 @@
 > Last updated: 2026-06-08
 > Format: newest first, one significant decision per entry.
 
+## DECISION-029: Report Quality and Agent Visibility First, No LangGraph/V3.5 Scope
+
+- Date: 2026-06-09
+- Type: Architecture / Product
+- Status: Approved
+
+### Context
+
+V3.3 shipped CLI/CI/MCP/diff workflows. The next natural step was either deeper report quality and agent visibility (V3.4) or graph-based orchestration (LangGraph/V3.5). The report output was functional but not human-readable, agents were opaque, and repository classification was missing.
+
+### Decision
+
+Prioritize V3.4 report quality and agent visibility over LangGraph or V3.5 features. Add repository classification, `HumanReadableReportComposer`, agent summaries, actionable recommendations, and deterministic report quality evaluation. Defer LangGraph, real LLM evaluation, human scoring, and model comparison to a separately approved V3.5 plan.
+
+### Rationale
+
+Report quality and agent visibility directly improve reviewer trust and onboarding. LangGraph adds dependency cost and interface churn without addressing the immediate need for readable, bounded, evidence-grounded reports. The deterministic quality evaluation provides repeatable validation without network or LLM credentials.
+
 ## DECISION-028: Wrap The Existing Pipeline For V3.3 Developer Workflows
 
 - Date: 2026-06-08

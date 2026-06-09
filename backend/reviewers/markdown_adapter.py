@@ -12,9 +12,9 @@ from backend.models.context import (
 )
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.prompts import PromptRenderer
+from backend.reviewers.constants import DEFAULT_SECTION_CONTENT, format_cycle_group
 from backend.services.prioritization import top_important_files
 
-DEFAULT_SECTION_CONTENT = "No critical findings detected from the available repository summaries."
 APPENDIX_SECTIONS = {
     "Executive Summary",
     "What This Repository Is",
@@ -206,7 +206,7 @@ class MarkdownReviewAdapter:
         lines.extend(["", "## Circular Dependencies"])
         if context.circular_dependencies:
             lines.extend(
-                MarkdownReviewAdapter._format_cycle_group(cycle)
+                format_cycle_group(cycle)
                 for cycle in context.circular_dependencies
                 if cycle
             )
@@ -236,7 +236,5 @@ class MarkdownReviewAdapter:
 
     @staticmethod
     def _format_cycle_group(cycle: list[str], limit: int = 6) -> str:
-        visible = cycle[:limit]
-        suffix = f", +{len(cycle) - limit} more" if len(cycle) > limit else ""
-        paths = ", ".join(f"`{path}`" for path in visible)
-        return f"- Cycle group ({len(cycle)} modules): {paths}{suffix}"
+        """Backward-compatible wrapper; prefer :func:`format_cycle_group`."""
+        return format_cycle_group(cycle, limit=limit)

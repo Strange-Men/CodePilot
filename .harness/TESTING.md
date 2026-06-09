@@ -6,7 +6,7 @@
 
 ## Current Test Inventory
 
-`pytest` collected 298 tests: 297 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 299 tests: 298 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
@@ -27,7 +27,7 @@
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
 | `tests/unit/test_evaluation_run_eval.py` | 4 | Evaluation dataset results preserve parser stats and enforce source-file thresholds. |
 | `tests/unit/test_indexer.py` | 8 | Repository/file metric propagation, role propagation, graph-aware rescoring, and structural purpose inference. |
-| `tests/unit/test_insights.py` | 10 | Repository type, Flask-like framework precedence, production/test hotspots, onboarding order, refactoring candidates, and safe defaults. |
+| `tests/unit/test_insights.py` | 11 | Repository type, Flask-like framework precedence, generic Request/Response false-positive guard, production/test hotspots, onboarding order, refactoring candidates, and safe defaults. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
 | `tests/unit/test_llm_client.py` | 13 | OpenAI-compatible requests, retries, credentials, deterministic mock mode, and repository-evidence mock findings. |
 | `tests/unit/test_main.py` | 1 | FastAPI lifespan drains the review runner during shutdown. |

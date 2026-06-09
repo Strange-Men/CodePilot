@@ -352,9 +352,6 @@ class RepositoryInsightEngine:
             "django",
             "fastapi",
             "starlette",
-            "application",
-            "request",
-            "response",
         }
         if (
             route_count > 0
