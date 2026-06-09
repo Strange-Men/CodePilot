@@ -97,7 +97,7 @@ def test_risk_hotspots_explain_dependency_cycles() -> None:
 
     insights = RepositoryInsightEngine().generate(context)
 
-    cycle = next(item for item in insights.risk_hotspots if item.title == "Circular dependency risk")
+    cycle = next(item for item in insights.risk_hotspots if item.title == "Circular dependency group (2 modules)")
     assert cycle.files == ["a.py", "b.py"]
     assert "initialization, testing, and ownership" in cycle.explanation
 
@@ -133,7 +133,7 @@ def test_refactoring_candidates_cover_bottlenecks_and_cycles() -> None:
 def test_empty_repository_receives_safe_actionable_defaults() -> None:
     insights = RepositoryInsightEngine().generate(build_context())
 
-    assert insights.repository_type == "Python library or service"
+    assert insights.repository_type == "Python library"
     assert insights.onboarding_guide[0].title == "No source reading order available"
     assert insights.refactoring_candidates[0].title == "Preserve current module boundaries"
 
@@ -143,3 +143,40 @@ def test_no_hotspots_explains_scope_of_structural_signal() -> None:
 
     assert insights.risk_hotspots[0].title == "No concentrated structural hotspot detected"
     assert "does not replace behavioral or security review" in insights.risk_hotspots[0].explanation
+
+
+def test_flask_like_framework_is_not_classified_as_cli() -> None:
+    context = build_context(
+        summary("src/flask/app.py", classes=["Flask"], functions=["request"]),
+        summary("src/flask/cli.py", functions=["main"]),
+        summary("src/flask/blueprints.py", classes=["Blueprint", "Response"]),
+    )
+
+    insights = RepositoryInsightEngine().generate(context)
+
+    assert insights.repository_type == "Python web framework"
+
+
+def test_test_hotspots_do_not_displace_production_hotspots_or_recommendations() -> None:
+    context = build_context(
+        summary(
+            "tests/test_everything.py",
+            line_count=2000,
+            function_count=80,
+            complexity_estimate=100,
+            importance_score=100,
+        ),
+        summary(
+            "src/service.py",
+            line_count=500,
+            function_count=18,
+            complexity_estimate=30,
+            importance_score=30,
+        ),
+    )
+
+    insights = RepositoryInsightEngine().generate(context)
+
+    assert insights.risk_hotspots[0].files == ["src/service.py"]
+    assert insights.test_hotspots[0].files == ["tests/test_everything.py"]
+    assert all("tests/" not in path for item in insights.refactoring_candidates for path in item.files)

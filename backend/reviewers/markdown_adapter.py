@@ -137,6 +137,9 @@ class MarkdownReviewAdapter:
         lines.extend(cls.render_insight_findings(insights.architecture_overview))
         lines.extend(["", "## Risk Hotspots"])
         lines.extend(cls.render_insight_findings(insights.risk_hotspots))
+        if insights.test_hotspots:
+            lines.extend(["", "## Test Hotspots"])
+            lines.extend(cls.render_insight_findings(insights.test_hotspots))
         lines.extend(["", "## Onboarding Guide"])
         lines.extend(cls.render_insight_findings(insights.onboarding_guide))
         lines.extend(["", "## Refactoring Candidates"])
@@ -195,7 +198,7 @@ class MarkdownReviewAdapter:
         lines.extend(["", "## Circular Dependencies"])
         if context.circular_dependencies:
             lines.extend(
-                f"- {' -> '.join([*cycle, cycle[0]])}"
+                MarkdownReviewAdapter._format_cycle_group(cycle)
                 for cycle in context.circular_dependencies
                 if cycle
             )
@@ -222,3 +225,10 @@ class MarkdownReviewAdapter:
         if not tiers:
             return "none"
         return ", ".join(f"{tier}={count}" for tier, count in sorted(tiers.items()))
+
+    @staticmethod
+    def _format_cycle_group(cycle: list[str], limit: int = 6) -> str:
+        visible = cycle[:limit]
+        suffix = f", +{len(cycle) - limit} more" if len(cycle) > limit else ""
+        paths = ", ".join(f"`{path}`" for path in visible)
+        return f"- Cycle group ({len(cycle)} modules): {paths}{suffix}"

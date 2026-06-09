@@ -79,6 +79,7 @@ class InsightReport(BaseModel):
     major_components: list[str] = Field(default_factory=list)
     architecture_overview: list[RepositoryInsight] = Field(default_factory=list)
     risk_hotspots: list[RepositoryInsight] = Field(default_factory=list)
+    test_hotspots: list[RepositoryInsight] = Field(default_factory=list)
     onboarding_guide: list[RepositoryInsight] = Field(default_factory=list)
     refactoring_candidates: list[RepositoryInsight] = Field(default_factory=list)
 

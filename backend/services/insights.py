@@ -11,13 +11,19 @@ from backend.models.context import (
     ReviewContext,
     as_review_context,
 )
-from backend.services.prioritization import ordered_by_importance
+from backend.services.prioritization import (
+    is_docs_path,
+    is_test_path,
+    ordered_for_recommendations,
+)
 
 
 class RepositoryInsightEngine:
     def generate(self, context: ReviewContext | RepositoryContext) -> InsightReport:
         context = as_review_context(context)
-        ordered = ordered_by_importance(context.file_summaries)
+        ordered = ordered_for_recommendations(context.file_summaries)
+        production = [summary for summary in ordered if not is_test_path(summary.path)]
+        tests = [summary for summary in ordered if is_test_path(summary.path)]
         components = self._major_components(ordered)
         repository_type = self._repository_type(context)
         return InsightReport(
@@ -28,9 +34,10 @@ class RepositoryInsightEngine:
                 repository_type,
                 components,
             ),
-            risk_hotspots=self._risk_hotspots(context, ordered),
+            risk_hotspots=self._risk_hotspots(context, production),
+            test_hotspots=self._test_hotspots(context, tests),
             onboarding_guide=self._onboarding_guide(context, ordered),
-            refactoring_candidates=self._refactoring_candidates(context, ordered),
+            refactoring_candidates=self._refactoring_candidates(context, production),
         )
 
     def _architecture_overview(
@@ -126,15 +133,19 @@ class RepositoryInsightEngine:
                 )
             )
 
+        production_paths = {summary.path for summary in ordered}
         for cycle in context.circular_dependencies[:5]:
+            relevant_cycle = [path for path in cycle if path in production_paths]
+            if not relevant_cycle:
+                continue
             findings.append(
                 RepositoryInsight(
-                    title="Circular dependency risk",
+                    title=f"Circular dependency group ({len(relevant_cycle)} modules)",
                     explanation=(
-                        "These modules form a dependency cycle. The cycle can complicate initialization, testing, "
-                        "and ownership because none of the modules can evolve independently."
+                        "This module group is mutually dependent. Treat it as one ownership problem: initialization, "
+                        "testing, and ownership become harder because the modules cannot evolve independently."
                     ),
-                    files=cycle,
+                    files=relevant_cycle,
                 )
             )
         if not findings:
@@ -148,6 +159,40 @@ class RepositoryInsightEngine:
                 )
             )
         return findings
+
+    def _test_hotspots(
+        self,
+        context: ReviewContext,
+        tests: list[CodeFileSummary],
+    ) -> list[RepositoryInsight]:
+        findings: list[RepositoryInsight] = []
+        for summary in self._overloaded_files(context, tests)[:5]:
+            findings.append(
+                RepositoryInsight(
+                    title=f"Large test surface in {summary.path}",
+                    explanation=(
+                        f"This test file contains {summary.line_count} lines and {summary.function_count} functions. "
+                        "Review fixture and scenario organization here separately from production refactoring."
+                    ),
+                    files=[summary.path],
+                )
+            )
+        test_paths = {summary.path for summary in tests}
+        for cycle in context.circular_dependencies:
+            relevant_cycle = [path for path in cycle if path in test_paths]
+            if not relevant_cycle:
+                continue
+            findings.append(
+                RepositoryInsight(
+                    title=f"Test dependency cycle ({len(relevant_cycle)} modules)",
+                    explanation=(
+                        "These test modules participate in a dependency cycle. Keep this signal in test maintenance "
+                        "work so it does not displace production risks."
+                    ),
+                    files=relevant_cycle,
+                )
+            )
+        return findings[:5]
 
     def _onboarding_guide(
         self,
@@ -279,15 +324,78 @@ class RepositoryInsightEngine:
     def _repository_type(context: ReviewContext) -> str:
         languages = {language.strip() for language in context.language.split("+")}
         lower_paths = [summary.path.lower() for summary in context.file_summaries]
+        summaries = context.file_summaries
+        production_paths = [path for path in lower_paths if not is_test_path(path) and not is_docs_path(path)]
+        test_count = sum(is_test_path(path) for path in lower_paths)
+        docs_count = sum(is_docs_path(path) for path in lower_paths)
+        total = len(lower_paths)
+        symbol_names = {
+            name.lower()
+            for summary in summaries
+            for name in [*summary.classes, *summary.functions]
+        }
+        route_count = sum(len(summary.routes) for summary in summaries)
+        has_frontend = any(
+            path.endswith((".tsx", ".jsx"))
+            or any(part in path.split("/") for part in {"frontend", "components", "pages"})
+            for path in production_paths
+        )
+        has_backend = any(
+            any(part in path.split("/") for part in {"backend", "api", "routes", "server"})
+            for path in production_paths
+        )
         if len(languages) > 1 and "Python" in languages and languages & {"JavaScript", "TypeScript"}:
             return "Full-stack mixed-language application"
-        if any("/api/" in f"/{path}/" or "/routes/" in f"/{path}/" for path in lower_paths):
-            return "Web application or service"
-        if any(PurePosixPath(path).name.startswith("cli.") for path in lower_paths):
-            return "Command-line application"
+        framework_markers = {
+            "flask",
+            "blueprint",
+            "django",
+            "fastapi",
+            "starlette",
+            "application",
+            "request",
+            "response",
+        }
+        if (
+            route_count > 0
+            or len(framework_markers & symbol_names) >= 2
+            or any(
+                marker in f"/{path}/"
+                for path in production_paths
+                for marker in ("/flask/", "/django/", "/starlette/")
+            )
+        ):
+            return f"{context.language} web framework"
+        if has_backend and (
+            route_count > 0
+            or any("/api/" in f"/{path}/" or "/routes/" in f"/{path}/" for path in production_paths)
+        ):
+            return f"{context.language} backend API"
+        if has_frontend and not has_backend:
+            return "Frontend application"
+        sdk_markers = {"client", "sdk", "transport", "session"}
+        if len(sdk_markers & symbol_names) >= 2 or any(
+            part in {"client", "clients", "sdk"} for path in production_paths for part in path.split("/")
+        ):
+            return f"{context.language} SDK or client library"
+        cli_paths = [
+            path
+            for path in production_paths
+            if PurePosixPath(path).name.startswith("cli.")
+            or PurePosixPath(path).stem in {"__main__", "command", "commands"}
+        ]
+        if cli_paths and (
+            len(production_paths) <= 3
+            or len(cli_paths) >= max(2, len(production_paths) // 3)
+        ):
+            return f"{context.language} CLI tool"
+        if total and test_count / total >= 0.6:
+            return f"Test-heavy {context.language} repository"
+        if total and docs_count / total >= 0.6:
+            return f"Docs-heavy {context.language} repository"
         if context.entry_points:
             return f"{context.language} application"
-        return f"{context.language} library or service"
+        return f"{context.language} library"
 
     @staticmethod
     def _overloaded_files(
@@ -305,6 +413,8 @@ class RepositoryInsightEngine:
             if (
                 summary.line_count >= line_threshold
                 or summary.complexity_estimate >= complexity_threshold
+                or summary.complexity_estimate >= 25
+                or summary.function_count >= 15
                 or (summary.function_count >= 12 and summary.fan_out >= 3)
             )
         ]

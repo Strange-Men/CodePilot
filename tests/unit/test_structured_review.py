@@ -73,3 +73,13 @@ def test_adapter_accepts_nested_review_context(sample_context) -> None:
     nested = adapter.normalize("Unstructured reviewer note.", sample_context.to_review_context())
 
     assert nested == legacy
+
+
+def test_architecture_graph_compresses_long_cycle_groups(sample_context) -> None:
+    sample_context.circular_dependencies = [[f"module_{index}.py" for index in range(9)]]
+
+    section = MarkdownReviewAdapter.architecture_graph_section(sample_context.to_review_context())
+
+    assert "Cycle group (9 modules):" in section
+    assert "+3 more" in section
+    assert "module_0.py -> module_1.py" not in section
