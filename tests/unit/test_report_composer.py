@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from backend.core.report_contract import REPORT_SECTIONS
-from backend.models.context import EvidenceRecord
+from backend.models.context import CodeFileSummary, EvidenceRecord
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
@@ -24,6 +24,13 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
             symbols=["review"],
         )
     ]
+    context.file_summaries.append(
+        CodeFileSummary(
+            path="tests/test_review.py",
+            purpose="Tests review behavior.",
+            summary="Tests review behavior.",
+        )
+    )
     draft = StructuredReviewDraft(
         findings=[
             ReviewFinding(
@@ -66,7 +73,10 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
     assert "SECRET_VALUE" not in report
     assert "**Why it matters:**" in report
     assert "**First step:**" in report
-    assert "**Validation hint:**" in report
+    assert "**Likely responsibility area:** validated symbols `review`." in report
+    assert "**First step:** In `services/review.py`" in report
+    assert "**Change risk:** Changes can affect up to 1 resolved internal consumers" in report
+    assert "**Validation tests:** Run `tests/test_review.py` before and after the change." in report
     assert "| MaintainabilityAgent | completed | 1 | high=1 | 0.88 | 1 |" in report
     assert "## MaintainabilityAgent" in report
 
@@ -95,3 +105,32 @@ def test_composer_bounds_top_risks_and_action_plan(sample_context) -> None:
     action_plan = report.split("# Action Plan", 1)[1].split("# Evidence Appendix", 1)[0]
     assert executive.count("- **Finding") == 5
     assert action_plan.count("## ") == 5
+
+
+def test_composer_downranks_test_only_actions(sample_context) -> None:
+    production = ReviewFinding(
+        section="Refactoring Suggestions",
+        title="Production boundary",
+        description="Production risk.",
+        severity="medium",
+        files=["src/service.py"],
+        recommendation="Narrow the service boundary.",
+        evidence_ids=["ev_production"],
+    )
+    test_only = ReviewFinding(
+        section="Refactoring Suggestions",
+        title="Test helper",
+        description="Test risk.",
+        severity="critical",
+        files=["tests/test_service.py"],
+        recommendation="Split the test helper.",
+        evidence_ids=["ev_test"],
+    )
+
+    report = HumanReadableReportComposer().compose(
+        sample_context.to_review_context(),
+        StructuredReviewDraft(findings=[test_only, production]),
+    )
+
+    action_plan = report.split("# Action Plan", 1)[1].split("# Evidence Appendix", 1)[0]
+    assert action_plan.index("Production boundary") < action_plan.index("Test helper")

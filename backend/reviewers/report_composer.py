@@ -7,6 +7,7 @@ from backend.models.context import EvidenceRecord, ReviewContext
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.reviewers.markdown_adapter import DEFAULT_SECTION_CONTENT, MarkdownReviewAdapter
+from backend.services.prioritization import is_test_path
 
 SEVERITY_ORDER = {
     "critical": 0,
@@ -36,7 +37,7 @@ class HumanReadableReportComposer:
             self._agent_summary(agent_states),
             self._agent_findings(agent_states, findings),
             self._contract_sections(findings),
-            self._action_plan(findings),
+            self._action_plan(context, findings),
             self._evidence_appendix(context, findings),
         ]
         return "\n\n".join(section for section in sections if section).rstrip() + "\n"
@@ -255,7 +256,11 @@ class HumanReadableReportComposer:
             rendered.append(f"# {section}\n{body or DEFAULT_SECTION_CONTENT}")
         return "\n\n".join(rendered)
 
-    def _action_plan(self, findings: list[ReviewFinding]) -> str:
+    def _action_plan(
+        self,
+        context: ReviewContext,
+        findings: list[ReviewFinding],
+    ) -> str:
         actionable = [finding for finding in self._ranked_findings(findings) if finding.recommendation]
         lines = ["# Action Plan"]
         if not actionable:
@@ -266,17 +271,111 @@ class HumanReadableReportComposer:
         for index, finding in enumerate(actionable[:5], start=1):
             files = self._path_list(finding.files, 4)
             evidence = ", ".join(f"`{evidence_id}`" for evidence_id in finding.evidence_ids[:3])
+            symbols = self._finding_symbols(context, finding)
+            responsibility = (
+                f"validated symbols {self._code_list(symbols, 5)}"
+                if symbols
+                else f"the cited code path in {files}"
+            )
+            validation = self._validation_hint(context, finding.files, symbols)
             lines.extend(
                 [
                     f"## {index}. {finding.title or finding.category or 'Repository finding'}",
                     f"- **Why it matters:** {finding.description.strip()}",
-                    f"- **First step:** {finding.recommendation.strip()}",
                     f"- **Where:** {files}",
+                    f"- **Likely responsibility area:** {responsibility}.",
+                    f"- **First step:** {self._first_step(finding, symbols)}",
+                    f"- **Change risk:** {self._change_risk(context, finding)}",
                     f"- **Evidence:** {evidence or 'No validated evidence reference.'}",
-                    f"- **Validation hint:** Run focused tests for {files} before and after the change.",
+                    f"- **Validation tests:** {validation}",
                 ]
             )
         return "\n".join(lines)
+
+    @staticmethod
+    def _finding_symbols(
+        context: ReviewContext,
+        finding: ReviewFinding,
+    ) -> list[str]:
+        evidence_ids = set(finding.evidence_ids)
+        symbols: list[str] = []
+        for record in context.evidence:
+            if record.evidence_id not in evidence_ids:
+                continue
+            for symbol in record.symbols:
+                if symbol not in symbols:
+                    symbols.append(symbol)
+        return symbols
+
+    @staticmethod
+    def _first_step(finding: ReviewFinding, symbols: list[str]) -> str:
+        location = HumanReadableReportComposer._path_list(finding.files, 2)
+        target = (
+            f"the code around {HumanReadableReportComposer._code_list(symbols, 3)}"
+            if symbols
+            else "the cited responsibility"
+        )
+        recommendation = (finding.recommendation or "").strip()
+        next_step = (
+            recommendation[0].lower() + recommendation[1:]
+            if recommendation
+            else "make the smallest evidence-backed change"
+        )
+        return (
+            f"In {location}, add or confirm characterization coverage for {target}; "
+            f"then {next_step}"
+        )
+
+    @staticmethod
+    def _change_risk(context: ReviewContext, finding: ReviewFinding) -> str:
+        summaries = {summary.path: summary for summary in context.file_summaries}
+        cycle_paths = {
+            path
+            for cycle in context.circular_dependencies
+            for path in cycle
+        }
+        if any(path in cycle_paths for path in finding.files):
+            return "Higher structural risk because at least one cited file participates in a dependency cycle."
+        fan_in = max(
+            (summaries[path].fan_in for path in finding.files if path in summaries),
+            default=0,
+        )
+        if fan_in:
+            return f"Changes can affect up to {fan_in} resolved internal consumers of the cited files."
+        return (
+            f"{HumanReadableReportComposer._severity(finding).capitalize()} finding risk; "
+            "keep the change local to the validated evidence and verify behavior before widening scope."
+        )
+
+    @staticmethod
+    def _validation_hint(
+        context: ReviewContext,
+        files: list[str],
+        symbols: list[str],
+    ) -> str:
+        target_tokens = {
+            token
+            for path in files
+            for token in HumanReadableReportComposer._name_tokens(path)
+        }
+        target_tokens.update(
+            token
+            for symbol in symbols
+            for token in HumanReadableReportComposer._name_tokens(symbol)
+        )
+        related_tests = [
+            summary.path
+            for summary in context.file_summaries
+            if is_test_path(summary.path)
+            and target_tokens.intersection(HumanReadableReportComposer._name_tokens(summary.path))
+        ][:3]
+        if related_tests:
+            return f"Run {HumanReadableReportComposer._path_list(related_tests, 3)} before and after the change."
+        target = HumanReadableReportComposer._code_list(symbols, 3) if symbols else "the cited behavior"
+        return (
+            f"No related test file was identified by name. Add a focused characterization test for {target}, "
+            "then run the repository test suite."
+        )
 
     @staticmethod
     def _evidence_appendix(
@@ -328,6 +427,7 @@ class HumanReadableReportComposer:
         return sorted(
             findings,
             key=lambda finding: (
+                bool(finding.files) and all(is_test_path(path) for path in finding.files),
                 SEVERITY_ORDER[HumanReadableReportComposer._severity(finding)],
                 -(finding.confidence or 0.0),
                 finding.title or finding.description,
@@ -361,6 +461,21 @@ class HumanReadableReportComposer:
     @staticmethod
     def _table_cell(value: str) -> str:
         return " ".join(value.split()).replace("|", r"\|")
+
+    @staticmethod
+    def _code_list(values: list[str], limit: int) -> str:
+        return ", ".join(f"`{value}`" for value in values[:limit])
+
+    @staticmethod
+    def _name_tokens(value: str) -> set[str]:
+        normalized = value.replace("\\", "/").lower()
+        for separator in ("/", ".", "-", "_"):
+            normalized = normalized.replace(separator, " ")
+        return {
+            token
+            for token in normalized.split()
+            if token not in {"src", "test", "tests", "spec", "py", "js", "jsx", "ts", "tsx"}
+        }
 
     @staticmethod
     def _unique_findings(findings: list[ReviewFinding]) -> list[ReviewFinding]:
