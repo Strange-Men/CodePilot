@@ -1,0 +1,25 @@
+{
+  "version": "3.5.0",
+  "description": "CodePilot V3.5 deterministic local evaluation fixtures",
+  "repos": [
+    {
+      "id": "flask-like-fixture",
+      "name": "fixtures/flask-like",
+      "source": {
+        "type": "fixture",
+        "path": "../fixtures/flask_like"
+      },
+      "categories": {
+        "size": "small",
+        "language": "python",
+        "health": "healthy"
+      },
+      "tags": ["fixture", "flask-like", "deterministic"],
+      "expected": {
+        "should_complete": true,
+        "min_source_files": 2,
+        "max_source_files": 3
+      }
+    }
+  ]
+}

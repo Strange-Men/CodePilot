@@ -14,6 +14,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from evaluation.registry import EvaluationRunRegistry, load_dataset_definition  # noqa: E402
+
 INTERNAL_ERROR_MARKERS = [
     "Traceback",
     'File "',
@@ -43,8 +45,7 @@ class EvalResult:
 
 def load_dataset(path: Path) -> list[dict]:
     """Load structured repo dataset from JSON."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return data["repos"]
+    return load_dataset_definition(path).repos
 
 
 def load_config(path: Path) -> dict:
@@ -100,7 +101,29 @@ def classify_failure_stage(row: dict | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-def run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_agent") -> EvalResult:
+class EvaluationFixtureCloneService:
+    def __init__(self, workspace_path: Path, fixture_path: Path) -> None:
+        self.workspace_path = workspace_path
+        self.fixture_path = fixture_path
+
+    def clone(self, repo_url: str, task_id: str) -> Path:
+        if not self.fixture_path.is_dir():
+            raise RuntimeError(f"Evaluation fixture directory does not exist: {self.fixture_path}")
+        destination = self.workspace_path / task_id / "repo"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(self.fixture_path, destination)
+        return destination
+
+    def cleanup(self, task_id: str) -> None:
+        shutil.rmtree(self.workspace_path / task_id, ignore_errors=True)
+
+
+def run_repo_eval(
+    repo_url: str,
+    base_dir: Path,
+    review_engine: str = "v3_multi_agent",
+    fixture_path: Path | None = None,
+) -> EvalResult:
     from backend.core.config import Settings
     from backend.models.review import ReviewStatus
     from backend.storage.sqlite import ReviewStore
@@ -122,6 +145,11 @@ def run_repo_eval(repo_url: str, base_dir: Path, review_engine: str = "v3_multi_
 
     store = ReviewStore(settings.database_path)
     runner = ReviewTaskRunner(settings, store)
+    if fixture_path is not None:
+        runner.pipeline.clone_service_factory = lambda workspace_path: EvaluationFixtureCloneService(
+            workspace_path,
+            fixture_path,
+        )
     task_id = "eval"
     store.create_review(task_id, repo_url)
     pipeline_result = runner._run(task_id, repo_url)
@@ -186,6 +214,7 @@ def run_dataset_eval(
     dataset: list[dict],
     base_dir: Path,
     config: dict,
+    registry: EvaluationRunRegistry | None = None,
 ) -> list:
     """Run evaluation for each repo in the dataset, returning RepoResults."""
     from backend.llm.client import REPORT_SECTIONS
@@ -202,10 +231,21 @@ def run_dataset_eval(
 
         print(f"\n[{idx}/{total}] Evaluating {repo_name} ({repo_id})...")
 
+        started_at = datetime.now(UTC)
         start = time.perf_counter()
         review_engine = config.get("runner", {}).get("review_engine", "v3_multi_agent")
-        eval_result = run_repo_eval(repo_url, base_dir, review_engine=review_engine)
+        fixture_path = Path(entry["fixture_path"]) if entry.get("fixture_path") else None
+        if fixture_path is None:
+            eval_result = run_repo_eval(repo_url, base_dir, review_engine=review_engine)
+        else:
+            eval_result = run_repo_eval(
+                repo_url,
+                base_dir,
+                review_engine=review_engine,
+                fixture_path=fixture_path,
+            )
         elapsed = time.perf_counter() - start
+        ended_at = datetime.now(UTC)
 
         # Read back persisted report state; parser stats are returned from the in-memory pipeline result.
         safe_name = "".join(
@@ -218,22 +258,30 @@ def run_dataset_eval(
         has_report = False
         has_all_sections = False
         report_markdown = ""
+        full_report_markdown = ""
+        findings: list[dict] = []
+        evidence_refs: list[dict] = []
+        agent_states: list[dict] = []
 
         db_path = run_dir / "reviews.db"
         if db_path.exists():
             from backend.storage.sqlite import ReviewStore
-            from evaluation.metrics import REPORT_MARKDOWN_MAX_CHARS
+            from evaluation.registry import REPORT_MARKDOWN_MAX_CHARS
 
             store = ReviewStore(db_path)
             row = store.get_review("eval")
             if row:
                 report_md = row.get("report_markdown") or ""
+                full_report_markdown = report_md
                 has_report = bool(report_md.strip())
                 has_all_sections = all(
                     f"# {s}" in report_md for s in REPORT_SECTIONS
                 )
                 if report_md:
                     report_markdown = report_md[:REPORT_MARKDOWN_MAX_CHARS]
+                findings = store.get_structured_findings("eval")
+                evidence_refs = store.get_evidence_refs("eval")
+                agent_states = store.get_agent_states("eval")
 
         passed, details = apply_expectations(
             entry,
@@ -261,6 +309,21 @@ def run_dataset_eval(
             report_markdown=report_markdown,
         )
         results.append(repo_result)
+        if registry is not None:
+            registry.add_repo(
+                repo_id=repo_id,
+                repo_name=repo_name,
+                repo_url=repo_url,
+                started_at=started_at.isoformat(),
+                ended_at=ended_at.isoformat(),
+                duration_seconds=elapsed,
+                status=eval_result.status,
+                passed=passed,
+                report_markdown=full_report_markdown,
+                findings=findings,
+                evidence_refs=evidence_refs,
+                agent_states=agent_states,
+            )
 
         marker = "PASS" if passed else "FAIL"
         print(f"  {marker} [{eval_result.status}] {elapsed:.1f}s - {details}")
@@ -465,7 +528,8 @@ def main() -> int:
         return _run_legacy(args)
 
     # --- Dataset mode ---
-    dataset = load_dataset(args.dataset)
+    dataset_definition = load_dataset_definition(args.dataset)
+    dataset = dataset_definition.repos
     config = load_config(args.config)
 
     dataset = apply_filters(
@@ -493,7 +557,18 @@ def main() -> int:
 
     print(f"Work dir: {base_dir}")
 
-    results = run_dataset_eval(dataset, base_dir, config)
+    review_engine = config.get("runner", {}).get("review_engine", "v3_multi_agent")
+    registry = EvaluationRunRegistry(
+        args.reports_dir,
+        dataset_definition.metadata,
+        engine=review_engine,
+        mode="mock",
+    )
+    print(f"Run ID: {registry.run.run_id}")
+    print(f"Run dir: {registry.output_dir}")
+
+    results = run_dataset_eval(dataset, base_dir, config, registry=registry)
+    registry.finalize()
 
     from evaluation.metrics import compute_eval_report
 
