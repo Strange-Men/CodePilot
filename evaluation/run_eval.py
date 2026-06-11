@@ -137,8 +137,8 @@ def run_repo_eval(
         database_path=run_dir / "reviews.db",
         workspace_path=run_dir / "workspace",
         reports_path=run_dir / "reports",
-        use_mock_llm=True,
-        review_engine=review_engine,
+        USE_MOCK_LLM=True,
+        REVIEW_ENGINE=review_engine,
     )
     settings.workspace_path.mkdir(parents=True, exist_ok=True)
     settings.reports_path.mkdir(parents=True, exist_ok=True)
@@ -291,6 +291,27 @@ def run_dataset_eval(
             eval_result.status,
             total_py,
         )
+        quality_metrics = None
+        quality_scores = None
+        failed_checks: list[str] = []
+        if full_report_markdown:
+            from evaluation.quality_metrics import evaluate_report_quality
+
+            quality = evaluate_report_quality(
+                full_report_markdown,
+                findings,
+                evidence_refs,
+                agent_states,
+                tags=entry.get("tags", []),
+            )
+            quality_metrics = quality.to_dict()
+            quality_scores = {
+                dimension.name: dimension.score for dimension in quality.dimensions
+            }
+            failed_checks = quality.failed_checks
+            if not quality.passed:
+                passed = False
+                details = f"{details}; quality checks failed: {', '.join(failed_checks)}"
         repo_result = RepoResult(
             repo_id=repo_id,
             repo_url=repo_url,
@@ -307,6 +328,9 @@ def run_dataset_eval(
             has_report=has_report,
             has_all_sections=has_all_sections,
             report_markdown=report_markdown,
+            quality_score=quality_metrics["aggregate_score"] if quality_metrics else None,
+            quality_scores=quality_scores,
+            failed_checks=failed_checks,
         )
         results.append(repo_result)
         if registry is not None:
@@ -323,6 +347,7 @@ def run_dataset_eval(
                 findings=findings,
                 evidence_refs=evidence_refs,
                 agent_states=agent_states,
+                quality_metrics=quality_metrics,
             )
 
         marker = "PASS" if passed else "FAIL"
@@ -575,6 +600,7 @@ def main() -> int:
     timestamp = datetime.now(UTC).isoformat()
     config_version = config.get("version", "1.0")
     report_obj = compute_eval_report(results, config_version, timestamp)
+    _write_quality_summary(registry)
 
     print_summary_table(report_obj)
 
@@ -596,6 +622,51 @@ def main() -> int:
         temp_dir.cleanup()
 
     return 0 if report_obj.failed_repos == 0 else 1
+
+
+def _write_quality_summary(registry: EvaluationRunRegistry) -> None:
+    scored = [repo for repo in registry.run.repos if repo.quality_score is not None]
+    aggregate = (
+        sum(float(repo.quality_score) for repo in scored) / len(scored)
+        if scored
+        else None
+    )
+    payload = {
+        "schema_version": "3.5",
+        "run_id": registry.run.run_id,
+        "aggregate_score": round(aggregate, 2) if aggregate is not None else None,
+        "repos": [
+            {
+                "repo_id": repo.repo_id,
+                "repo_name": repo.repo_name,
+                "aggregate_score": repo.quality_score,
+                "dimensions": (repo.quality_metrics or {}).get("dimensions", []),
+                "failed_checks": repo.failed_checks,
+            }
+            for repo in scored
+        ],
+    }
+    (registry.output_dir / "quality-summary.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    lines = [
+        "# CodePilot V3.5 Report Quality Summary",
+        "",
+        f"Run: `{registry.run.run_id}`",
+        "",
+        f"Aggregate quality score: **{aggregate:.2f}/100**" if aggregate is not None else "No reports were scored.",
+        "",
+        "| Repository | Score | Failed Checks |",
+        "| --- | ---: | --- |",
+    ]
+    for repo in scored:
+        failures = ", ".join(repo.failed_checks) or "None"
+        lines.append(f"| {repo.repo_name} | {repo.quality_score:.2f} | {failures} |")
+    (registry.output_dir / "quality-summary.md").write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _run_legacy(args: argparse.Namespace) -> int:

@@ -28,6 +28,9 @@ class RepoResult:
     has_report: bool
     has_all_sections: bool
     report_markdown: str = ""
+    quality_score: float | None = None
+    quality_scores: dict[str, float] | None = None
+    failed_checks: list[str] | None = None
 
 
 @dataclass
@@ -60,6 +63,7 @@ class EvalReport:
     failed_repos: int
     overall_success_rate: float
     overall_average_runtime_seconds: float
+    overall_quality_score: float | None
     category_metrics: list[CategoryMetrics]
     repo_results: list[RepoResult]
 
@@ -192,6 +196,12 @@ def compute_eval_report(
         overall_average_runtime_seconds=(
             sum(r.runtime_seconds for r in results) / total if total else 0.0
         ),
+        overall_quality_score=(
+            sum(r.quality_score for r in results if r.quality_score is not None)
+            / len([r for r in results if r.quality_score is not None])
+            if any(r.quality_score is not None for r in results)
+            else None
+        ),
         category_metrics=all_metrics,
         repo_results=results,
     )
@@ -320,6 +330,11 @@ def report_to_dict(report: EvalReport) -> dict[str, Any]:
         "overall_average_runtime_seconds": round(
             report.overall_average_runtime_seconds, 2
         ),
+        "overall_quality_score": (
+            round(report.overall_quality_score, 2)
+            if report.overall_quality_score is not None
+            else None
+        ),
         "category_metrics": [
             {
                 "category_type": m.category_type,
@@ -355,6 +370,9 @@ def report_to_dict(report: EvalReport) -> dict[str, Any]:
                 "has_report": r.has_report,
                 "has_all_sections": r.has_all_sections,
                 "report_markdown": r.report_markdown,
+                "quality_score": r.quality_score,
+                "quality_scores": r.quality_scores,
+                "failed_checks": r.failed_checks or [],
             }
             for r in report.repo_results
         ],
@@ -413,6 +431,8 @@ def report_to_markdown(report: EvalReport) -> str:
     lines.append(
         f"| Average Runtime | {report.overall_average_runtime_seconds:.1f}s |"
     )
+    if report.overall_quality_score is not None:
+        lines.append(f"| Report Quality | {report.overall_quality_score:.2f}/100 |")
     completed = [r for r in report.repo_results if r.status == "completed"]
     report_complete = sum(1 for r in completed if r.has_all_sections)
     completeness = report_complete / len(completed) * 100 if completed else 0.0
@@ -472,5 +492,14 @@ def report_to_markdown(report: EvalReport) -> str:
                 f"| {i} | {r.repo_id} | {r.repo_name} "
                 f"| {r.status} | {r.details} |"
             )
+
+    scored = [r for r in report.repo_results if r.quality_score is not None]
+    if scored:
+        lines.append("\n## Report Quality Scores\n")
+        lines.append("| Repository | Aggregate | Failed Checks |")
+        lines.append("| --- | ---: | --- |")
+        for result in scored:
+            failed_checks = ", ".join(result.failed_checks or []) or "None"
+            lines.append(f"| {result.repo_name} | {result.quality_score:.2f} | {failed_checks} |")
 
     return "\n".join(lines) + "\n"

@@ -42,6 +42,9 @@ class EvaluationRepoRecord:
     status: str
     passed: bool
     quality_checks: dict[str, bool]
+    quality_score: float | None
+    quality_metrics: dict | None
+    failed_checks: list[str]
     report_path: str | None
     report_markdown: str
     findings_count: int
@@ -161,6 +164,7 @@ class EvaluationRunRegistry:
         findings: list[dict],
         evidence_refs: list[dict],
         agent_states: list[dict],
+        quality_metrics: dict | None = None,
     ) -> EvaluationRepoRecord:
         repo_dir = self.output_dir / "repos" / _safe_segment(repo_id)
         repo_dir.mkdir(parents=True, exist_ok=True)
@@ -184,7 +188,13 @@ class EvaluationRunRegistry:
             duration_seconds=round(duration_seconds, 6),
             status=status,
             passed=passed,
-            quality_checks={"pipeline": passed},
+            quality_checks={
+                "pipeline": passed,
+                "report_quality": bool(quality_metrics and quality_metrics.get("passed")),
+            },
+            quality_score=quality_metrics.get("aggregate_score") if quality_metrics else None,
+            quality_metrics=quality_metrics,
+            failed_checks=list(quality_metrics.get("failed_checks") or []) if quality_metrics else [],
             report_path=report_path,
             report_markdown=bounded_report,
             findings_count=len(findings),
