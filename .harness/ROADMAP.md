@@ -1,7 +1,7 @@
 # CodePilot - Roadmap
 
 > Harness version: v1.1
-> Last updated: 2026-06-08
+> Last updated: 2026-06-11
 
 ## Completed
 
@@ -89,11 +89,24 @@
 - [x] Report quality and agent visibility prioritized over LangGraph/V3.5 scope.
 - [x] V3.4.1 patch: shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact.
 
+### V3.5 - Real LLM Evaluation and Quality Platform
+
+- [x] Versioned datasets with deterministic local fixtures and optional public repositories.
+- [x] Per-run registry with bounded report Markdown, safe finding/evidence counts, and agent summaries.
+- [x] Five deterministic report quality dimensions with per-repository and aggregate scores.
+- [x] Explicit `--real-llm` mode with provider/model metadata and graceful credential validation.
+- [x] Per-agent token, call, and duration metadata plus per-repository runtime.
+- [x] Optional exact-model pricing config; unknown pricing reports tokens without cost.
+- [x] Stable run artifacts and deterministic comparison of metadata-compatible runs.
+- [x] Mock mode remains the CI default; no credentials or network are required for local fixture tests.
+- [x] LangGraph remains deferred.
+
 ## In Progress
 
-V3.4 is complete. No V3.5 implementation is in progress.
+V3.5 is complete. No V3.6 implementation is in progress.
 
-Infrastructure work should only be planned when it directly enables these priorities.
+V3.6 may be planned from measured V3.5 evidence. LangGraph is only justified if conditional routing, cyclic workflows,
+checkpoint/resume, or human approval becomes a concrete requirement.
 
 ## Planned - V1.2
 
@@ -147,6 +160,7 @@ Infrastructure work should only be planned when it directly enables these priori
 
 - [x] Define specialized reviewer agent contracts.
 - [x] Add orchestrator for routing context to agents.
+- [x] Add per-agent quality, token, call, and duration evaluation.
 - [ ] Add severity consensus beyond per-agent confidence.
 - [ ] Add persisted audit trail for agent findings.
 
@@ -170,6 +184,13 @@ Infrastructure work should only be planned when it directly enables these priori
 - [x] Configurable CLI-based CI report gates.
 - [ ] Reporting dashboard.
 
+### V3.6 Evaluation-Led Orchestration
+
+- [ ] Analyze V3.5 run evidence for agent routing or recovery failures.
+- [ ] Define measurable acceptance criteria before adding an orchestration dependency.
+- [ ] Consider LangGraph only for conditional routing, cycles, durable resume, or approval nodes.
+- [ ] Preserve `ReviewState`, the existing review engine, SQLite compatibility, and mock CI behavior.
+
 ## Technical Debt
 
 | Item | Priority | Notes |
@@ -179,6 +200,7 @@ Infrastructure work should only be planned when it directly enables these priori
 | Database migrations | Low | Needed if SQLite schema evolves. |
 | `py.typed` marker | Low | Useful for downstream type-aware tooling. |
 | Frontend state management | Medium | Current page-level state is fine for MVP but will stretch with history/comparison. |
+| Provider usage reconciliation | Low | V3.5 token counts are local estimates; provider invoice reconciliation is not implemented. |
 
 ## Ideas Parking Lot
 
@@ -188,7 +210,7 @@ Infrastructure work should only be planned when it directly enables these priori
 - Custom report templates.
 - PDF export.
 - GitHub App integration.
-- LLM cost tracking.
+- Human preference labels for selected benchmark reports.
 
 ## Cross-References
 

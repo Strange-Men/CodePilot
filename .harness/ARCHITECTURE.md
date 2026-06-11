@@ -1,8 +1,8 @@
 # CodePilot - Architecture
 
 > Harness version: v1.2
-> Last updated: 2026-06-08
-> Repository reality checked: 2026-06-08
+> Last updated: 2026-06-11
+> Repository reality checked: 2026-06-11
 
 ## System Overview
 
@@ -15,6 +15,12 @@ Browser
   -> SQLite review store
   -> temporary git clone workspace
   -> Markdown reports directory
+
+Evaluation CLI
+  -> versioned local fixture or optional public repository dataset
+  -> unchanged ReviewPipeline and SandboxFilter
+  -> run registry, quality metrics, usage summary, and optional comparison
+  -> evaluation/runs/<run-id> artifacts
 ```
 
 ## Runtime Flow
@@ -59,6 +65,30 @@ Browser
 | Tasks | `backend/tasks/runner.py`, `backend/tasks/pipeline.py` | Background scheduling and review pipeline orchestration | `ThreadPoolExecutor(max_workers=2)` remains the execution model. |
 | Agents | `backend/agents/` | V3 evidence-grounded review agents and fan-out/fan-in orchestration | Agents consume `ReviewContext` and `EvidenceRetriever`, produce structured findings, and cannot read files directly. |
 | Workflows | `backend/workflows/`, `backend/cli.py`, `backend/mcp_server.py` | CLI, CI, MCP, and diff-aware integration | Wraps `ReviewPipeline` and `ReviewStore`; MCP is optional and never reads raw repository files. |
+
+## Evaluation Module Map
+
+| Module | Responsibility | Safety / Compatibility |
+|--------|----------------|------------------------|
+| `evaluation/run_eval.py` | CLI, dataset execution, artifact composition, and mock/real mode selection | Mock default; real mode requires explicit flag and environment credential. |
+| `evaluation/registry.py` | Versioned dataset metadata and atomic per-run registry | Bounds JSON `report_markdown` to 5,000 characters and persists no secrets or snippets. |
+| `evaluation/quality_metrics.py` | Five deterministic report quality dimensions | Uses safe report/findings/evidence/agent data only; no model call. |
+| `evaluation/costs.py` | Token/call/runtime aggregation and optional pricing | Exact model lookup; unknown pricing stays null. |
+| `evaluation/comparison.py` | Previous-run selection and deterministic deltas | Requires matching dataset SHA, engine, mode, provider, and model. |
+| `evaluation/fixtures/` | Network-free deterministic repositories | Enters the normal pipeline through an evaluation clone adapter, then `SandboxFilter`. |
+
+## Evaluation Flow
+
+```text
+1. Load and hash a versioned dataset.
+2. Validate real-LLM credentials before creating artifacts when --real-llm is present.
+3. Create a unique run directory and run registry.
+4. Review each fixture or public repository through ReviewPipeline.
+5. Read safe persisted report, findings, evidence refs, and agent states from ReviewStore.
+6. Calculate deterministic quality scores and usage/cost metadata.
+7. Write summary and per-repository JSON/Markdown artifacts.
+8. Optionally compare against the latest metadata-compatible completed run.
+```
 
 ## Frontend Module Map
 
@@ -261,6 +291,16 @@ Rationale: preserve architecture intent, quality gates, agent roles, regression 
 
 Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 
+### 12. Evaluation Before Orchestration Changes
+
+Decision: V3.5 wraps the existing pipeline with deterministic metrics and optional real-LLM runs. LangGraph remains
+deferred until evaluation identifies a need for conditional routing, cycles, durable resume, or approval nodes.
+
+Rationale: quality, grounding, cost, and latency can be measured without duplicating the review engine or changing
+API, SQLite, frontend, CLI/CI/MCP, diff, or report contracts.
+
+Decision log: `DECISION-030`.
+
 ## Invariants
 
 | Invariant | Current Value | Source |
@@ -270,6 +310,7 @@ Decision logs: `DECISION-011`, `DECISION-015`, `DECISION-016`, `DECISION-017`.
 | Prompt budget | 5000 model tokens | `backend/core/config.py` |
 | Worker count | 2 | `backend/tasks/runner.py` |
 | Required report sections | 4 | `contracts/report_sections.json` |
+| Evaluation JSON report bound | 5000 characters | `evaluation/registry.py` |
 | Python runtime | 3.11.11 | `.python-version`, `runtime.txt` |
 | Node runtime | 20 | CI and Dockerfile |
 
@@ -300,6 +341,16 @@ V3.4 adds report quality and agent visibility:
 - `backend/reviewers/constants.py` holds shared report constants (`DEFAULT_SECTION_CONTENT`, `format_cycle_group`) used by both the V2 adapter and V3 composer.
 - `evaluation/report_quality.py` runs 8 deterministic quality gates (classification, ranking, cycles, agents, actionability, grounding, bounds, leakage) without network or real LLM.
 - V3.4.1 reduces false-positive classification markers by removing generic `application`/`request`/`response` from framework detection.
+
+V3.5 adds an evaluation and quality platform:
+
+- Versioned dataset metadata with SHA-256 identity, deterministic local fixtures, and optional public repositories.
+- Per-run registry and fixed JSON/Markdown artifact paths.
+- Five deterministic quality dimensions and failed-check IDs.
+- Explicit real-LLM mode with provider/model metadata and graceful missing-credential behavior.
+- Per-agent token/call/duration metadata, per-repository runtime, and optional exact-model pricing.
+- Deterministic regression comparison restricted to metadata-compatible runs.
+- No LangGraph, new agents, vector database, frontend dashboard, or SQLite/API schema change.
 
 ## Cross-References
 

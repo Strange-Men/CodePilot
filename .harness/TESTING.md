@@ -1,8 +1,8 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-09
-> Verified with: `pytest` on 2026-06-09
+> Last updated: 2026-06-11
+> Verified with: `pytest` on 2026-06-11
 
 ## Current Test Inventory
 
@@ -10,7 +10,7 @@
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 274 | 32 | Validate contexts, prompts, structured reviews, report composition and quality, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner. |
+| Unit | 291 | 36 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner. |
 | Integration | 23 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, and diff mode. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -24,12 +24,16 @@
 | `tests/unit/test_clone_service.py` | 10 | Git URL validation, retry behavior, clone fallback, cleanup, readonly files. |
 | `tests/unit/test_composite_parser.py` | 6 | Multi-language discovery limits, parser delegation, and unsupported extensions. |
 | `tests/unit/test_dependency_graph.py` | 5 | Internal dependency resolution, fan-in/fan-out, hubs, orphans, cycles, and mixed JS/TS edges. |
+| `tests/unit/test_evaluation_artifacts.py` | 2 | Complete run artifact contract, optional previous-run comparison, comparability filtering, and deterministic deltas. |
+| `tests/unit/test_evaluation_costs.py` | 3 | Exact-model pricing, unknown pricing behavior, token/call aggregation, and per-agent duration capture. |
 | `tests/unit/test_evaluation_metrics.py` | 1 | Evaluation parser-stat aggregation and parse-issue detection. |
-| `tests/unit/test_evaluation_run_eval.py` | 4 | Evaluation dataset results preserve parser stats and enforce source-file thresholds. |
+| `tests/unit/test_evaluation_quality_metrics.py` | 4 | Five deterministic quality dimensions, failed-check output, classification guards, and compact summaries. |
+| `tests/unit/test_evaluation_registry.py` | 3 | Versioned fixture metadata, bounded run persistence, safe agent summaries, and credential-free fixture execution. |
+| `tests/unit/test_evaluation_run_eval.py` | 7 | Evaluation parser stats, source-file thresholds, explicit real-LLM flags, and graceful missing-credential behavior. |
 | `tests/unit/test_indexer.py` | 8 | Repository/file metric propagation, role propagation, graph-aware rescoring, and structural purpose inference. |
 | `tests/unit/test_insights.py` | 11 | Repository type, Flask-like framework precedence, generic Request/Response false-positive guard, production/test hotspots, onboarding order, refactoring candidates, and safe defaults. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
-| `tests/unit/test_llm_client.py` | 13 | OpenAI-compatible requests, retries, credentials, deterministic mock mode, and repository-evidence mock findings. |
+| `tests/unit/test_llm_client.py` | 14 | OpenAI-compatible requests, retries, credentials, structured JSON prompts, deterministic mock mode, and repository-evidence mock findings. |
 | `tests/unit/test_main.py` | 1 | FastAPI lifespan drains the review runner during shutdown. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
 | `tests/unit/test_prioritization.py` | 3 | Shared importance ordering, role filtering, and production-first recommendation ordering. |
@@ -106,6 +110,9 @@ ruff check .
 # Run Harness audit
 python scripts/audit_harness.py
 
+# Run deterministic V3.5 fixture evaluation
+python -m evaluation.run_eval --dataset evaluation/datasets/v3_5_fixtures.json
+
 # Run frontend component/API tests
 cd frontend
 npm test
@@ -122,6 +129,8 @@ powershell -File scripts/smoke-backend.ps1
 - Use `tmp_path` for filesystem tests.
 - Mock external network and LLM calls in unit tests.
 - Use mock LLM mode for deterministic integration coverage.
+- Never run real LLM evaluation in the normal test suite or CI.
+- Keep pricing tests isolated from provider pricing by using temporary explicit fixtures.
 - Assert status lifecycle where task behavior changes.
 - New endpoints require integration tests.
 - New parser behavior requires focused parser tests.
@@ -137,6 +146,7 @@ powershell -File scripts/smoke-backend.ps1
 | Frontend build | 0 errors | CI and release checklist |
 | Frontend tests | 100% pass | CI and release checklist |
 | Harness audit | 0 critical drift findings | CI and release checklist |
+| Mock V3.5 fixture | Pass without network or credentials | Release checklist |
 | Smoke test | Pass before release | Manual release checklist |
 
 ## Known Test Gaps
@@ -145,9 +155,10 @@ powershell -File scripts/smoke-backend.ps1
 |-----|----------|-------|
 | Frontend polling behavior | Medium | Rendering, history, validation, and API errors are covered; timer-driven polling still lacks focused fake-timer tests. |
 | End-to-end browser tests | Low | No Playwright/Cypress setup. |
-| Real LLM client live tests | Low | Requires external credentials and may be flaky/costly. |
+| Real LLM client live tests | Low | Intentionally excluded from CI because they require credentials and are nondeterministic and billable. |
 | Performance tests | Low | V1.1 relies on functional and smoke coverage. |
 | Deep JS/TS parser coverage | Medium | V2 MVP covers common imports, functions, classes, and exports; framework-specific syntax remains future work. |
+| Human preference labels | Medium | V3.5 measures deterministic rubric quality but has no human-ranked benchmark set. |
 
 ## Cross-References
 

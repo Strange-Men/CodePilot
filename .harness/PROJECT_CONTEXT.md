@@ -1,14 +1,14 @@
 # CodePilot - Project Context
 
 > Harness version: v1.2
-> Last updated: 2026-06-09
-> Repository reality checked: 2026-06-09
+> Last updated: 2026-06-11
+> Repository reality checked: 2026-06-11
 
 ## Current Version
 
-CodePilot V3.4 includes CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval, human-readable reports,
-agent visibility, actionable recommendations, deterministic report quality evaluation, and 299 collected backend tests
-(298 passed, 1 skipped).
+CodePilot V3.5 includes CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval, human-readable reports,
+deterministic quality scoring, optional real-LLM evaluation, cost/latency metadata, regression artifacts, and 315
+collected backend tests (314 passed, 1 skipped).
 
 ## Release History
 
@@ -29,6 +29,7 @@ agent visibility, actionable recommendations, deterministic report quality evalu
 | V3.3 | 2026-06-08 | Through `2cb94c9` | CLI, CI report mode, optional MCP server integration, diff-aware review scope |
 | V3.4 | 2026-06-09 | `8e06909` onward | Repository classification, human-readable composer, agent visibility, actionable guidance, report quality evaluation |
 | V3.4.1 | 2026-06-09 | `bd8aea1` onward | Shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact |
+| V3.5 | 2026-06-11 | `707cb4d` onward | Versioned evaluation runs, deterministic quality metrics, optional real LLM, usage/cost summaries, regression artifacts |
 
 ## Architecture Summary
 
@@ -50,6 +51,12 @@ FastAPI backend
   -> preserve the shared-contract four sections and snippet-free evidence appendix
   -> persist in SQLite
   -> export Markdown
+
+Evaluation CLI
+  -> load versioned fixture or optional public repository dataset
+  -> execute the same ReviewPipeline and SandboxFilter path
+  -> score report quality and aggregate agent usage
+  -> persist run, summary, per-repo, cost, quality, and optional comparison artifacts
 ```
 
 Backend modules:
@@ -67,6 +74,8 @@ Backend modules:
 - `backend/agents` - V3 evidence-grounded review agents and orchestrator.
 - `backend/workflows` - CLI/CI/MCP integration layer, safe summaries, severity gates, and diff parsing.
 - `backend/cli.py`, `backend/mcp_server.py` - Developer workflow entry points over the shared integration layer.
+- `evaluation` - Versioned datasets, local fixtures, run registry, deterministic quality metrics, optional pricing,
+  fixed artifacts, and compatible-run regression comparison.
 
 ## Technology Stack
 
@@ -128,8 +137,11 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 299 tests on 2026-06-09: 298 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
-- Unit tests: 275 collected across context compatibility, prompts, structured reviews, report composition and quality, review state, backend services, parsers, sandbox safety, evidence, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner.
+- `pytest` collected 315 tests on 2026-06-11: 314 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- Unit tests: 291 collected across context compatibility, prompts, structured reviews, report composition and quality,
+  evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence,
+  structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior,
+  storage, and task runner.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
 - Frontend tests: 10 passing tests for Markdown and agent-card rendering, history, validation, API error handling, and loading/error fallbacks.
@@ -150,6 +162,10 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 - V3.4 result: 8/8 checks passed; the sample report was 5,516 characters and 102 lines with no snippet leakage.
 - V3.4 report artifact persisted at `reports/v34-flask-quality-sample.md` (5,516 chars, 102 lines, Flask-like sample).
 - V3.4.1 patch: shared report constants, reduced classification false positives, evaluation report markdown persistence.
+- V3.5 deterministic fixture evaluation ran on 2026-06-11 without network or credentials and passed all quality checks.
+- V3.5 run artifacts include fixed summaries, per-repository JSON/Markdown, usage metadata, and optional comparable-run
+  regression reports under `evaluation/runs/<run-id>/`.
+- Missing real-LLM credentials are rejected before artifact creation; live model calls remain outside CI.
 
 ## Environment Variables
 
@@ -184,12 +200,16 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 7. Local scripts and CI are Windows-first.
 8. `RepositoryContext` is a V2.5 compatibility layer; new internal work uses `ReviewContext`.
 9. V3.4 responsibility labels and related-test matching are static heuristics; mock mode does not claim deep semantics.
+10. V3.5 deterministic quality scores are a product rubric, not human preference or semantic-correctness labels.
+11. Token counts are local estimates; cost is only calculated for an exact model entry in an optional pricing config.
+12. Real-LLM evaluations are network-dependent, billable, and nondeterministic, so CI does not run them.
 
 ## Reserved Directories
 
 | Directory | Current State | Intended Use |
 |-----------|---------------|--------------|
 | `backend/mcp_server.py` | Optional integration | Registers V3.3 MCP tools when the external MCP SDK is installed. |
+| `evaluation/runs/` | Gitignored runtime output | Stores V3.5 run registry, summaries, per-repo artifacts, and comparisons. |
 
 ## Cross-References
 

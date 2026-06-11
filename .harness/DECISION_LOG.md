@@ -1,8 +1,34 @@
 # CodePilot - Decision Log
 
 > Harness version: v1.2
-> Last updated: 2026-06-08
+> Last updated: 2026-06-11
 > Format: newest first, one significant decision per entry.
+
+## DECISION-030: Measure The Existing Review System Before Changing Orchestration
+
+- Date: 2026-06-11
+- Type: Architecture / Evaluation
+- Status: Approved
+
+### Context
+
+V3.4 stabilized human-readable, evidence-grounded reports. The next risk was changing orchestration before CodePilot
+could measure report quality, grounding, model usage, cost metadata, and latency across repeatable runs.
+
+### Decision
+
+Build V3.5 as an evaluation layer around the existing `ReviewPipeline`, `ReviewStore`, V3.4 composer, structured
+findings, evidence references, and `AgentExecutionState`. Keep mock evaluation deterministic and default. Require
+explicit `--real-llm`, provider/model metadata, and environment credentials for live evaluation. Isolate pricing in an
+optional exact-model config and compare only runs with matching dataset hash, engine, mode, provider, and model.
+Continue to defer LangGraph to V3.6 planning.
+
+### Rationale
+
+This produces evidence about quality, grounding, stability, cost, and latency without duplicating the review engine,
+changing API or SQLite contracts, exposing snippets, or making CI dependent on network and credentials. Unknown pricing
+remains unknown instead of silently using stale hardcoded rates. LangGraph should solve a measured routing, cycle,
+resume, or approval requirement rather than become infrastructure without a demonstrated need.
 
 ## DECISION-029: Report Quality and Agent Visibility First, No LangGraph/V3.5 Scope
 
