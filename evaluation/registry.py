@@ -168,7 +168,7 @@ class EvaluationRunRegistry:
         quality_metrics: dict | None = None,
         usage: dict | None = None,
     ) -> EvaluationRepoRecord:
-        repo_dir = self.output_dir / "repos" / _safe_segment(repo_id)
+        repo_dir = self.output_dir / "repos" / safe_repo_segment(repo_id)
         repo_dir.mkdir(parents=True, exist_ok=True)
         bounded_report = report_markdown[:REPORT_MARKDOWN_MAX_CHARS]
         report_path: str | None = None
@@ -225,7 +225,7 @@ class EvaluationRunRegistry:
         return path
 
 
-def _safe_segment(value: str) -> str:
+def safe_repo_segment(value: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
     return safe[:80] or "repo"
 

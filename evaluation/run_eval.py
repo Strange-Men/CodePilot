@@ -15,7 +15,11 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from evaluation.registry import EvaluationRunRegistry, load_dataset_definition  # noqa: E402
+from evaluation.registry import (  # noqa: E402
+    EvaluationRunRegistry,
+    load_dataset_definition,
+    safe_repo_segment,
+)
 
 INTERNAL_ERROR_MARKERS = [
     "Traceback",
@@ -602,6 +606,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional model pricing JSON. Unknown models report tokens without cost.",
     )
     parser.add_argument(
+        "--compare-previous",
+        action="store_true",
+        help="Compare this run with the latest completed run with matching evaluation metadata.",
+    )
+    parser.add_argument(
         "--no-report",
         action="store_true",
         help="Skip writing report files.",
@@ -722,10 +731,12 @@ def main(argv: list[str] | None = None) -> int:
     print_summary_table(report_obj)
 
     if not args.no_report:
-        json_path, md_path = generate_reports(report_obj, args.output_dir)
+        json_path, md_path = _write_run_artifacts(report_obj, registry)
         print("\nReports written:")
         print(f"  JSON: {json_path}")
         print(f"  Markdown: {md_path}")
+    if args.compare_previous:
+        _compare_previous_run(registry, args.output_dir)
 
     # Preserve work dir on failure
     if temp_dir and (args.keep_work_dir or report_obj.failed_repos > 0):
@@ -784,6 +795,72 @@ def _write_quality_summary(registry: EvaluationRunRegistry) -> None:
         "\n".join(lines) + "\n",
         encoding="utf-8",
     )
+
+
+def _write_run_artifacts(report_obj, registry: EvaluationRunRegistry) -> tuple[Path, Path]:
+    from evaluation.metrics import report_to_dict, report_to_markdown
+
+    payload = report_to_dict(report_obj)
+    payload.update(
+        {
+            "schema_version": "3.5",
+            "run_id": registry.run.run_id,
+            "dataset": {
+                "version": registry.run.dataset.version,
+                "sha256": registry.run.dataset.sha256,
+            },
+            "engine": registry.run.engine,
+            "mode": registry.run.mode,
+            "provider": registry.run.provider,
+            "model": registry.run.model,
+        }
+    )
+    json_path = registry.output_dir / "summary.json"
+    markdown_path = registry.output_dir / "summary.md"
+    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    markdown_path.write_text(report_to_markdown(report_obj), encoding="utf-8")
+
+    repo_payloads = {repo["repo_id"]: repo for repo in payload["repo_results"]}
+    for record in registry.run.repos:
+        repo_dir = registry.output_dir / "repos" / safe_repo_segment(record.repo_id)
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        result_payload = {
+            **repo_payloads.get(record.repo_id, {}),
+            "run_id": registry.run.run_id,
+            "engine": record.engine,
+            "mode": record.mode,
+            "provider": record.provider,
+            "model": record.model,
+            "started_at": record.started_at,
+            "ended_at": record.ended_at,
+            "quality_metrics": record.quality_metrics,
+            "usage": record.usage,
+            "agent_state_summary": record.agent_state_summary,
+            "report_path": record.report_path,
+        }
+        (repo_dir / "result.json").write_text(
+            json.dumps(result_payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    return json_path, markdown_path
+
+
+def _compare_previous_run(registry: EvaluationRunRegistry, output_root: Path) -> None:
+    from evaluation.comparison import (
+        compare_run_directories,
+        find_previous_comparable_run,
+        write_comparison_artifacts,
+    )
+
+    previous = find_previous_comparable_run(output_root, registry.output_dir)
+    if previous is None:
+        print("\nNo previous comparable evaluation run was found.")
+        return
+    comparison = compare_run_directories(registry.output_dir, previous)
+    json_path, markdown_path = write_comparison_artifacts(comparison, registry.output_dir)
+    print("\nComparison written:")
+    print(f"  JSON: {json_path}")
+    print(f"  Markdown: {markdown_path}")
 
 
 def _write_cost_summary(registry: EvaluationRunRegistry) -> None:
