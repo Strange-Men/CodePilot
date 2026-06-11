@@ -30,7 +30,9 @@ def test_run_registry_persists_bounded_safe_repo_metadata(tmp_path: Path) -> Non
         tmp_path,
         dataset.metadata,
         engine="v3_multi_agent",
-        mode="mock",
+        mode="real",
+        provider="openai-compatible",
+        model="example-model",
         now=started,
     )
     report = "# Executive Summary\n" + ("x" * (REPORT_MARKDOWN_MAX_CHARS + 100))
@@ -53,6 +55,10 @@ def test_run_registry_persists_bounded_safe_repo_metadata(tmp_path: Path) -> Non
                 "status": "completed",
                 "findings": [{"severity": "high", "confidence": 0.8}],
                 "evidence_ids": ["ev_safe"],
+                "prompt_tokens": 120,
+                "completion_tokens": 30,
+                "llm_calls": 1,
+                "metadata": {"duration_seconds": 0.25},
             }
         ],
     )
@@ -60,11 +66,16 @@ def test_run_registry_persists_bounded_safe_repo_metadata(tmp_path: Path) -> Non
 
     payload = json.loads((registry.output_dir / "run.json").read_text(encoding="utf-8"))
     assert payload["schema_version"] == "3.5"
+    assert payload["mode"] == "real"
+    assert payload["provider"] == "openai-compatible"
+    assert payload["model"] == "example-model"
     assert payload["duration_seconds"] == 3.0
     assert len(payload["repos"][0]["report_markdown"]) == REPORT_MARKDOWN_MAX_CHARS
     assert record.findings_count == 1
     assert record.evidence_count == 1
     assert record.agent_state_summary[0]["severity_distribution"] == {"high": 1}
+    assert record.agent_state_summary[0]["prompt_tokens"] == 120
+    assert record.agent_state_summary[0]["duration_seconds"] == 0.25
     assert (registry.output_dir / record.report_path).read_text(encoding="utf-8") == report
 
 

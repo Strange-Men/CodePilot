@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -123,6 +124,8 @@ def run_repo_eval(
     base_dir: Path,
     review_engine: str = "v3_multi_agent",
     fixture_path: Path | None = None,
+    real_llm: bool = False,
+    model: str | None = None,
 ) -> EvalResult:
     from backend.core.config import Settings
     from backend.models.review import ReviewStatus
@@ -133,12 +136,18 @@ def run_repo_eval(
     run_dir = base_dir / safe_name
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    settings_values = {
+        "database_path": run_dir / "reviews.db",
+        "workspace_path": run_dir / "workspace",
+        "reports_path": run_dir / "reports",
+        "USE_MOCK_LLM": not real_llm,
+        "ENABLE_REAL_LLM": real_llm,
+        "REVIEW_ENGINE": review_engine,
+    }
+    if model:
+        settings_values["OPENAI_MODEL"] = model
     settings = Settings(
-        database_path=run_dir / "reviews.db",
-        workspace_path=run_dir / "workspace",
-        reports_path=run_dir / "reports",
-        USE_MOCK_LLM=True,
-        REVIEW_ENGINE=review_engine,
+        **settings_values,
     )
     settings.workspace_path.mkdir(parents=True, exist_ok=True)
     settings.reports_path.mkdir(parents=True, exist_ok=True)
@@ -215,6 +224,8 @@ def run_dataset_eval(
     base_dir: Path,
     config: dict,
     registry: EvaluationRunRegistry | None = None,
+    real_llm: bool = False,
+    model: str | None = None,
 ) -> list:
     """Run evaluation for each repo in the dataset, returning RepoResults."""
     from backend.llm.client import REPORT_SECTIONS
@@ -235,7 +246,7 @@ def run_dataset_eval(
         start = time.perf_counter()
         review_engine = config.get("runner", {}).get("review_engine", "v3_multi_agent")
         fixture_path = Path(entry["fixture_path"]) if entry.get("fixture_path") else None
-        if fixture_path is None:
+        if fixture_path is None and not real_llm and model is None:
             eval_result = run_repo_eval(repo_url, base_dir, review_engine=review_engine)
         else:
             eval_result = run_repo_eval(
@@ -243,6 +254,8 @@ def run_dataset_eval(
                 base_dir,
                 review_engine=review_engine,
                 fixture_path=fixture_path,
+                real_llm=real_llm,
+                model=model,
             )
         elapsed = time.perf_counter() - start
         ended_at = datetime.now(UTC)
@@ -494,7 +507,14 @@ def print_summary_table(report_obj) -> None:
 # ---------------------------------------------------------------------------
 
 
-def parse_args() -> argparse.Namespace:
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run CodePilot repository review evaluations."
     )
@@ -511,10 +531,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to the evaluation config file.",
     )
     parser.add_argument(
+        "--output-dir",
         "--reports-dir",
+        dest="output_dir",
         type=Path,
-        default=ROOT_DIR / "evaluation" / "reports",
-        help="Directory for generated reports.",
+        default=ROOT_DIR / "evaluation" / "runs",
+        help="Root directory for generated evaluation runs.",
     )
     parser.add_argument(
         "--repos",
@@ -538,19 +560,72 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--filter-health", choices=["healthy", "problematic"])
     parser.add_argument("--filter-id", type=str, help="Run only a specific repo id.")
     parser.add_argument(
+        "--real-llm",
+        action="store_true",
+        help="Explicitly opt in to real LLM evaluation. Mock mode is the default.",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "openai-compatible"],
+        default="openai",
+        help="Provider metadata for real LLM runs.",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name for real LLM runs. Defaults to OPENAI_MODEL or gpt-4o-mini.",
+    )
+    parser.add_argument(
+        "--max-repos",
+        type=positive_int,
+        default=None,
+        help="Limit the number of repositories after filters are applied.",
+    )
+    parser.add_argument(
         "--no-report",
         action="store_true",
         help="Skip writing report files.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def validate_real_llm_configuration(
+    *,
+    real_llm: bool,
+    provider: str,
+    model: str,
+    environ: dict[str, str] | None = None,
+) -> str | None:
+    if not real_llm:
+        return None
+    environment = os.environ if environ is None else environ
+    if provider not in {"openai", "openai-compatible"}:
+        return f"Unsupported real LLM provider: {provider}"
+    if not model.strip():
+        return "Real LLM evaluation requires a non-empty --model value."
+    if not environment.get("OPENAI_API_KEY", "").strip():
+        return (
+            "Real LLM evaluation requires OPENAI_API_KEY. "
+            "Set the credential in the environment or omit --real-llm to use mock mode."
+        )
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    model = args.model or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+    configuration_error = validate_real_llm_configuration(
+        real_llm=args.real_llm,
+        provider=args.provider,
+        model=model,
+    )
+    if configuration_error:
+        print(f"Evaluation configuration error: {configuration_error}", file=sys.stderr)
+        return 2
 
     # --- Legacy mode ---
     if args.repos:
-        return _run_legacy(args)
+        return _run_legacy(args, model=model)
 
     # --- Dataset mode ---
     dataset_definition = load_dataset_definition(args.dataset)
@@ -564,6 +639,8 @@ def main() -> int:
         args.filter_health,
         args.filter_id,
     )
+    if args.max_repos is not None:
+        dataset = dataset[: args.max_repos]
     if not dataset:
         print("No repositories matched the given filters.")
         return 1
@@ -584,15 +661,24 @@ def main() -> int:
 
     review_engine = config.get("runner", {}).get("review_engine", "v3_multi_agent")
     registry = EvaluationRunRegistry(
-        args.reports_dir,
+        args.output_dir,
         dataset_definition.metadata,
         engine=review_engine,
-        mode="mock",
+        mode="real" if args.real_llm else "mock",
+        provider=args.provider if args.real_llm else None,
+        model=model if args.real_llm else None,
     )
     print(f"Run ID: {registry.run.run_id}")
     print(f"Run dir: {registry.output_dir}")
 
-    results = run_dataset_eval(dataset, base_dir, config, registry=registry)
+    results = run_dataset_eval(
+        dataset,
+        base_dir,
+        config,
+        registry=registry,
+        real_llm=args.real_llm,
+        model=model if args.real_llm else None,
+    )
     registry.finalize()
 
     from evaluation.metrics import compute_eval_report
@@ -605,7 +691,7 @@ def main() -> int:
     print_summary_table(report_obj)
 
     if not args.no_report:
-        json_path, md_path = generate_reports(report_obj, args.reports_dir)
+        json_path, md_path = generate_reports(report_obj, args.output_dir)
         print("\nReports written:")
         print(f"  JSON: {json_path}")
         print(f"  Markdown: {md_path}")
@@ -669,7 +755,7 @@ def _write_quality_summary(registry: EvaluationRunRegistry) -> None:
     )
 
 
-def _run_legacy(args: argparse.Namespace) -> int:
+def _run_legacy(args: argparse.Namespace, *, model: str) -> int:
     """Legacy flat-file mode for backward compatibility."""
     repos = load_repos(args.repos)
     if not repos:
@@ -687,7 +773,17 @@ def _run_legacy(args: argparse.Namespace) -> int:
         base_dir = Path(temp_dir.name)
 
     print(f"Evaluation work dir: {base_dir}")
-    results = [run_repo_eval(repo_url, base_dir) for repo_url in repos]
+    if args.max_repos is not None:
+        repos = repos[: args.max_repos]
+    results = [
+        run_repo_eval(
+            repo_url,
+            base_dir,
+            real_llm=args.real_llm,
+            model=model if args.real_llm else None,
+        )
+        for repo_url in repos
+    ]
 
     print("\nResults:")
     for result in results:

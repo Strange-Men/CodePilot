@@ -251,6 +251,10 @@ def _summarize_agent_states(agent_states: list[dict]) -> list[dict]:
                     else None
                 ),
                 "evidence_count": len(state.get("evidence_ids") or []),
+                "prompt_tokens": state.get("prompt_tokens"),
+                "completion_tokens": state.get("completion_tokens"),
+                "llm_calls": state.get("llm_calls"),
+                "duration_seconds": (state.get("metadata") or {}).get("duration_seconds"),
             }
         )
     return summary

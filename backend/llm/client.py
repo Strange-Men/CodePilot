@@ -148,15 +148,22 @@ class OpenAICompatibleClient:
             raise RuntimeError("OPENAI_API_KEY is missing. Set USE_MOCK_LLM=true to run without an API.")
 
         url = self.settings.openai_base_url.rstrip("/") + "/chat/completions"
+        structured_output = "Return only JSON" in prompt
+        system_content = (
+            "You are CodePilot, an evidence-grounded code review agent. "
+            "Return only valid JSON matching the schema in the user prompt."
+            if structured_output
+            else (
+                "You are CodePilot, an AI code review agent. Return markdown with exactly these "
+                f"top-level headings: {report_section_heading_list()}. Do not add extra sections."
+            )
+        )
         payload = {
             "model": self.settings.openai_model,
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You are CodePilot, an AI code review agent. Return markdown with exactly these "
-                        f"top-level headings: {report_section_heading_list()}. Do not add extra sections."
-                    ),
+                    "content": system_content,
                 },
                 {"role": "user", "content": prompt},
             ],

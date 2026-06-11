@@ -13,6 +13,7 @@ class FakeClient:
     def __init__(self, outcomes: Iterable[httpx.Response | Exception]) -> None:
         self.outcomes = iter(outcomes)
         self.calls = 0
+        self.last_payload: dict | None = None
 
     def __enter__(self) -> FakeClient:
         return self
@@ -22,6 +23,7 @@ class FakeClient:
 
     def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
         self.calls += 1
+        self.last_payload = _kwargs.get("json")  # type: ignore[assignment]
         outcome = next(self.outcomes)
         if isinstance(outcome, Exception):
             raise outcome
@@ -123,6 +125,18 @@ def test_openai_compatible_client_requires_api_key(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY is missing"):
         OpenAICompatibleClient(settings(OPENAI_API_KEY=None)).generate_review("prompt")
+
+
+def test_openai_compatible_client_requests_json_for_structured_agent_prompts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeClient([response(200, '{"findings": []}')])
+    install_fake_client(monkeypatch, fake)
+
+    OpenAICompatibleClient(settings()).generate_review("Return only JSON: {\"findings\": []}")
+
+    assert fake.last_payload is not None
+    assert "Return only valid JSON" in fake.last_payload["messages"][0]["content"]
 
 
 def test_mock_client_remains_deterministic() -> None:

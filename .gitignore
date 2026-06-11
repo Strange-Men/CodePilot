@@ -10,5 +10,5 @@ __pycache__/
 *.log
 evaluation/reports/*.json
 evaluation/reports/*.md
+evaluation/runs/
 .eval-work/
-
