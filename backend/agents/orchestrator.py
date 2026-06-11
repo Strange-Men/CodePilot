@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from backend.agents.architecture_agent import ArchitectureAgent
@@ -58,12 +59,22 @@ class AgentOrchestrator:
                 token_budget=self.per_agent_token_budget,
             )
             agent.set_candidate_paths(self.candidate_paths)
+            started = time.perf_counter()
             try:
                 draft = agent.review(state.context)
+                duration_seconds = time.perf_counter() - started
                 findings.extend(draft.findings)
                 state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
-                state.agent_results.append(self.build_completed_state(agent.role, draft.findings, agent))
+                state.agent_results.append(
+                    self.build_completed_state(
+                        agent.role,
+                        draft.findings,
+                        agent,
+                        duration_seconds=duration_seconds,
+                    )
+                )
             except Exception as exc:
+                duration_seconds = time.perf_counter() - started
                 state.errors[agent.role] = str(exc)
                 state.agent_results.append(
                     AgentExecutionState(
@@ -71,6 +82,7 @@ class AgentOrchestrator:
                         status="failed",
                         error=str(exc),
                         validation_status="failed",
+                        metadata={"duration_seconds": round(duration_seconds, 6)},
                     )
                 )
         state.validated_findings = self._deduplicate(findings)
@@ -88,10 +100,14 @@ class AgentOrchestrator:
         agent_id: str,
         findings: list[ReviewFinding],
         agent: EvidenceGroundedAgent,
+        *,
+        duration_seconds: float | None = None,
     ) -> AgentExecutionState:
         cost_tracker = getattr(getattr(agent, "structured_client", None), "cost_tracker", None)
         retrieval_stats = getattr(agent, "last_retrieval_stats", None)
         metadata = retrieval_stats.to_metadata() if retrieval_stats is not None else {}
+        if duration_seconds is not None:
+            metadata["duration_seconds"] = round(duration_seconds, 6)
         return AgentExecutionState(
             agent_id=agent_id,
             status="completed",

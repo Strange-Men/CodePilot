@@ -31,6 +31,10 @@ class RepoResult:
     quality_score: float | None = None
     quality_scores: dict[str, float] | None = None
     failed_checks: list[str] | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    llm_calls: int = 0
+    estimated_cost: float | None = None
 
 
 @dataclass
@@ -373,6 +377,10 @@ def report_to_dict(report: EvalReport) -> dict[str, Any]:
                 "quality_score": r.quality_score,
                 "quality_scores": r.quality_scores,
                 "failed_checks": r.failed_checks or [],
+                "prompt_tokens": r.prompt_tokens,
+                "completion_tokens": r.completion_tokens,
+                "llm_calls": r.llm_calls,
+                "estimated_cost": r.estimated_cost,
             }
             for r in report.repo_results
         ],

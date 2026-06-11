@@ -226,6 +226,7 @@ def run_dataset_eval(
     registry: EvaluationRunRegistry | None = None,
     real_llm: bool = False,
     model: str | None = None,
+    pricing=None,
 ) -> list:
     """Run evaluation for each repo in the dataset, returning RepoResults."""
     from backend.llm.client import REPORT_SECTIONS
@@ -325,6 +326,14 @@ def run_dataset_eval(
             if not quality.passed:
                 passed = False
                 details = f"{details}; quality checks failed: {', '.join(failed_checks)}"
+        from evaluation.costs import summarize_repo_usage
+
+        usage = summarize_repo_usage(
+            agent_states,
+            runtime_seconds=elapsed,
+            model=model,
+            pricing=pricing,
+        )
         repo_result = RepoResult(
             repo_id=repo_id,
             repo_url=repo_url,
@@ -344,6 +353,10 @@ def run_dataset_eval(
             quality_score=quality_metrics["aggregate_score"] if quality_metrics else None,
             quality_scores=quality_scores,
             failed_checks=failed_checks,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            llm_calls=usage.llm_calls,
+            estimated_cost=usage.estimated_cost,
         )
         results.append(repo_result)
         if registry is not None:
@@ -361,6 +374,7 @@ def run_dataset_eval(
                 evidence_refs=evidence_refs,
                 agent_states=agent_states,
                 quality_metrics=quality_metrics,
+                usage=usage.to_dict(),
             )
 
         marker = "PASS" if passed else "FAIL"
@@ -582,6 +596,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Limit the number of repositories after filters are applied.",
     )
     parser.add_argument(
+        "--pricing-config",
+        type=Path,
+        default=None,
+        help="Optional model pricing JSON. Unknown models report tokens without cost.",
+    )
+    parser.add_argument(
         "--no-report",
         action="store_true",
         help="Skip writing report files.",
@@ -622,6 +642,15 @@ def main(argv: list[str] | None = None) -> int:
     if configuration_error:
         print(f"Evaluation configuration error: {configuration_error}", file=sys.stderr)
         return 2
+    pricing = None
+    if args.pricing_config is not None:
+        try:
+            from evaluation.costs import load_pricing_config
+
+            pricing = load_pricing_config(args.pricing_config)
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            print(f"Evaluation configuration error: invalid pricing config: {exc}", file=sys.stderr)
+            return 2
 
     # --- Legacy mode ---
     if args.repos:
@@ -678,6 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         registry=registry,
         real_llm=args.real_llm,
         model=model if args.real_llm else None,
+        pricing=pricing,
     )
     registry.finalize()
 
@@ -687,6 +717,7 @@ def main(argv: list[str] | None = None) -> int:
     config_version = config.get("version", "1.0")
     report_obj = compute_eval_report(results, config_version, timestamp)
     _write_quality_summary(registry)
+    _write_cost_summary(registry)
 
     print_summary_table(report_obj)
 
@@ -750,6 +781,80 @@ def _write_quality_summary(registry: EvaluationRunRegistry) -> None:
         failures = ", ".join(repo.failed_checks) or "None"
         lines.append(f"| {repo.repo_name} | {repo.quality_score:.2f} | {failures} |")
     (registry.output_dir / "quality-summary.md").write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_cost_summary(registry: EvaluationRunRegistry) -> None:
+    repos = [repo for repo in registry.run.repos if repo.usage is not None]
+    known_costs = [
+        float(repo.usage["estimated_cost"])
+        for repo in repos
+        if repo.usage.get("estimated_cost") is not None
+    ]
+    currencies = {
+        str(repo.usage["currency"])
+        for repo in repos
+        if repo.usage.get("currency") is not None
+    }
+    payload = {
+        "schema_version": "3.5",
+        "run_id": registry.run.run_id,
+        "model": registry.run.model,
+        "prompt_tokens": sum(int(repo.usage.get("prompt_tokens") or 0) for repo in repos),
+        "completion_tokens": sum(int(repo.usage.get("completion_tokens") or 0) for repo in repos),
+        "total_tokens": sum(int(repo.usage.get("total_tokens") or 0) for repo in repos),
+        "llm_calls": sum(int(repo.usage.get("llm_calls") or 0) for repo in repos),
+        "duration_seconds": round(
+            sum(float(repo.usage.get("duration_seconds") or 0.0) for repo in repos),
+            6,
+        ),
+        "estimated_cost": round(sum(known_costs), 8) if known_costs else None,
+        "currency": next(iter(currencies)) if len(currencies) == 1 else None,
+        "priced_repos": len(known_costs),
+        "repos": [
+            {
+                "repo_id": repo.repo_id,
+                **(repo.usage or {}),
+            }
+            for repo in repos
+        ],
+    }
+    (registry.output_dir / "cost-summary.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    cost_label = (
+        f"{payload['estimated_cost']:.8f} {payload['currency']}"
+        if payload["estimated_cost"] is not None
+        else "Unknown (no matching pricing configured)"
+    )
+    lines = [
+        "# CodePilot V3.5 Cost And Latency Summary",
+        "",
+        f"- Model: {payload['model'] or 'mock/unspecified'}",
+        f"- Prompt tokens: {payload['prompt_tokens']}",
+        f"- Completion tokens: {payload['completion_tokens']}",
+        f"- LLM calls: {payload['llm_calls']}",
+        f"- Total repository runtime: {payload['duration_seconds']:.6f}s",
+        f"- Estimated cost: {cost_label}",
+        "",
+        "| Repository | Tokens | Calls | Runtime | Estimated Cost |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for repo in repos:
+        usage = repo.usage or {}
+        repo_cost = (
+            f"{usage['estimated_cost']:.8f} {usage['currency']}"
+            if usage.get("estimated_cost") is not None
+            else "Unknown"
+        )
+        lines.append(
+            f"| {repo.repo_name} | {usage.get('total_tokens', 0)} | "
+            f"{usage.get('llm_calls', 0)} | {usage.get('duration_seconds', 0):.6f}s | {repo_cost} |"
+        )
+    (registry.output_dir / "cost-summary.md").write_text(
         "\n".join(lines) + "\n",
         encoding="utf-8",
     )

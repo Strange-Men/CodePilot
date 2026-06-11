@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from backend.agents.architecture_agent import ArchitectureAgent
@@ -69,14 +70,21 @@ class ReportGenerator:
         state = ReviewState(task_id=task_id, context=review_context)
         draft: StructuredReviewDraft | None = None
         agent_states: list[AgentExecutionState] = []
+        started = time.perf_counter()
         try:
             agent = ArchitectureAgent(self.llm_client, model=self.token_model)
             agent.set_candidate_paths(self._candidate_paths(review_context))
             draft = agent.review(review_context)
+            duration_seconds = time.perf_counter() - started
             state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
             state.validated_findings = draft.findings
             agent_states = [
-                AgentOrchestrator.build_completed_state(agent.role, draft.findings, agent)
+                AgentOrchestrator.build_completed_state(
+                    agent.role,
+                    draft.findings,
+                    agent,
+                    duration_seconds=duration_seconds,
+                )
             ]
             state.agent_results = agent_states
             state.metadata.update(AgentOrchestrator.build_retrieval_summary_metadata(agent_states))
@@ -87,6 +95,7 @@ class ReportGenerator:
                     status="failed",
                     error=str(exc),
                     validation_status="failed",
+                    metadata={"duration_seconds": round(time.perf_counter() - started, 6)},
                 )
             ]
             state.agent_results = agent_states

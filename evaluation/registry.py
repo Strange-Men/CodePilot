@@ -45,6 +45,7 @@ class EvaluationRepoRecord:
     quality_score: float | None
     quality_metrics: dict | None
     failed_checks: list[str]
+    usage: dict | None
     report_path: str | None
     report_markdown: str
     findings_count: int
@@ -165,6 +166,7 @@ class EvaluationRunRegistry:
         evidence_refs: list[dict],
         agent_states: list[dict],
         quality_metrics: dict | None = None,
+        usage: dict | None = None,
     ) -> EvaluationRepoRecord:
         repo_dir = self.output_dir / "repos" / _safe_segment(repo_id)
         repo_dir.mkdir(parents=True, exist_ok=True)
@@ -195,6 +197,7 @@ class EvaluationRunRegistry:
             quality_score=quality_metrics.get("aggregate_score") if quality_metrics else None,
             quality_metrics=quality_metrics,
             failed_checks=list(quality_metrics.get("failed_checks") or []) if quality_metrics else [],
+            usage=usage,
             report_path=report_path,
             report_markdown=bounded_report,
             findings_count=len(findings),
