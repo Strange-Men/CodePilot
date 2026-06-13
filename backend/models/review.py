@@ -1,5 +1,6 @@
 import os
 from enum import StrEnum
+from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -61,6 +62,24 @@ class ReviewCreateResponse(BaseModel):
     llm_mode: str = "mock"
 
 
+class AgentProgressItem(BaseModel):
+    order: int
+    label: str
+    agent_id: str
+    status: Literal["pending", "running", "completed", "failed", "skipped"] = "pending"
+    findings_count: int | None = None
+    evidence_count: int | None = None
+    error: str | None = None
+
+
+class ReviewProgressSnapshot(BaseModel):
+    current_phase: str
+    current_agent_id: str | None = None
+    total_agents: int
+    completed_agents: int
+    agents: list[AgentProgressItem]
+
+
 class ReviewStatusResponse(BaseModel):
     task_id: str
     repo_url: str
@@ -68,6 +87,7 @@ class ReviewStatusResponse(BaseModel):
     error: str | None = None
     report_markdown: str | None = None
     export_path: str | None = None
+    progress: ReviewProgressSnapshot | None = None
 
 __all__ = [
     "CodeFileSummary",
@@ -79,8 +99,10 @@ __all__ = [
     "RepositoryInsight",
     "RepositoryInsights",
     "ReviewContext",
+    "AgentProgressItem",
     "ReviewCreateRequest",
     "ReviewCreateResponse",
+    "ReviewProgressSnapshot",
     "ReviewStatus",
     "ReviewStatusResponse",
 ]

@@ -3,13 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 import backend.tasks.pipeline as pipeline_module
+from backend.agents.orchestrator import AgentOrchestrator
+from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings
+from backend.llm.client import MockLLMClient
 from backend.models.context import as_review_context
 from backend.models.report_result import ReportResult
-from backend.models.review import RepositoryContext, ReviewStatus
-from backend.models.review_state import ReviewState
+from backend.models.review import RepositoryContext, ReviewStatus, ReviewStatusResponse
+from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import ReviewTaskRunner
 
@@ -153,6 +158,7 @@ def runner_dependencies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tupl
 
 def test_submit_creates_review_and_schedules_task(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
     settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
     runner = ReviewTaskRunner(settings, store)
     executor = CapturingExecutor()
     runner.executor = executor
@@ -163,6 +169,19 @@ def test_submit_creates_review_and_schedules_task(runner_dependencies: tuple[Set
     assert row["status"] == "pending"
     assert row["repo_url"] == "https://github.com/pallets/flask"
     assert executor.submissions == [(runner._run, (task_id, "https://github.com/pallets/flask", "mock"))]
+    app = FastAPI()
+    app.include_router(build_reviews_router(store, runner))
+    response = TestClient(app).get(f"/api/reviews/{task_id}")
+    progress = response.json()["progress"]
+    assert progress["current_phase"] == "Preparing repository"
+    assert progress["total_agents"] == 4
+    assert [item["label"] for item in progress["agents"]] == [
+        "A1 ArchitectureAgent",
+        "A2 CodeSmellAgent",
+        "A3 MaintainabilityAgent",
+        "A4 RefactorAgent",
+    ]
+    assert "progress" not in row
 
 
 def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
@@ -180,6 +199,13 @@ def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Sett
     assert result.total_python_files == 1
     assert result.analyzed_files == 1
     assert result.skipped_files == 0
+    old_response = ReviewStatusResponse(
+        task_id="old-task",
+        repo_url="https://github.com/pallets/flask",
+        status=ReviewStatus.completed,
+    )
+    assert old_response.progress is None
+    assert runner.get_progress("task-1") is None
 
 
 def test_run_marks_task_failed_when_clone_raises(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
@@ -194,6 +220,24 @@ def test_run_marks_task_failed_when_clone_raises(runner_dependencies: tuple[Sett
     assert row["status"] == ReviewStatus.failed.value
     assert row["error"] == "clone failed"
     assert FakeCloneService.instances[0].cleaned_task_ids == ["task-1"]
+    settings.review_engine = "v3_multi_agent"
+    runner._initialize_progress("agent-task")
+    runner._update_progress("agent-task", "agent_running", "ArchitectureAgent")
+    runner._update_progress(
+        "agent-task",
+        "agent_failed",
+        "ArchitectureAgent",
+        AgentExecutionState(
+            agent_id="ArchitectureAgent",
+            status="failed",
+            error="MIMO_API_KEY=super-secret",
+        ),
+    )
+    progress = runner.get_progress("agent-task")
+    assert progress is not None
+    assert progress.agents[0].status == "failed"
+    assert progress.agents[0].error == "Agent execution failed."
+    assert "super-secret" not in progress.model_dump_json()
 
 
 def test_run_records_status_progression(
@@ -251,7 +295,10 @@ def test_run_selects_javascript_parser_when_js_files_are_detected(
     assert FakeRepositoryIndexer.parser_instances == [javascript_parser]
 
 
-def test_run_persists_v3_review_state_for_inspection(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
+def test_run_persists_v3_review_state_for_inspection(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    sample_context,
+) -> None:
     settings, store = runner_dependencies
     settings.review_engine = "v3_multi_agent"
     runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
@@ -265,6 +312,17 @@ def test_run_persists_v3_review_state_for_inspection(runner_dependencies: tuple[
     assert state.task_id == "task-1"
     assert inspection is not None
     assert inspection["review_state"]["task_id"] == "task-1"
+    events: list[tuple[str, str | None]] = []
+    AgentOrchestrator(
+        MockLLMClient(),
+        progress_callback=lambda event, agent_id, _state: events.append((event, agent_id)),
+    ).review(sample_context.to_review_context())
+    assert [agent_id for event, agent_id in events if event == "agent_running"] == [
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    ]
 
 
 def test_shutdown_drains_executor_once_and_rejects_new_work(

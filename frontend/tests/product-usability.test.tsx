@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ReportRenderer } from "../components/ReportRenderer";
 import { ReviewHistory } from "../components/ReviewHistory";
+import { ReviewStatusDisplay, RuntimeAgentProgress } from "../components/ReviewStatusDisplay";
 import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
 import ErrorPage from "../app/error";
 import Loading from "../app/loading";
@@ -22,6 +23,19 @@ const completedReview: ReviewResponse = {
   error: null,
   report_markdown: "# Architecture Summary\nDone.",
   export_path: "reports/task-1.md"
+};
+
+const runningProgress = {
+  current_phase: "Running CodeSmellAgent",
+  current_agent_id: "CodeSmellAgent",
+  total_agents: 4,
+  completed_agents: 1,
+  agents: [
+    { order: 1, label: "A1 ArchitectureAgent", agent_id: "ArchitectureAgent", status: "completed" as const, findings_count: 1, evidence_count: 2, error: null },
+    { order: 2, label: "A2 CodeSmellAgent", agent_id: "CodeSmellAgent", status: "running" as const, findings_count: null, evidence_count: null, error: null },
+    { order: 3, label: "A3 MaintainabilityAgent", agent_id: "MaintainabilityAgent", status: "pending" as const, findings_count: null, evidence_count: null, error: null },
+    { order: 4, label: "A4 RefactorAgent", agent_id: "RefactorAgent", status: "pending" as const, findings_count: null, evidence_count: null, error: null }
+  ]
 };
 
 const agentReport = [
@@ -346,4 +360,49 @@ test("old reports without Agent Summary render with a graceful fallback", () => 
 
   assert.match(html, /Agent details are not available for this review/);
   assert.match(html, /Legacy architecture remains visible/);
+});
+
+test("runtime agent progress renders four ordered agents and the active step", () => {
+  const html = renderToStaticMarkup(<RuntimeAgentProgress progress={runningProgress} />);
+
+  assert.match(html, /Running CodeSmellAgent/);
+  assert.match(html, /Current agent: A2 CodeSmellAgent/);
+  assert.equal((html.match(/data-agent-progress=/g) || []).length, 4);
+  assert.match(html, /data-status="completed"/);
+  assert.match(html, /data-status="running"/);
+  assert.match(html, /data-status="pending"/);
+  assert.match(html, /aria-current="step"/);
+});
+
+test("missing runtime progress falls back to the existing status display", () => {
+  const review: ReviewResponse = {
+    ...completedReview,
+    status: "parsing",
+    report_markdown: null,
+    export_path: null
+  };
+  const html = renderToStaticMarkup(
+    <ReviewStatusDisplay error={null} isRunning review={review} taskId={review.task_id} />
+  );
+
+  assert.match(html, /Parsing/);
+  assert.match(html, /aria-label="Review progress"/);
+  assert.doesNotMatch(html, /Runtime agent progress/);
+});
+
+test("completed review hides runtime progress and keeps final contribution cards", () => {
+  const html = renderToStaticMarkup(
+    <>
+      <ReviewStatusDisplay
+        error={null}
+        isRunning={false}
+        review={{ ...completedReview, progress: runningProgress }}
+        taskId={completedReview.task_id}
+      />
+      <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
+    </>
+  );
+
+  assert.doesNotMatch(html, /Runtime agent progress/);
+  assert.equal((html.match(/data-agent-card=/g) || []).length, 4);
 });

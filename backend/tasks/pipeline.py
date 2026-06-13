@@ -10,6 +10,7 @@ from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext
 from backend.models.review import ReviewStatus
 from backend.models.review_scope import ReviewScope
+from backend.models.review_state import AgentExecutionState
 from backend.parsers.base import SourceParser
 from backend.parsers.composite import CompositeSourceParser
 from backend.parsers.registry import ParserRegistry, default_parser_registry
@@ -24,6 +25,7 @@ logger = get_logger(__name__)
 CloneServiceFactory = Callable[[Path], CloneService]
 IndexerFactory = Callable[..., RepositoryIndexer]
 ReportGeneratorFactory = Callable[..., ReportGenerator]
+ProgressCallback = Callable[[str, str | None, AgentExecutionState | None], None]
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,7 @@ class ReviewPipeline:
         indexer_factory: IndexerFactory | None = None,
         report_generator_factory: ReportGeneratorFactory | None = None,
         review_scope: ReviewScope | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
@@ -58,6 +61,7 @@ class ReviewPipeline:
         self.indexer_factory = indexer_factory or RepositoryIndexer
         self.report_generator_factory = report_generator_factory or ReportGenerator
         self.review_scope = review_scope
+        self.progress_callback = progress_callback
 
     def run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
         clone_service = self.clone_service_factory(self.settings.workspace_path)
@@ -65,6 +69,7 @@ class ReviewPipeline:
         try:
             logger.info("event=task_started task_id=%s repo_url=%s", task_id, repo_url)
 
+            self._notify_progress("repository_intake")
             repo_dir = self._clone_repository(clone_service, task_id, repo_url)
             manifest = self._build_manifest(repo_dir)
             context = self._build_context(task_id, repo_dir, repo_url, manifest)
@@ -76,8 +81,10 @@ class ReviewPipeline:
             self._record_summarized(task_id, context)
             report, export_path = self._generate_report(task_id, context)
             self._complete_review(task_id, report, export_path)
+            self._notify_progress("done")
         except Exception as exc:
             self._fail_review(task_id, repo_url, exc)
+            self._notify_progress("task_failed")
         finally:
             self._cleanup_workspace(clone_service, task_id)
         return result
@@ -104,6 +111,7 @@ class ReviewPipeline:
         manifest: SandboxManifest,
     ) -> ReviewContext:
         self.store.update_status(task_id, ReviewStatus.parsing)
+        self._notify_progress("sandbox_parsing")
         logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
         parser = self._select_parser(repo_dir, manifest)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
@@ -193,6 +201,7 @@ class ReviewPipeline:
 
     def _generate_report(self, task_id: str, context: ReviewContext) -> tuple[str, Path]:
         self.store.update_status(task_id, ReviewStatus.reviewing)
+        self._notify_progress("evidence_retrieval")
         logger.info("event=review_started task_id=%s", task_id)
         report_generator = self.report_generator_factory(
             self.llm_client,
@@ -206,6 +215,9 @@ class ReviewPipeline:
         configure_review_scope = getattr(report_generator, "configure_review_scope", None)
         if callable(configure_review_scope):
             configure_review_scope(self.review_scope)
+        configure_progress_callback = getattr(report_generator, "configure_progress_callback", None)
+        if callable(configure_progress_callback):
+            configure_progress_callback(self.progress_callback)
         logger.info("event=export_started task_id=%s", task_id)
         result = report_generator.generate(task_id, context)
         if result.structured_draft is not None and result.structured_draft.findings:
@@ -239,3 +251,12 @@ class ReviewPipeline:
             logger.info("event=workspace_cleanup_completed task_id=%s", task_id)
         except Exception:
             logger.exception("event=workspace_cleanup_failed task_id=%s", task_id)
+
+    def _notify_progress(
+        self,
+        event: str,
+        agent_id: str | None = None,
+        agent_state: AgentExecutionState | None = None,
+    ) -> None:
+        if self.progress_callback is not None:
+            self.progress_callback(event, agent_id, agent_state)

@@ -3,7 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Response
 
 from backend.api.errors import APIError
-from backend.models.review import ReviewCreateRequest, ReviewCreateResponse, ReviewStatusResponse
+from backend.models.review import (
+    ReviewCreateRequest,
+    ReviewCreateResponse,
+    ReviewProgressSnapshot,
+    ReviewStatusResponse,
+)
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import ReviewTaskRunner
 
@@ -30,7 +35,9 @@ def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRou
                 "review_not_found",
                 f"No review exists for task '{task_id}'.",
             )
-        return _review_response(row)
+        get_progress = getattr(runner, "get_progress", None)
+        progress = get_progress(task_id) if callable(get_progress) else None
+        return _review_response(row, progress=progress)
 
     @router.get("/{task_id}/export")
     def export_review(task_id: str) -> Response:
@@ -58,7 +65,10 @@ def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRou
     return router
 
 
-def _review_response(row: dict) -> ReviewStatusResponse:
+def _review_response(
+    row: dict,
+    progress: ReviewProgressSnapshot | None = None,
+) -> ReviewStatusResponse:
     return ReviewStatusResponse(
         task_id=row["task_id"],
         repo_url=row["repo_url"],
@@ -66,4 +76,5 @@ def _review_response(row: dict) -> ReviewStatusResponse:
         error=row["error"],
         report_markdown=row["report_markdown"],
         export_path=row["export_path"],
+        progress=progress,
     )

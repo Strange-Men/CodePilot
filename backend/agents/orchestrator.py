@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from backend.agents.architecture_agent import ArchitectureAgent
@@ -20,6 +21,9 @@ class AgentRunResult:
     state: ReviewState | None = None
 
 
+AgentProgressCallback = Callable[[str, str | None, AgentExecutionState | None], None]
+
+
 class AgentOrchestrator:
     def __init__(
         self,
@@ -29,6 +33,7 @@ class AgentOrchestrator:
         per_agent_token_budget: int = 2000,
         agent_classes: list[type[EvidenceGroundedAgent]] | None = None,
         candidate_paths: set[str] | None = None,
+        progress_callback: AgentProgressCallback | None = None,
     ) -> None:
         self.llm_client = llm_client
         self.model = model
@@ -40,6 +45,7 @@ class AgentOrchestrator:
             RefactorAgent,
         ]
         self.candidate_paths = candidate_paths
+        self.progress_callback = progress_callback
 
     def review(self, context: ReviewContext, *, task_id: str | None = None) -> AgentRunResult:
         state = self.run(ReviewState(task_id=task_id, context=context))
@@ -59,32 +65,33 @@ class AgentOrchestrator:
                 token_budget=self.per_agent_token_budget,
             )
             agent.set_candidate_paths(self.candidate_paths)
+            self._notify_progress("agent_running", agent.role)
             started = time.perf_counter()
             try:
                 draft = agent.review(state.context)
                 duration_seconds = time.perf_counter() - started
                 findings.extend(draft.findings)
                 state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
-                state.agent_results.append(
-                    self.build_completed_state(
-                        agent.role,
-                        draft.findings,
-                        agent,
-                        duration_seconds=duration_seconds,
-                    )
+                agent_state = self.build_completed_state(
+                    agent.role,
+                    draft.findings,
+                    agent,
+                    duration_seconds=duration_seconds,
                 )
+                state.agent_results.append(agent_state)
+                self._notify_progress("agent_completed", agent.role, agent_state)
             except Exception as exc:
                 duration_seconds = time.perf_counter() - started
                 state.errors[agent.role] = str(exc)
-                state.agent_results.append(
-                    AgentExecutionState(
-                        agent_id=agent.role,
-                        status="failed",
-                        error=str(exc),
-                        validation_status="failed",
-                        metadata={"duration_seconds": round(duration_seconds, 6)},
-                    )
+                agent_state = AgentExecutionState(
+                    agent_id=agent.role,
+                    status="failed",
+                    error=str(exc),
+                    validation_status="failed",
+                    metadata={"duration_seconds": round(duration_seconds, 6)},
                 )
+                state.agent_results.append(agent_state)
+                self._notify_progress("agent_failed", agent.role, agent_state)
         state.validated_findings = self._deduplicate(findings)
         state.metadata.update(
             {
@@ -94,6 +101,15 @@ class AgentOrchestrator:
         )
         state.metadata.update(self.build_retrieval_summary_metadata(state.agent_results))
         return state
+
+    def _notify_progress(
+        self,
+        event: str,
+        agent_id: str | None,
+        agent_state: AgentExecutionState | None = None,
+    ) -> None:
+        if self.progress_callback is not None:
+            self.progress_callback(event, agent_id, agent_state)
 
     @staticmethod
     def build_completed_state(

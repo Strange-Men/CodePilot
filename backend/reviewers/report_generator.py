@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from backend.agents.architecture_agent import ArchitectureAgent
-from backend.agents.orchestrator import AgentOrchestrator
+from backend.agents.orchestrator import AgentOrchestrator, AgentProgressCallback
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
 from backend.models.report_result import ReportResult
@@ -32,12 +32,19 @@ class ReportGenerator:
         self.review_engine = "v2"
         self.token_model = token_model
         self.review_scope: ReviewScope | None = None
+        self.progress_callback: AgentProgressCallback | None = None
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
 
     def configure_review_scope(self, review_scope: ReviewScope | None) -> None:
         self.review_scope = review_scope
+
+    def configure_progress_callback(
+        self,
+        progress_callback: AgentProgressCallback | None,
+    ) -> None:
+        self.progress_callback = progress_callback
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> ReportResult:
         if self.review_engine == "v3_single_agent":
@@ -117,6 +124,7 @@ class ReportGenerator:
                 model=self.token_model,
                 per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
                 candidate_paths=self._candidate_paths(review_context),
+                progress_callback=self.progress_callback,
             ).review(review_context, task_id=task_id)
             draft = result.draft
             agent_states = result.agent_states
@@ -124,6 +132,8 @@ class ReportGenerator:
         except Exception:
             draft = None
 
+        if self.progress_callback is not None:
+            self.progress_callback("report_composer", None, None)
         report = self.report_composer.compose(review_context, draft, agent_states)
         return report, draft, agent_states, review_state
 
