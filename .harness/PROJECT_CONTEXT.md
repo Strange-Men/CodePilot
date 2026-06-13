@@ -1,15 +1,15 @@
 # CodePilot - Project Context
 
 > Harness version: v1.2
-> Last updated: 2026-06-11
-> Repository reality checked: 2026-06-11
+> Last updated: 2026-06-13
+> Repository reality checked: 2026-06-13
 
 ## Current Version
 
-CodePilot V3.5.1 adds MiMo LLM mode selection (mock/mimo) across backend config, LLM client, task runner, API
-schema, and frontend UI, on top of V3.5 CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval,
-human-readable reports, deterministic quality scoring, optional real-LLM evaluation, cost/latency metadata,
-regression artifacts, and 327 collected backend tests (326 passed, 1 skipped).
+CodePilot V3.5.2 makes evidence-grounded Agent contributions visible through frontend summary cards, grouped
+findings, and distinct evidence labels while preserving the complete Markdown report and old-report fallback.
+It builds on V3.5.1 MiMo mode selection and V3.5 evaluation infrastructure, with 327 collected backend tests
+(326 passed, 1 skipped) and 19 frontend tests.
 
 ## Release History
 
@@ -32,6 +32,7 @@ regression artifacts, and 327 collected backend tests (326 passed, 1 skipped).
 | V3.4.1 | 2026-06-09 | `bd8aea1` onward | Shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact |
 | V3.5 | 2026-06-11 | `707cb4d` onward | Versioned evaluation runs, deterministic quality metrics, optional real LLM, usage/cost summaries, regression artifacts |
 | V3.5.1 | 2026-06-13 | MiMo LLM mode | MiMo LLM mode selection (mock/mimo), backend config, frontend selector, 327 tests |
+| V3.5.2 | 2026-06-13 | Agent contribution visualization | Client-side Agent summary/findings parsing, compact contribution cards, grouped findings, and visible evidence IDs |
 
 ## Architecture Summary
 
@@ -146,7 +147,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
   storage, task runner, and MiMo LLM mode.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
-- Frontend tests: 15 passing tests for Markdown and agent-card rendering, history, validation, API error handling, loading/error fallbacks, and LLM mode selector.
+- Frontend tests: 19 passing tests for Markdown, Agent contribution cards, grouped findings, evidence labels,
+  old-report fallbacks, history, validation, API error handling, loading/error fallbacks, and LLM mode selector.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
 ## Release Certification Evidence

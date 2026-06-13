@@ -1,8 +1,8 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-11
-> Verified with: `pytest` on 2026-06-11
+> Last updated: 2026-06-13
+> Verified with: `pytest` and frontend tests on 2026-06-13
 
 ## Current Test Inventory
 
@@ -14,7 +14,7 @@
 | Integration | 23 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, and diff mode. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 15 | 2 | Validate Markdown and agent-card rendering, history, URL validation, API errors, reliability fallbacks, and LLM mode selector. |
+| Frontend | 19 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, and LLM mode selector. |
 
 ## Unit Tests
 

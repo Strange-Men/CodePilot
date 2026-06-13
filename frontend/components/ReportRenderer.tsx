@@ -1,6 +1,7 @@
 import React from "react";
 import { Github, RefreshCcw } from "lucide-react";
 
+import { AgentContributions } from "@/components/AgentContributions";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -22,6 +23,7 @@ export function ReportRenderer({ isRunning, reportMarkdown }: ReportRendererProp
   if (reportMarkdown) {
     return (
       <>
+        <AgentContributions reportMarkdown={reportMarkdown} />
         {[...reportOverviewSections, ...legacyReportAppendixSections].map((section) =>
           sections[section] ? (
             <Card key={section}>

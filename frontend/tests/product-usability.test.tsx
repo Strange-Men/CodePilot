@@ -3,6 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { ReportRenderer } from "../components/ReportRenderer";
 import { ReviewHistory } from "../components/ReviewHistory";
 import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
 import ErrorPage from "../app/error";
@@ -22,6 +23,46 @@ const completedReview: ReviewResponse = {
   report_markdown: "# Architecture Summary\nDone.",
   export_path: "reports/task-1.md"
 };
+
+const agentReport = [
+  "# Executive Summary",
+  "Original executive summary remains visible.",
+  "# Agent Summary",
+  "| Agent | Status | Findings | Severity Mix | Avg Confidence | Evidence |",
+  "| --- | --- | ---: | --- | ---: | ---: |",
+  "| ArchitectureAgent | completed | 1 | high=1 | 0.92 | 2 |",
+  "| CodeSmellAgent | completed | 1 | medium=1 | 0.81 | 1 |",
+  "| MaintainabilityAgent | completed | 1 | low=1 | 0.75 | 1 |",
+  "| RefactorAgent | completed | 1 | informational=1 | 0.68 | 1 |",
+  "# Agent Findings",
+  "Findings are grouped by the agent that produced them.",
+  "## ArchitectureAgent",
+  "| Severity | Finding | Confidence | Files | Evidence |",
+  "| --- | --- | ---: | --- | --- |",
+  "| high | Boundary risk | 0.92 | `src/app.py`, `src/api.py` | `E123`, `E124` |",
+  "## CodeSmellAgent",
+  "| Severity | Finding | Confidence | Files | Evidence |",
+  "| --- | --- | ---: | --- | --- |",
+  "| medium | Duplicate validation | 0.81 | `src/forms.py` | `E200` |",
+  "## MaintainabilityAgent",
+  "| Severity | Finding | Confidence | Files | Evidence |",
+  "| --- | --- | ---: | --- | --- |",
+  "| low | Dense module | 0.75 | `src/service.py` | `E300` |",
+  "## RefactorAgent",
+  "| Severity | Finding | Confidence | Files | Evidence |",
+  "| --- | --- | ---: | --- | --- |",
+  "| informational | Extract helper | 0.68 | `src/utils.py` | `E400` |",
+  "# Architecture Summary",
+  "Original architecture narrative.",
+  "# Code Smells",
+  "Original smell narrative.",
+  "# Maintainability Issues",
+  "Original maintainability narrative.",
+  "# Refactoring Suggestions",
+  "Original refactoring narrative.",
+  "# Evidence Appendix",
+  "Only validated references are shown."
+].join("\n");
 
 test("validates canonical GitHub repository URLs", () => {
   assert.equal(validateGitHubRepositoryUrl("https://github.com/example/project"), null);
@@ -245,4 +286,64 @@ test("old report rendering still works without llm_mode metadata", () => {
 
   assert.match(html, /example\/project/);
   assert.match(html, /Completed/);
+});
+
+test("renders four agent contribution cards from Agent Summary", () => {
+  const html = renderToStaticMarkup(
+    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
+  );
+
+  assert.match(html, /Agent Contribution/);
+  assert.equal((html.match(/data-agent-card=/g) || []).length, 4);
+  assert.match(html, /ArchitectureAgent/);
+  assert.match(html, /CodeSmellAgent/);
+  assert.match(html, /MaintainabilityAgent/);
+  assert.match(html, /RefactorAgent/);
+  assert.match(html, /Severity mix/);
+  assert.match(html, /Avg confidence/);
+});
+
+test("groups findings by agent and displays evidence IDs near findings", () => {
+  const html = renderToStaticMarkup(
+    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
+  );
+
+  assert.equal((html.match(/data-agent-findings-group=/g) || []).length, 4);
+  assert.match(html, /Boundary risk/);
+  assert.match(html, /Affected files:/);
+  assert.match(html, /src\/app\.py/);
+  assert.match(html, /Evidence:/);
+  assert.match(html, />E123<\/code>/);
+  assert.match(html, />E124<\/code>/);
+});
+
+test("keeps original markdown visible with the agent visualization", () => {
+  const html = renderToStaticMarkup(
+    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
+  );
+
+  assert.match(html, /Original executive summary remains visible/);
+  assert.match(html, /Original architecture narrative/);
+  assert.match(html, /Only validated references are shown/);
+});
+
+test("old reports without Agent Summary render with a graceful fallback", () => {
+  const html = renderToStaticMarkup(
+    <ReportRenderer
+      isRunning={false}
+      reportMarkdown={[
+        "# Architecture Summary",
+        "Legacy architecture remains visible.",
+        "# Code Smells",
+        "No findings.",
+        "# Maintainability Issues",
+        "No findings.",
+        "# Refactoring Suggestions",
+        "No findings."
+      ].join("\n")}
+    />
+  );
+
+  assert.match(html, /Agent details are not available for this review/);
+  assert.match(html, /Legacy architecture remains visible/);
 });
