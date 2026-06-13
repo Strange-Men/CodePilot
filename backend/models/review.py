@@ -29,6 +29,7 @@ class ReviewStatus(StrEnum):
 
 class ReviewCreateRequest(BaseModel):
     repo_url: HttpUrl = Field(description="GitHub repository URL to review")
+    llm_mode: str = Field(default="mock", pattern="^(mock|mimo)$", description="LLM mode: mock or mimo")
 
     @field_validator("repo_url")
     @classmethod
@@ -57,6 +58,7 @@ class ReviewCreateRequest(BaseModel):
 
 class ReviewCreateResponse(BaseModel):
     task_id: str
+    llm_mode: str = "mock"
 
 
 class ReviewStatusResponse(BaseModel):

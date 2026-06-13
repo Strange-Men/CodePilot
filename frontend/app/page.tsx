@@ -24,6 +24,7 @@ export default function Home() {
   const [history, setHistory] = useState<ReviewResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [llmMode, setLlmMode] = useState<"mock" | "mimo">("mock");
 
   const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
 
@@ -76,7 +77,7 @@ export default function Home() {
     setTaskId(null);
 
     try {
-      const data = await createReview(repoUrl);
+      const data = await createReview(repoUrl, llmMode);
       setTaskId(data.task_id);
       void refreshHistory();
     } catch (err) {
@@ -115,7 +116,9 @@ export default function Home() {
               Clone a public GitHub repository, index supported source code, generate concise repository context, and export a focused review report.
             </p>
           </div>
-          <div className="text-sm text-muted-foreground">Mock LLM ready by default</div>
+          <div className="text-sm text-muted-foreground">
+            {llmMode === "mimo" ? "MiMo Real LLM selected" : "Mock LLM ready by default"}
+          </div>
         </div>
       </section>
 
@@ -128,6 +131,8 @@ export default function Home() {
             <ReviewSubmissionForm
               fieldError={fieldError}
               isRunning={isRunning}
+              llmMode={llmMode}
+              onLlmModeChange={setLlmMode}
               onRepoUrlChange={changeRepoUrl}
               onSubmit={submitReview}
               repoUrl={repoUrl}

@@ -13,8 +13,8 @@ def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRou
 
     @router.post("", response_model=ReviewCreateResponse)
     def create_review(payload: ReviewCreateRequest) -> ReviewCreateResponse:
-        task_id = runner.submit(str(payload.repo_url))
-        return ReviewCreateResponse(task_id=task_id)
+        task_id = runner.submit(str(payload.repo_url), llm_mode=payload.llm_mode)
+        return ReviewCreateResponse(task_id=task_id, llm_mode=payload.llm_mode)
 
     @router.get("", response_model=list[ReviewStatusResponse])
     def list_reviews(limit: int = Query(default=50, ge=1, le=100)) -> list[ReviewStatusResponse]:

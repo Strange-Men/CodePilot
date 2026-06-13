@@ -17,7 +17,7 @@ class FakeRunner:
         self.store = store
         self.submissions: list[str] = []
 
-    def submit(self, repo_url: str) -> str:
+    def submit(self, repo_url: str, llm_mode: str = "mock") -> str:
         task_id = f"task-{len(self.submissions) + 1}"
         self.submissions.append(repo_url)
         self.store.create_review(task_id, repo_url)
@@ -40,7 +40,9 @@ def test_create_review(api_client: tuple[TestClient, ReviewStore, FakeRunner]) -
     response = client.post("/api/reviews", json={"repo_url": "https://github.com/pallets/flask"})
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-1"}
+    body = response.json()
+    assert body["task_id"] == "task-1"
+    assert body["llm_mode"] == "mock"
     assert runner.submissions == ["https://github.com/pallets/flask"]
     assert store.get_review("task-1")["status"] == "pending"
 

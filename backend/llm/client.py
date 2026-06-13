@@ -200,3 +200,24 @@ def build_llm_client(settings: Settings) -> LLMClient:
     if not settings.enable_real_llm:
         raise RuntimeError("ENABLE_REAL_LLM must be true before a real LLM client can be used.")
     return OpenAICompatibleClient(settings)
+
+
+def build_llm_client_for_mode(settings: Settings, llm_mode: str) -> LLMClient:
+    if llm_mode == "mock":
+        return MockLLMClient()
+    if llm_mode == "mimo":
+        if not settings.mimo_api_key:
+            raise RuntimeError(
+                "MiMo API key is not configured. Set MIMO_API_KEY in backend .env."
+            )
+        mimo_settings = settings.model_copy(
+            update={
+                "openai_api_key": settings.mimo_api_key,
+                "openai_base_url": settings.mimo_base_url,
+                "openai_model": settings.mimo_model_name,
+                "use_mock_llm": False,
+                "enable_real_llm": True,
+            }
+        )
+        return OpenAICompatibleClient(mimo_settings)
+    raise ValueError(f"Unknown llm_mode: {llm_mode}")

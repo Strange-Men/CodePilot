@@ -11,6 +11,9 @@ import { CodePilotApiError, createReview, listReviews } from "../lib/api";
 import type { ReviewResponse } from "../lib/types";
 import { validateGitHubRepositoryUrl } from "../lib/validation";
 
+let llmModeCalls: string[] = [];
+let lastCreateReviewMode: string | undefined;
+
 const completedReview: ReviewResponse = {
   task_id: "task-1",
   repo_url: "https://github.com/example/project",
@@ -74,6 +77,8 @@ test("renders inline repository URL validation feedback", () => {
     <ReviewSubmissionForm
       fieldError="Use an HTTPS GitHub repository URL."
       isRunning={false}
+      llmMode="mock"
+      onLlmModeChange={() => undefined}
       onRepoUrlChange={() => undefined}
       onSubmit={() => undefined}
       repoUrl="invalid"
@@ -140,4 +145,104 @@ test("renders route loading and error fallbacks", () => {
   assert.match(loadingHtml, /Loading CodePilot/);
   assert.match(errorHtml, /could not render this page/);
   assert.match(errorHtml, /Retry/);
+});
+
+test("LLM mode selector renders with Mock as default", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      llmMode="mock"
+      onLlmModeChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /LLM Mode/);
+  assert.match(html, /Mock LLM/);
+  assert.match(html, /MiMo Real LLM/);
+  assert.match(html, /deterministic mock output/);
+  assert.match(html, /No API key required/);
+});
+
+test("selecting MiMo updates helper text", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      llmMode="mimo"
+      onLlmModeChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /MiMo Real LLM selected|backend MiMo configuration/);
+  assert.match(html, /MIMO_API_KEY/);
+});
+
+test("Start Review sends llm_mode mimo", async () => {
+  const originalFetch = globalThis.fetch;
+  let sentBody: Record<string, unknown> = {};
+  globalThis.fetch = async (_url, init) => {
+    sentBody = JSON.parse(init?.body as string || "{}");
+    return new Response(
+      JSON.stringify({ task_id: "task-mimo", llm_mode: "mimo" }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const result = await createReview("https://github.com/example/project", "mimo");
+    assert.equal(result.task_id, "task-mimo");
+    assert.equal(result.llm_mode, "mimo");
+    assert.equal(sentBody.llm_mode, "mimo");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("missing-key backend error is displayed", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        error: "LLM configuration error",
+        code: "llm_config_error",
+        detail: "MiMo API key is not configured. Set MIMO_API_KEY in backend .env."
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+
+  try {
+    await assert.rejects(
+      createReview("https://github.com/example/project", "mimo"),
+      (error: unknown) =>
+        error instanceof CodePilotApiError
+        && error.code === "llm_config_error"
+        && error.message.includes("MIMO_API_KEY")
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("old report rendering still works without llm_mode metadata", () => {
+  const html = renderToStaticMarkup(
+    <ReviewHistory
+      error={null}
+      loading={false}
+      onSelect={() => undefined}
+      reviews={[completedReview]}
+      selectedTaskId="task-1"
+    />
+  );
+
+  assert.match(html, /example\/project/);
+  assert.match(html, /Completed/);
 });

@@ -162,7 +162,7 @@ def test_submit_creates_review_and_schedules_task(runner_dependencies: tuple[Set
     row = store.get_review(task_id)
     assert row["status"] == "pending"
     assert row["repo_url"] == "https://github.com/pallets/flask"
-    assert executor.submissions == [(runner._run, (task_id, "https://github.com/pallets/flask"))]
+    assert executor.submissions == [(runner._run, (task_id, "https://github.com/pallets/flask", "mock"))]
 
 
 def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Settings, ReviewStore]) -> None:
@@ -170,7 +170,7 @@ def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Sett
     runner = ReviewTaskRunner(settings, store)
     store.create_review("task-1", "https://github.com/pallets/flask")
 
-    result = runner._run("task-1", "https://github.com/pallets/flask")
+    result = runner._run("task-1", "https://github.com/pallets/flask", "mock")
 
     row = store.get_review("task-1")
     assert row["status"] == ReviewStatus.completed.value
@@ -188,7 +188,7 @@ def test_run_marks_task_failed_when_clone_raises(runner_dependencies: tuple[Sett
     store.create_review("task-1", "https://github.com/pallets/flask")
     FakeCloneService.fail_clone = True
 
-    runner._run("task-1", "https://github.com/pallets/flask")
+    runner._run("task-1", "https://github.com/pallets/flask", "mock")
 
     row = store.get_review("task-1")
     assert row["status"] == ReviewStatus.failed.value
@@ -212,7 +212,7 @@ def test_run_records_status_progression(
 
     monkeypatch.setattr(store, "update_status", capture_status)
 
-    runner._run("task-1", "https://github.com/pallets/flask")
+    runner._run("task-1", "https://github.com/pallets/flask", "mock")
 
     assert statuses == ["cloning", "parsing", "summarizing", "reviewing", "completed"]
 
@@ -224,7 +224,7 @@ def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[S
     runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry, llm_client=llm_client)
     store.create_review("task-1", "https://github.com/pallets/flask")
 
-    runner._run("task-1", "https://github.com/pallets/flask")
+    runner._run("task-1", "https://github.com/pallets/flask", "mock")
 
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
@@ -246,7 +246,7 @@ def test_run_selects_javascript_parser_when_js_files_are_detected(
     runner = ReviewTaskRunner(settings, store, parser_registry=parser_registry, llm_client=FakeLLMClient())
     store.create_review("task-1", "https://github.com/expressjs/express")
 
-    runner._run("task-1", "https://github.com/expressjs/express")
+    runner._run("task-1", "https://github.com/expressjs/express", "mock")
 
     assert FakeRepositoryIndexer.parser_instances == [javascript_parser]
 
@@ -257,7 +257,7 @@ def test_run_persists_v3_review_state_for_inspection(runner_dependencies: tuple[
     runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
     store.create_review("task-1", "https://github.com/pallets/flask")
 
-    runner._run("task-1", "https://github.com/pallets/flask")
+    runner._run("task-1", "https://github.com/pallets/flask", "mock")
 
     state = store.get_review_state("task-1")
     inspection = store.inspect_review("task-1")

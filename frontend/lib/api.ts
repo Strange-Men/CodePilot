@@ -2,15 +2,15 @@ import type { APIErrorPayload, ReviewResponse } from "@/lib/types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
-export async function createReview(repoUrl: string): Promise<{ task_id: string }> {
+export async function createReview(repoUrl: string, llmMode: string = "mock"): Promise<{ task_id: string; llm_mode: string }> {
   const response = await fetch(`${API_BASE}/api/reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repo_url: repoUrl })
+    body: JSON.stringify({ repo_url: repoUrl, llm_mode: llmMode })
   });
 
   if (!response.ok) throw await createApiError(response);
-  return (await response.json()) as { task_id: string };
+  return (await response.json()) as { task_id: string; llm_mode: string };
 }
 
 export async function getReview(taskId: string): Promise<ReviewResponse> {

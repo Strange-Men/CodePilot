@@ -6,9 +6,10 @@
 
 ## Current Version
 
-CodePilot V3.5 includes CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval, human-readable reports,
-deterministic quality scoring, optional real-LLM evaluation, cost/latency metadata, regression artifacts, and 315
-collected backend tests (314 passed, 1 skipped).
+CodePilot V3.5.1 adds MiMo LLM mode selection (mock/mimo) across backend config, LLM client, task runner, API
+schema, and frontend UI, on top of V3.5 CLI/CI/MCP/diff workflows, evidence-grounded agents, tiered retrieval,
+human-readable reports, deterministic quality scoring, optional real-LLM evaluation, cost/latency metadata,
+regression artifacts, and 327 collected backend tests (326 passed, 1 skipped).
 
 ## Release History
 
@@ -30,6 +31,7 @@ collected backend tests (314 passed, 1 skipped).
 | V3.4 | 2026-06-09 | `8e06909` onward | Repository classification, human-readable composer, agent visibility, actionable guidance, report quality evaluation |
 | V3.4.1 | 2026-06-09 | `bd8aea1` onward | Shared report constants, reduced classification false positives, evaluation report persistence, V3.4 artifact |
 | V3.5 | 2026-06-11 | `707cb4d` onward | Versioned evaluation runs, deterministic quality metrics, optional real LLM, usage/cost summaries, regression artifacts |
+| V3.5.1 | 2026-06-13 | MiMo LLM mode | MiMo LLM mode selection (mock/mimo), backend config, frontend selector, 327 tests |
 
 ## Architecture Summary
 
@@ -137,14 +139,14 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 315 tests on 2026-06-11: 314 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
-- Unit tests: 291 collected across context compatibility, prompts, structured reviews, report composition and quality,
+- `pytest` collected 327 tests on 2026-06-13: 326 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- Unit tests: 303 collected across context compatibility, prompts, structured reviews, report composition and quality,
   evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence,
   structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior,
-  storage, and task runner.
+  storage, task runner, and MiMo LLM mode.
 - Integration tests: 23 collected for review API/history/errors, language review pipelines, CLI/CI, MCP wrappers, and diff mode.
 - Regression tests: 1 collected for Regression-001 tree-sitter non-ASCII parsing.
-- Frontend tests: 10 passing tests for Markdown and agent-card rendering, history, validation, API error handling, and loading/error fallbacks.
+- Frontend tests: 15 passing tests for Markdown and agent-card rendering, history, validation, API error handling, loading/error fallbacks, and LLM mode selector.
 - Smoke workflow: `scripts/smoke-backend.ps1` validates live backend behavior and Markdown export.
 
 ## Release Certification Evidence
@@ -178,6 +180,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `OPENAI_API_KEY` | empty | Required only when `USE_MOCK_LLM=false`. |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible endpoint. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model name. |
+| `MIMO_API_KEY` | empty | Optional MiMo LLM API key. Set in backend `.env` only. |
+| `MIMO_BASE_URL` | `https://token-plan-cn.xiaomimimo.com/v1` | MiMo-compatible endpoint. |
+| `MIMO_MODEL_NAME` | `mimo-v2.5-pro` | MiMo chat model name. |
 | `DATABASE_PATH` | `backend/data/codepilot.db` | SQLite database path. |
 | `WORKSPACE_PATH` | `backend/workspace` | Temporary clone workspace. |
 | `REPORTS_PATH` | `reports` | Markdown export directory. |

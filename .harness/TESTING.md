@@ -6,15 +6,15 @@
 
 ## Current Test Inventory
 
-`pytest` collected 315 tests: 314 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 327 tests: 326 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 291 | 36 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, and task runner. |
+| Unit | 303 | 37 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, and MiMo LLM mode. |
 | Integration | 23 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, and diff mode. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 10 | 2 | Validate Markdown and agent-card rendering, history, URL validation, API errors, and reliability fallbacks. |
+| Frontend | 15 | 2 | Validate Markdown and agent-card rendering, history, URL validation, API errors, reliability fallbacks, and LLM mode selector. |
 
 ## Unit Tests
 
@@ -34,6 +34,7 @@
 | `tests/unit/test_insights.py` | 11 | Repository type, Flask-like framework precedence, generic Request/Response false-positive guard, production/test hotspots, onboarding order, refactoring candidates, and safe defaults. |
 | `tests/unit/test_javascript_parser.py` | 9 | JavaScript/TypeScript discovery, imports, dependency imports, classes, functions, exports, metrics, prioritization, and malformed-source safety. |
 | `tests/unit/test_llm_client.py` | 14 | OpenAI-compatible requests, retries, credentials, structured JSON prompts, deterministic mock mode, and repository-evidence mock findings. |
+| `tests/unit/test_mimo_llm_mode.py` | 12 | MiMo LLM mode factory, missing-key errors, secret safety, API integration, backward compatibility, and invalid mode rejection. |
 | `tests/unit/test_main.py` | 1 | FastAPI lifespan drains the review runner during shutdown. |
 | `tests/unit/test_parser_registry.py` | 4 | Default Python parser registration, explicit SourceParser inheritance, language normalization, missing parser errors. |
 | `tests/unit/test_prioritization.py` | 3 | Shared importance ordering, role filtering, and production-first recommendation ordering. |

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
+    mimo_api_key: str | None = Field(default=None, alias="MIMO_API_KEY")
+    mimo_base_url: str = Field(default="https://token-plan-cn.xiaomimimo.com/v1", alias="MIMO_BASE_URL")
+    mimo_model_name: str = Field(default="mimo-v2.5-pro", alias="MIMO_MODEL_NAME")
     max_files: int = 300
     max_file_size_bytes: int = 200 * 1024
     large_repo_threshold: int = Field(default=300, alias="LARGE_REPO_THRESHOLD")
