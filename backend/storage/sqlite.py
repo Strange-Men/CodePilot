@@ -189,6 +189,59 @@ class ReviewStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def fail_stale_reviews(
+        self,
+        older_than: datetime,
+        error_message: str,
+    ) -> int:
+        if older_than.tzinfo is None:
+            raise ValueError("older_than must be timezone-aware.")
+        intermediate_statuses = (
+            ReviewStatus.pending.value,
+            ReviewStatus.cloning.value,
+            ReviewStatus.parsing.value,
+            ReviewStatus.summarizing.value,
+            ReviewStatus.reviewing.value,
+        )
+        placeholders = ", ".join("?" for _ in intermediate_statuses)
+        updated_count = 0
+        with self._lock, self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = conn.execute(
+                f"""
+                SELECT task_id, status, updated_at
+                FROM reviews
+                WHERE status IN ({placeholders})
+                """,
+                intermediate_statuses,
+            ).fetchall()
+            now = self._now()
+            for row in rows:
+                try:
+                    updated_at = datetime.fromisoformat(row["updated_at"])
+                except (TypeError, ValueError):
+                    continue
+                if updated_at.tzinfo is None or updated_at >= older_than:
+                    continue
+                result = conn.execute(
+                    """
+                    UPDATE reviews
+                    SET status = ?, error = ?, updated_at = ?
+                    WHERE task_id = ? AND status = ? AND updated_at = ?
+                    """,
+                    (
+                        ReviewStatus.failed.value,
+                        error_message,
+                        now,
+                        row["task_id"],
+                        row["status"],
+                        row["updated_at"],
+                    ),
+                )
+                updated_count += result.rowcount
+            conn.commit()
+        return updated_count
+
     def delete_review(self, task_id: str) -> bool:
         terminal_statuses = {
             ReviewStatus.completed.value,

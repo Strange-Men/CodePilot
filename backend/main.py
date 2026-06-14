@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,9 @@ from backend.core.config import Settings, get_settings
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import ReviewTaskRunner
 
+STALE_REVIEW_THRESHOLD = timedelta(minutes=30)
+STALE_REVIEW_ERROR = "Review was interrupted before completion."
+
 
 def create_app(
     settings: Settings,
@@ -21,6 +25,10 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
+            store.fail_stale_reviews(
+                older_than=datetime.now(UTC) - STALE_REVIEW_THRESHOLD,
+                error_message=STALE_REVIEW_ERROR,
+            )
             yield
         finally:
             runner.shutdown()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from time import monotonic
 from uuid import uuid4
 
 from backend.api.errors import APIError
@@ -22,6 +23,8 @@ PLANNED_AGENTS = (
     ("MaintainabilityAgent", "A3 MaintainabilityAgent"),
     ("RefactorAgent", "A4 RefactorAgent"),
 )
+COMPLETED_PROGRESS_TTL_SECONDS = 10 * 60
+FAILED_PROGRESS_TTL_SECONDS = 60 * 60
 
 
 class ReviewTaskRunner:
@@ -44,6 +47,7 @@ class ReviewTaskRunner:
         )
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="codepilot-review")
         self._progress: dict[str, ReviewProgressSnapshot] = {}
+        self._progress_terminal_at: dict[str, tuple[float, float]] = {}
         self._progress_lock = Lock()
         self._shutdown = False
 
@@ -92,8 +96,18 @@ class ReviewTaskRunner:
 
     def get_progress(self, task_id: str) -> ReviewProgressSnapshot | None:
         with self._progress_lock:
+            self._cleanup_progress_locked(monotonic())
             snapshot = self._progress.get(task_id)
             return snapshot.model_copy(deep=True) if snapshot is not None else None
+
+    def cleanup_progress(self, now: float | None = None) -> None:
+        with self._progress_lock:
+            self._cleanup_progress_locked(monotonic() if now is None else now)
+
+    def clear_progress(self, task_id: str) -> None:
+        with self._progress_lock:
+            self._progress.pop(task_id, None)
+            self._progress_terminal_at.pop(task_id, None)
 
     def _initialize_progress(self, task_id: str) -> None:
         if self.settings.review_engine != "v3_multi_agent":
@@ -103,12 +117,14 @@ class ReviewTaskRunner:
             for index, (agent_id, label) in enumerate(PLANNED_AGENTS, start=1)
         ]
         with self._progress_lock:
+            self._cleanup_progress_locked(monotonic())
             self._progress[task_id] = ReviewProgressSnapshot(
                 current_phase="Preparing repository",
                 total_agents=len(agents),
                 completed_agents=0,
                 agents=agents,
             )
+            self._progress_terminal_at.pop(task_id, None)
 
     def _update_progress(
         self,
@@ -118,6 +134,8 @@ class ReviewTaskRunner:
         agent_state: AgentExecutionState | None = None,
     ) -> None:
         with self._progress_lock:
+            now = monotonic()
+            self._cleanup_progress_locked(now)
             snapshot = self._progress.get(task_id)
             if snapshot is None:
                 return
@@ -138,7 +156,19 @@ class ReviewTaskRunner:
                         if item.status == "running":
                             item.status = "failed"
                             item.error = "Agent execution failed."
+                    self._progress_terminal_at[task_id] = (
+                        now,
+                        FAILED_PROGRESS_TTL_SECONDS,
+                    )
+                elif event == "done":
+                    self._progress_terminal_at[task_id] = (
+                        now,
+                        COMPLETED_PROGRESS_TTL_SECONDS,
+                    )
+                else:
+                    self._progress_terminal_at.pop(task_id, None)
                 return
+            self._progress_terminal_at.pop(task_id, None)
             item = next(
                 (candidate for candidate in snapshot.agents if candidate.agent_id == agent_id),
                 None,
@@ -162,6 +192,23 @@ class ReviewTaskRunner:
                 item.status == "completed"
                 for item in snapshot.agents
             )
+
+    def _cleanup_progress_locked(self, now: float) -> None:
+        expired_task_ids = []
+        for task_id, (terminal_at, ttl_seconds) in self._progress_terminal_at.items():
+            snapshot = self._progress.get(task_id)
+            if snapshot is None:
+                expired_task_ids.append(task_id)
+                continue
+            if snapshot.current_phase not in {"Completed", "Review failed"}:
+                continue
+            if any(item.status == "running" for item in snapshot.agents):
+                continue
+            if now - terminal_at >= ttl_seconds:
+                expired_task_ids.append(task_id)
+        for task_id in expired_task_ids:
+            self._progress.pop(task_id, None)
+            self._progress_terminal_at.pop(task_id, None)
 
     def shutdown(self, wait: bool = True) -> None:
         if self._shutdown:

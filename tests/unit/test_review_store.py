@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -362,3 +363,130 @@ def test_delete_review_rejects_active_status(tmp_path: Path) -> None:
         store.delete_review("task-1")
 
     assert store.get_review("task-1")["status"] == ReviewStatus.reviewing.value
+
+
+def test_fail_stale_reviews_only_updates_old_intermediate_statuses(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    cutoff = datetime(2026, 6, 14, 12, 0, tzinfo=UTC)
+    statuses = [
+        ReviewStatus.pending,
+        ReviewStatus.cloning,
+        ReviewStatus.parsing,
+        ReviewStatus.summarizing,
+        ReviewStatus.reviewing,
+    ]
+    for index, status in enumerate(statuses):
+        task_id = f"task-{index}"
+        store.create_review(task_id, "https://github.com/example/one")
+        _set_review_status_and_updated_at(store, task_id, status, cutoff - timedelta(hours=1))
+
+    updated_count = store.fail_stale_reviews(
+        older_than=cutoff,
+        error_message="Review was interrupted before completion.",
+    )
+
+    assert updated_count == len(statuses)
+    for index in range(len(statuses)):
+        row = store.get_review(f"task-{index}")
+        assert row["status"] == ReviewStatus.failed.value
+        assert row["error"] == "Review was interrupted before completion."
+
+
+def test_fail_stale_reviews_leaves_recent_intermediate_statuses_untouched(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    cutoff = datetime(2026, 6, 14, 12, 0, tzinfo=UTC)
+    store.create_review("task-1", "https://github.com/example/one")
+    _set_review_status_and_updated_at(
+        store,
+        "task-1",
+        ReviewStatus.reviewing,
+        cutoff + timedelta(seconds=1),
+    )
+
+    updated_count = store.fail_stale_reviews(
+        older_than=cutoff,
+        error_message="Review was interrupted before completion.",
+    )
+
+    assert updated_count == 0
+    assert store.get_review("task-1")["status"] == ReviewStatus.reviewing.value
+
+
+def test_fail_stale_reviews_leaves_completed_and_failed_untouched(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    cutoff = datetime(2026, 6, 14, 12, 0, tzinfo=UTC)
+    for task_id, status in (
+        ("completed-task", ReviewStatus.completed),
+        ("failed-task", ReviewStatus.failed),
+    ):
+        store.create_review(task_id, "https://github.com/example/one")
+        _set_review_status_and_updated_at(store, task_id, status, cutoff - timedelta(days=1))
+
+    updated_count = store.fail_stale_reviews(
+        older_than=cutoff,
+        error_message="Review was interrupted before completion.",
+    )
+
+    assert updated_count == 0
+    assert store.get_review("completed-task")["status"] == ReviewStatus.completed.value
+    assert store.get_review("failed-task")["status"] == ReviewStatus.failed.value
+
+
+def test_fail_stale_reviews_leaves_malformed_timestamps_untouched(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE reviews SET status = ?, updated_at = ? WHERE task_id = ?",
+            (ReviewStatus.parsing.value, "not-a-timestamp", "task-1"),
+        )
+        conn.commit()
+
+    updated_count = store.fail_stale_reviews(
+        older_than=datetime(2026, 6, 14, 12, 0, tzinfo=UTC),
+        error_message="Review was interrupted before completion.",
+    )
+
+    assert updated_count == 0
+    assert store.get_review("task-1")["status"] == ReviewStatus.parsing.value
+
+
+def test_fail_stale_reviews_returns_updated_count(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    cutoff = datetime(2026, 6, 14, 12, 0, tzinfo=UTC)
+    for task_id in ("task-1", "task-2"):
+        store.create_review(task_id, "https://github.com/example/one")
+        _set_review_status_and_updated_at(
+            store,
+            task_id,
+            ReviewStatus.pending,
+            cutoff - timedelta(minutes=31),
+        )
+    store.create_review("recent-task", "https://github.com/example/one")
+    _set_review_status_and_updated_at(
+        store,
+        "recent-task",
+        ReviewStatus.pending,
+        cutoff + timedelta(seconds=1),
+    )
+
+    updated_count = store.fail_stale_reviews(
+        older_than=cutoff,
+        error_message="Review was interrupted before completion.",
+    )
+
+    assert updated_count == 2
+
+
+def _set_review_status_and_updated_at(
+    store: ReviewStore,
+    task_id: str,
+    status: ReviewStatus,
+    updated_at: datetime,
+) -> None:
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE reviews SET status = ?, updated_at = ? WHERE task_id = ?",
+            (status.value, updated_at.isoformat(), task_id),
+        )
+        conn.commit()

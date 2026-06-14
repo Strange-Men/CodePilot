@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import backend.tasks.pipeline as pipeline_module
+import backend.tasks.runner as runner_module
 from backend.agents.orchestrator import AgentOrchestrator
 from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings
@@ -340,3 +341,99 @@ def test_shutdown_drains_executor_once_and_rejects_new_work(
     with pytest.raises(RuntimeError, match="shut down"):
         runner.submit("https://github.com/pallets/flask")
     assert store.list_reviews() == []
+
+
+def test_completed_progress_expires_after_ten_minutes(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    clock = [100.0]
+    monkeypatch.setattr(runner_module, "monotonic", lambda: clock[0])
+    runner = ReviewTaskRunner(settings, store)
+    runner._initialize_progress("task-1")
+    runner._update_progress("task-1", "done")
+
+    clock[0] = 699.999
+    runner.cleanup_progress()
+    assert runner.get_progress("task-1") is not None
+
+    clock[0] = 700.0
+    runner.cleanup_progress()
+    assert runner.get_progress("task-1") is None
+
+
+def test_failed_progress_expires_after_sixty_minutes(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    clock = [200.0]
+    monkeypatch.setattr(runner_module, "monotonic", lambda: clock[0])
+    runner = ReviewTaskRunner(settings, store)
+    runner._initialize_progress("task-1")
+    runner._update_progress("task-1", "task_failed")
+
+    clock[0] = 3799.999
+    runner.cleanup_progress()
+    assert runner.get_progress("task-1") is not None
+
+    clock[0] = 3800.0
+    runner.cleanup_progress()
+    assert runner.get_progress("task-1") is None
+
+
+def test_running_progress_is_never_ttl_evicted(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    clock = [300.0]
+    monkeypatch.setattr(runner_module, "monotonic", lambda: clock[0])
+    runner = ReviewTaskRunner(settings, store)
+    runner._initialize_progress("task-1")
+    runner._update_progress("task-1", "agent_running", "ArchitectureAgent")
+    runner._update_progress("task-1", "done")
+
+    clock[0] = 10_000.0
+    runner.cleanup_progress()
+
+    progress = runner.get_progress("task-1")
+    assert progress is not None
+    assert progress.agents[0].status == "running"
+
+
+def test_get_progress_cleans_expired_terminal_snapshot(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    clock = [400.0]
+    monkeypatch.setattr(runner_module, "monotonic", lambda: clock[0])
+    runner = ReviewTaskRunner(settings, store)
+    runner._initialize_progress("task-1")
+    runner._update_progress("task-1", "done")
+
+    clock[0] = 1000.0
+
+    assert runner.get_progress("task-1") is None
+    assert "task-1" not in runner._progress_terminal_at
+
+
+def test_clear_progress_removes_snapshot(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    runner = ReviewTaskRunner(settings, store)
+    runner._initialize_progress("task-1")
+    runner._update_progress("task-1", "done")
+
+    runner.clear_progress("task-1")
+
+    assert runner.get_progress("task-1") is None
+    assert "task-1" not in runner._progress_terminal_at
