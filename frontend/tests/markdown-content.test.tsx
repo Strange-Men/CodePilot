@@ -32,7 +32,7 @@ test("parses optional repository intelligence appendices separately", () => {
   assert.equal(sections["Architecture Summary"].trim(), "Architecture.");
 });
 
-test("renders agent summary and grouped findings as report cards", () => {
+test("renders markdown report sections without creating structured agent cards", () => {
   const markdown = [
     "# Executive Summary",
     "Summary.",
@@ -63,4 +63,6 @@ test("renders agent summary and grouped findings as report cards", () => {
   assert.match(html, /ArchitectureAgent/);
   assert.match(html, /Boundary risk/);
   assert.ok(html.indexOf("Executive Summary") < html.indexOf("Architecture Summary"));
+  assert.doesNotMatch(html, /data-agent-card=/);
+  assert.doesNotMatch(html, /data-structured-findings/);
 });

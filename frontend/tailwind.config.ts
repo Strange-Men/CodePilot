@@ -26,10 +26,17 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))"
-        }
+        },
+        panel: "hsl(var(--panel))",
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))"
       },
       boxShadow: {
-        soft: "0 12px 30px rgba(15, 23, 42, 0.08)"
+        soft: "0 14px 38px -24px rgba(15, 23, 42, 0.34)",
+        panel: "0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -20px rgba(15, 23, 42, 0.3)"
+      },
+      transitionDuration: {
+        250: "250ms"
       }
     }
   },
@@ -37,4 +44,3 @@ const config: Config = {
 };
 
 export default config;
-

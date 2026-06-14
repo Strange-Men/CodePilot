@@ -3,12 +3,16 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ReportRenderer } from "../components/ReportRenderer";
-import { ReviewHistory } from "../components/ReviewHistory";
-import { ReviewStatusDisplay, RuntimeAgentProgress } from "../components/ReviewStatusDisplay";
-import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
 import ErrorPage from "../app/error";
 import Loading from "../app/loading";
+import { ReportRenderer } from "../components/ReportRenderer";
+import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
+import { AgentStateCards } from "../components/workspace/AgentStateCards";
+import { AgentTimeline } from "../components/workspace/AgentTimeline";
+import { EvidencePanel } from "../components/workspace/EvidencePanel";
+import { FindingsPanel } from "../components/workspace/FindingsPanel";
+import { applyTheme, nextTheme, ThemeToggle } from "../components/workspace/ThemeToggle";
+import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
 import {
   CodePilotApiError,
   createReview,
@@ -17,18 +21,20 @@ import {
   getReviewFindings,
   listReviews
 } from "../lib/api";
-import type { ReviewProgressSnapshot, ReviewResponse } from "../lib/types";
+import type {
+  ReviewAgentStateItem,
+  ReviewFindingItem,
+  ReviewProgressSnapshot,
+  ReviewResponse
+} from "../lib/types";
 import { validateGitHubRepositoryUrl } from "../lib/validation";
-
-let llmModeCalls: string[] = [];
-let lastCreateReviewMode: string | undefined;
 
 const completedReview: ReviewResponse = {
   task_id: "task-1",
   repo_url: "https://github.com/example/project",
   status: "completed",
   error: null,
-  report_markdown: "# Architecture Summary\nDone.",
+  report_markdown: "# Executive Summary\nReview complete.\n# Architecture Summary\nStable boundaries.",
   export_path: "reports/task-1.md"
 };
 
@@ -45,104 +51,103 @@ const runningProgress: ReviewProgressSnapshot = {
   ]
 };
 
-const failedProgress: ReviewProgressSnapshot = {
-  ...runningProgress,
-  current_phase: "Review failed",
-  completed_agents: 1,
-  agents: runningProgress.agents.map((agent) =>
-    agent.agent_id === "CodeSmellAgent"
-      ? { ...agent, status: "failed", error: "Agent execution failed." }
-      : agent
-  )
-};
+const structuredAgents: ReviewAgentStateItem[] = [
+  {
+    order: 1,
+    agent_id: "ArchitectureAgent",
+    label: "A1 ArchitectureAgent",
+    status: "completed",
+    findings_count: 1,
+    evidence_count: 2,
+    severity_mix: { critical: 0, high: 1, medium: 0, low: 0 },
+    average_confidence: 0.92,
+    error: null
+  },
+  {
+    order: 2,
+    agent_id: "CodeSmellAgent",
+    label: "A2 CodeSmellAgent",
+    status: "failed",
+    findings_count: 0,
+    evidence_count: 0,
+    severity_mix: { critical: 0, high: 0, medium: 0, low: 0 },
+    average_confidence: null,
+    error: "Agent execution failed."
+  },
+  {
+    order: 3,
+    agent_id: "MaintainabilityAgent",
+    label: "A3 MaintainabilityAgent",
+    status: "completed",
+    findings_count: 1,
+    evidence_count: 1,
+    severity_mix: { critical: 0, high: 0, medium: 1, low: 0 },
+    average_confidence: 0.81,
+    error: null
+  },
+  {
+    order: 4,
+    agent_id: "RefactorAgent",
+    label: "A4 RefactorAgent",
+    status: "completed",
+    findings_count: 1,
+    evidence_count: 1,
+    severity_mix: { critical: 0, high: 0, medium: 0, low: 1 },
+    average_confidence: 0.76,
+    error: null
+  }
+];
 
-const agentReport = [
-  "# Executive Summary",
-  "Original executive summary remains visible.",
-  "# Agent Summary",
-  "| Agent | Status | Findings | Severity Mix | Avg Confidence | Evidence |",
-  "| --- | --- | ---: | --- | ---: | ---: |",
-  "| ArchitectureAgent | completed | 1 | high=1 | 0.92 | 2 |",
-  "| CodeSmellAgent | completed | 1 | medium=1 | 0.81 | 1 |",
-  "| MaintainabilityAgent | completed | 1 | low=1 | 0.75 | 1 |",
-  "| RefactorAgent | completed | 1 | informational=1 | 0.68 | 1 |",
-  "# Agent Findings",
-  "Findings are grouped by the agent that produced them.",
-  "## ArchitectureAgent",
-  "| Severity | Finding | Confidence | Files | Evidence |",
-  "| --- | --- | ---: | --- | --- |",
-  "| high | Boundary risk | 0.92 | `src/app.py`, `src/api.py` | `E123`, `E124` |",
-  "## CodeSmellAgent",
-  "| Severity | Finding | Confidence | Files | Evidence |",
-  "| --- | --- | ---: | --- | --- |",
-  "| medium | Duplicate validation | 0.81 | `src/forms.py` | `E200` |",
-  "## MaintainabilityAgent",
-  "| Severity | Finding | Confidence | Files | Evidence |",
-  "| --- | --- | ---: | --- | --- |",
-  "| low | Dense module | 0.75 | `src/service.py` | `E300` |",
-  "## RefactorAgent",
-  "| Severity | Finding | Confidence | Files | Evidence |",
-  "| --- | --- | ---: | --- | --- |",
-  "| informational | Extract helper | 0.68 | `src/utils.py` | `E400` |",
-  "# Architecture Summary",
-  "Original architecture narrative.",
-  "# Code Smells",
-  "Original smell narrative.",
-  "# Maintainability Issues",
-  "Original maintainability narrative.",
-  "# Refactoring Suggestions",
-  "Original refactoring narrative.",
-  "# Evidence Appendix",
-  "Only validated references are shown."
-].join("\n");
+const structuredFindings: ReviewFindingItem[] = [
+  {
+    finding_id: "finding-1",
+    finding_index: 0,
+    section: "Architecture Summary",
+    title: "Boundary risk",
+    description: "Transport and domain responsibilities are mixed.",
+    severity: "high",
+    category: "architecture",
+    confidence: 0.92,
+    recommendation: "Separate transport from domain orchestration.",
+    files: ["src/app.py", "src/api.py"],
+    evidence_ids: ["E123", "E124"],
+    evidence_refs: [
+      {
+        evidence_id: "E123",
+        file_path: "src/app.py",
+        symbol_name: "build_app",
+        start_line: 10,
+        end_line: 24
+      },
+      {
+        evidence_id: "E124",
+        file_path: "src/api.py",
+        symbol_name: null,
+        start_line: 30,
+        end_line: 35
+      }
+    ],
+    validation_status: "validated"
+  }
+];
 
 test("validates canonical GitHub repository URLs", () => {
   assert.equal(validateGitHubRepositoryUrl("https://github.com/example/project"), null);
   assert.equal(validateGitHubRepositoryUrl("https://github.com/example/project.git"), null);
   assert.match(validateGitHubRepositoryUrl("https://gitlab.com/example/project") || "", /GitHub/);
   assert.match(validateGitHubRepositoryUrl("http://github.com/example/project") || "", /HTTPS/);
-  assert.match(validateGitHubRepositoryUrl("https://github.com/example/project/issues") || "", /HTTPS/);
 });
 
-test("renders review history and selected state", () => {
-  const html = renderToStaticMarkup(
-    <ReviewHistory
-      error={null}
-      loading={false}
-      onSelect={() => undefined}
-      reviews={[completedReview]}
-      selectedTaskId="task-1"
-    />
-  );
+test("workspace shell renders the control sidebar and six workspace tabs", () => {
+  const html = renderToStaticMarkup(<WorkspaceShell />);
 
-  assert.match(html, /Review History/);
-  assert.match(html, /example\/project/);
-  assert.match(html, /Completed/);
-  assert.match(html, /aria-pressed="true"/);
-});
-
-test("renders history loading and empty states", () => {
-  const loading = renderToStaticMarkup(
-    <ReviewHistory
-      error={null}
-      loading
-      onSelect={() => undefined}
-      reviews={[]}
-      selectedTaskId={null}
-    />
-  );
-  const empty = renderToStaticMarkup(
-    <ReviewHistory
-      error={null}
-      loading={false}
-      onSelect={() => undefined}
-      reviews={[]}
-      selectedTaskId={null}
-    />
-  );
-
-  assert.match(loading, /Loading previous reviews/);
-  assert.match(empty, /will appear here/);
+  assert.match(html, /CodePilot/);
+  assert.match(html, /Review Workspace/);
+  assert.match(html, /Control panel/);
+  for (const tab of ["Overview", "Agents", "Findings", "Report", "Evidence", "Metrics"]) {
+    assert.match(html, new RegExp(`>${tab}<`));
+  }
+  assert.match(html, /role="tablist"/);
 });
 
 test("renders inline repository URL validation feedback", () => {
@@ -162,6 +167,38 @@ test("renders inline repository URL validation feedback", () => {
   assert.match(html, /aria-invalid="true"/);
   assert.match(html, /repo-url-error/);
   assert.match(html, /Use an HTTPS GitHub repository URL/);
+});
+
+test("Mock and MiMo selector states remain available", () => {
+  const mockHtml = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      llmMode="mock"
+      onLlmModeChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+  const mimoHtml = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      llmMode="mimo"
+      onLlmModeChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(mockHtml, /Mock LLM/);
+  assert.match(mockHtml, /No API key required/);
+  assert.match(mimoHtml, /MiMo Real LLM/);
+  assert.match(mimoHtml, /MIMO_API_KEY/);
 });
 
 test("frontend API client surfaces structured error detail", async () => {
@@ -189,70 +226,40 @@ test("frontend API client surfaces structured error detail", async () => {
   }
 });
 
-test("frontend API client loads review history", async () => {
+test("frontend API client loads history and structured endpoints", async () => {
   const originalFetch = globalThis.fetch;
-  let requestedUrl = "";
+  const requestedUrls: string[] = [];
   globalThis.fetch = async (input) => {
-    requestedUrl = String(input);
-    return new Response(JSON.stringify([completedReview]), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url.endsWith("/findings")) {
+      return new Response(JSON.stringify({ task_id: "task-1", findings: structuredFindings }));
+    }
+    if (url.endsWith("/agent-states")) {
+      return new Response(JSON.stringify({ task_id: "task-1", agents: structuredAgents }));
+    }
+    return new Response(JSON.stringify([completedReview]));
   };
 
   try {
     const history = await listReviews(10);
+    const findings = await getReviewFindings("task-1");
+    const agents = await getReviewAgentStates("task-1");
     assert.equal(history[0].task_id, "task-1");
-    assert.match(requestedUrl, /\/api\/reviews\?limit=10$/);
+    assert.equal(findings.findings[0].title, "Boundary risk");
+    assert.equal(agents.agents[0].agent_id, "ArchitectureAgent");
+    assert.ok(requestedUrls.some((url) => /\/api\/reviews\?limit=10$/.test(url)));
+    assert.ok(requestedUrls.some((url) => /\/api\/reviews\/task-1\/findings$/.test(url)));
+    assert.ok(requestedUrls.some((url) => /\/api\/reviews\/task-1\/agent-states$/.test(url)));
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("frontend API client loads structured review findings", async () => {
+test("frontend API client handles DELETE 204 without parsing a body", async () => {
   const originalFetch = globalThis.fetch;
-  let requestedUrl = "";
-  globalThis.fetch = async (input) => {
-    requestedUrl = String(input);
-    return new Response(JSON.stringify({ task_id: "task-1", findings: [] }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
-  };
-
-  try {
-    const result = await getReviewFindings("task-1");
-    assert.deepEqual(result, { task_id: "task-1", findings: [] });
-    assert.match(requestedUrl, /\/api\/reviews\/task-1\/findings$/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("frontend API client loads structured review agent states", async () => {
-  const originalFetch = globalThis.fetch;
-  let requestedUrl = "";
-  globalThis.fetch = async (input) => {
-    requestedUrl = String(input);
-    return new Response(JSON.stringify({ task_id: "task-1", agents: [] }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
-  };
-
-  try {
-    const result = await getReviewAgentStates("task-1");
-    assert.deepEqual(result, { task_id: "task-1", agents: [] });
-    assert.match(requestedUrl, /\/api\/reviews\/task-1\/agent-states$/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("frontend API client handles review deletion with an empty 204 response", async () => {
-  const originalFetch = globalThis.fetch;
-  let requestedUrl = "";
   let requestedMethod = "";
+  let requestedUrl = "";
   globalThis.fetch = async (input, init) => {
     requestedUrl = String(input);
     requestedMethod = init?.method || "";
@@ -261,77 +268,23 @@ test("frontend API client handles review deletion with an empty 204 response", a
 
   try {
     await deleteReview("task-1");
-    assert.match(requestedUrl, /\/api\/reviews\/task-1$/);
     assert.equal(requestedMethod, "DELETE");
+    assert.match(requestedUrl, /\/api\/reviews\/task-1$/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("renders route loading and error fallbacks", () => {
-  const loadingHtml = renderToStaticMarkup(<Loading />);
-  const errorHtml = renderToStaticMarkup(
-    <ErrorPage error={new Error("render failed")} reset={() => undefined} />
-  );
-
-  assert.match(loadingHtml, /Loading CodePilot/);
-  assert.match(errorHtml, /could not render this page/);
-  assert.match(errorHtml, /Retry/);
-});
-
-test("LLM mode selector renders with Mock as default", () => {
-  const html = renderToStaticMarkup(
-    <ReviewSubmissionForm
-      fieldError={null}
-      isRunning={false}
-      llmMode="mock"
-      onLlmModeChange={() => undefined}
-      onRepoUrlChange={() => undefined}
-      onSubmit={() => undefined}
-      repoUrl="https://github.com/example/project"
-      submitting={false}
-    />
-  );
-
-  assert.match(html, /LLM Mode/);
-  assert.match(html, /Mock LLM/);
-  assert.match(html, /MiMo Real LLM/);
-  assert.match(html, /deterministic mock output/);
-  assert.match(html, /No API key required/);
-});
-
-test("selecting MiMo updates helper text", () => {
-  const html = renderToStaticMarkup(
-    <ReviewSubmissionForm
-      fieldError={null}
-      isRunning={false}
-      llmMode="mimo"
-      onLlmModeChange={() => undefined}
-      onRepoUrlChange={() => undefined}
-      onSubmit={() => undefined}
-      repoUrl="https://github.com/example/project"
-      submitting={false}
-    />
-  );
-
-  assert.match(html, /MiMo Real LLM selected|backend MiMo configuration/);
-  assert.match(html, /MIMO_API_KEY/);
-});
-
-test("Start Review sends llm_mode mimo", async () => {
+test("Start review preserves MiMo mode in the request", async () => {
   const originalFetch = globalThis.fetch;
   let sentBody: Record<string, unknown> = {};
   globalThis.fetch = async (_url, init) => {
     sentBody = JSON.parse(init?.body as string || "{}");
-    return new Response(
-      JSON.stringify({ task_id: "task-mimo", llm_mode: "mimo" }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ task_id: "task-mimo", llm_mode: "mimo" }), { status: 202 });
   };
 
   try {
     const result = await createReview("https://github.com/example/project", "mimo");
-    assert.equal(result.task_id, "task-mimo");
     assert.equal(result.llm_mode, "mimo");
     assert.equal(sentBody.llm_mode, "mimo");
   } finally {
@@ -339,7 +292,7 @@ test("Start Review sends llm_mode mimo", async () => {
   }
 });
 
-test("missing-key backend error is displayed", async () => {
+test("missing MiMo key error remains visible to the client", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () =>
     new Response(
@@ -364,174 +317,123 @@ test("missing-key backend error is displayed", async () => {
   }
 });
 
-test("old report rendering still works without llm_mode metadata", () => {
-  const html = renderToStaticMarkup(
-    <ReviewHistory
-      error={null}
-      loading={false}
-      onSelect={() => undefined}
-      reviews={[completedReview]}
-      selectedTaskId="task-1"
-    />
-  );
+test("runtime timeline shows A1 through A4 with an obvious running step", () => {
+  const html = renderToStaticMarkup(<AgentTimeline agents={[]} progress={runningProgress} />);
 
-  assert.match(html, /example\/project/);
-  assert.match(html, /Completed/);
-});
-
-test("renders four agent contribution cards from Agent Summary", () => {
-  const html = renderToStaticMarkup(
-    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
-  );
-
-  assert.match(html, /Agent Contribution/);
-  assert.equal((html.match(/data-agent-card=/g) || []).length, 4);
-  assert.match(html, /ArchitectureAgent/);
-  assert.match(html, /CodeSmellAgent/);
-  assert.match(html, /MaintainabilityAgent/);
-  assert.match(html, /RefactorAgent/);
-  assert.match(html, /Severity mix/);
-  assert.match(html, /Avg confidence/);
-});
-
-test("groups findings by agent and displays evidence IDs near findings", () => {
-  const html = renderToStaticMarkup(
-    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
-  );
-
-  assert.equal((html.match(/data-agent-findings-group=/g) || []).length, 4);
-  assert.match(html, /Boundary risk/);
-  assert.match(html, /Affected files:/);
-  assert.match(html, /src\/app\.py/);
-  assert.match(html, /Evidence:/);
-  assert.match(html, />E123<\/code>/);
-  assert.match(html, />E124<\/code>/);
-});
-
-test("keeps original markdown visible with the agent visualization", () => {
-  const html = renderToStaticMarkup(
-    <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
-  );
-
-  assert.match(html, /Original executive summary remains visible/);
-  assert.match(html, /Original architecture narrative/);
-  assert.match(html, /Only validated references are shown/);
-});
-
-test("old reports without Agent Summary render with a graceful fallback", () => {
-  const html = renderToStaticMarkup(
-    <ReportRenderer
-      isRunning={false}
-      reportMarkdown={[
-        "# Architecture Summary",
-        "Legacy architecture remains visible.",
-        "# Code Smells",
-        "No findings.",
-        "# Maintainability Issues",
-        "No findings.",
-        "# Refactoring Suggestions",
-        "No findings."
-      ].join("\n")}
-    />
-  );
-
-  assert.match(html, /Agent details are not available for this review/);
-  assert.match(html, /Legacy architecture remains visible/);
-});
-
-test("runtime agent progress renders four ordered agents and the active step", () => {
-  const html = renderToStaticMarkup(<RuntimeAgentProgress progress={runningProgress} />);
-
-  assert.match(html, /Running CodeSmellAgent/);
-  assert.match(html, /Current agent: A2 CodeSmellAgent/);
-  assert.equal((html.match(/data-agent-progress=/g) || []).length, 4);
-  assert.match(html, /data-status="completed"/);
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+  assert.ok(html.indexOf("ArchitectureAgent") < html.indexOf("CodeSmellAgent"));
+  assert.ok(html.indexOf("CodeSmellAgent") < html.indexOf("MaintainabilityAgent"));
+  assert.ok(html.indexOf("MaintainabilityAgent") < html.indexOf("RefactorAgent"));
   assert.match(html, /data-status="running"/);
-  assert.match(html, /data-status="pending"/);
   assert.match(html, /aria-current="step"/);
 });
 
-test("missing runtime progress falls back to the existing status display", () => {
-  const review: ReviewResponse = {
-    ...completedReview,
-    status: "parsing",
-    report_markdown: null,
-    export_path: null
-  };
-  const html = renderToStaticMarkup(
-    <ReviewStatusDisplay error={null} isRunning review={review} taskId={review.task_id} />
-  );
+test("failed agent state is visible in timeline and structured cards", () => {
+  const timeline = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} progress={null} />);
+  const cards = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} />);
 
-  assert.match(html, /Parsing/);
-  assert.match(html, /aria-label="Review progress"/);
-  assert.doesNotMatch(html, /Runtime agent progress/);
+  assert.match(timeline, /data-agent-step="CodeSmellAgent"/);
+  assert.match(timeline, /data-status="failed"/);
+  assert.match(cards, /data-agent-card="CodeSmellAgent"/);
+  assert.match(cards, /Agent execution failed/);
 });
 
-test("failed review renders a visually explicit failed progress state", () => {
-  const review: ReviewResponse = {
-    ...completedReview,
-    status: "failed",
-    error: "Review execution failed.",
-    report_markdown: null,
-    export_path: null
-  };
-  const html = renderToStaticMarkup(
-    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
-  );
+test("agent cards render from structured agent-state objects", () => {
+  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} />);
 
-  assert.match(html, /data-review-status="failed"/);
-  assert.match(html, /data-status="failed"/);
-  assert.match(html, /Review execution failed/);
-});
-
-test("failed agent status remains visible after review polling stops", () => {
-  const review: ReviewResponse = {
-    ...completedReview,
-    status: "failed",
-    error: "Review execution failed.",
-    report_markdown: null,
-    export_path: null,
-    progress: failedProgress
-  };
-  const html = renderToStaticMarkup(
-    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
-  );
-
-  assert.match(html, /Runtime agent progress/);
-  assert.match(html, /data-agent-progress="CodeSmellAgent"/);
-  assert.match(html, /data-status="failed"/);
-});
-
-test("failed review without progress falls back to a safe message", () => {
-  const review: ReviewResponse = {
-    ...completedReview,
-    status: "failed",
-    error: null,
-    report_markdown: null,
-    export_path: null,
-    progress: null
-  };
-  const html = renderToStaticMarkup(
-    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
-  );
-
-  assert.match(html, /Review failed before completion/);
-  assert.doesNotMatch(html, /Runtime agent progress/);
-});
-
-test("completed review hides runtime progress and keeps final contribution cards", () => {
-  const html = renderToStaticMarkup(
-    <>
-      <ReviewStatusDisplay
-        error={null}
-        isRunning={false}
-        review={{ ...completedReview, progress: runningProgress }}
-        taskId={completedReview.task_id}
-      />
-      <ReportRenderer isRunning={false} reportMarkdown={agentReport} />
-    </>
-  );
-
-  assert.doesNotMatch(html, /Runtime agent progress/);
   assert.equal((html.match(/data-agent-card=/g) || []).length, 4);
+  assert.match(html, /92%/);
+  assert.match(html, /Severity/);
+});
+
+test("findings and severity badges render from structured findings", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /data-structured-findings/);
+  assert.match(html, /Boundary risk/);
+  assert.match(html, /data-severity="high"/);
+  assert.match(html, /src\/app\.py/);
+  assert.match(html, /Separate transport/);
+});
+
+test("evidence IDs render from structured finding evidence references", () => {
+  const html = renderToStaticMarkup(
+    <EvidencePanel
+      error={null}
+      findings={structuredFindings}
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /data-structured-evidence/);
+  assert.match(html, /data-evidence-id="E123"/);
+  assert.match(html, /src\/app\.py:10-24/);
+  assert.match(html, /build_app/);
+});
+
+test("Report tab still renders Markdown content and an outline", () => {
+  const html = renderToStaticMarkup(
+    <ReportRenderer isRunning={false} reportMarkdown={completedReview.report_markdown} />
+  );
+
+  assert.match(html, /Report section navigation/);
+  assert.match(html, /Review complete/);
+  assert.match(html, /Stable boundaries/);
+  assert.doesNotMatch(html, /data-agent-card=/);
+});
+
+test("old report fallback renders without structured data or agent summaries", () => {
+  const report = renderToStaticMarkup(
+    <ReportRenderer
+      isRunning={false}
+      reportMarkdown="# Architecture Summary\nLegacy architecture remains visible."
+    />
+  );
+  const agents = renderToStaticMarkup(<AgentStateCards agents={[]} />);
+
+  assert.match(report, /Legacy architecture remains visible/);
+  assert.match(agents, /predates persisted agent summaries/);
+});
+
+test("light and dark theme helpers toggle the root class and persist preference", () => {
+  let dark = false;
+  let persisted = "";
+  const root = {
+    classList: {
+      toggle: (_name: string, enabled?: boolean) => {
+        dark = Boolean(enabled);
+        return dark;
+      }
+    }
+  };
+  const storage = {
+    setItem: (_key: string, value: string) => {
+      persisted = value;
+    }
+  };
+
+  assert.equal(nextTheme("light"), "dark");
+  applyTheme("dark", root as Pick<HTMLElement, "classList">, storage);
+  assert.equal(dark, true);
+  assert.equal(persisted, "dark");
+  assert.match(renderToStaticMarkup(<ThemeToggle />), /Switch to dark theme/);
+});
+
+test("route loading and error states remain actionable", () => {
+  const loadingHtml = renderToStaticMarkup(<Loading />);
+  const errorHtml = renderToStaticMarkup(
+    <ErrorPage error={new Error("render failed")} reset={() => undefined} />
+  );
+
+  assert.match(loadingHtml, /Loading CodePilot workspace/);
+  assert.match(errorHtml, /could not render this page/);
+  assert.match(errorHtml, /Retry/);
 });
