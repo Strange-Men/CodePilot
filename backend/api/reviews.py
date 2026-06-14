@@ -198,7 +198,7 @@ def _agent_state_response(
         if severity in severity_mix:
             severity_mix[severity] += 1
         confidence = finding.get("confidence")
-        if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+        if isinstance(confidence, int | float) and not isinstance(confidence, bool):
             confidences.append(float(confidence))
         evidence_ids.update(finding.get("evidence_ids") or [])
     return ReviewAgentStateResponse(
