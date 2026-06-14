@@ -43,6 +43,36 @@ def test_unexpected_error_handler_does_not_expose_internal_details() -> None:
     }
 
 
+def test_unexpected_error_handler_logs_exception_server_side(monkeypatch) -> None:
+    app = FastAPI()
+    install_error_handlers(app)
+    logged: list[tuple[str, tuple[object, ...], dict[str, object]]] = []
+
+    def capture_exception(
+        message: str,
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        logged.append((message, args, kwargs))
+
+    monkeypatch.setattr("backend.api.errors.logger.exception", capture_exception)
+
+    @app.post("/unexpected")
+    def unexpected_error() -> None:
+        raise RuntimeError("sensitive internal detail")
+
+    response = TestClient(app, raise_server_exceptions=False).post("/unexpected")
+
+    assert response.status_code == 500
+    assert "sensitive internal detail" not in response.text
+    assert len(logged) == 1
+    message, args, kwargs = logged[0]
+    assert message % args == "Unexpected error while handling POST /unexpected"
+    exc_info = kwargs["exc_info"]
+    assert isinstance(exc_info, tuple)
+    assert exc_info[2] is not None
+
+
 def test_framework_http_errors_use_structured_envelope() -> None:
     app = FastAPI()
     install_error_handlers(app)

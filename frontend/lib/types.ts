@@ -37,6 +37,59 @@ export type ReviewResponse = {
   progress?: ReviewProgressSnapshot | null;
 };
 
+export type ReviewEvidenceRefItem = {
+  evidence_id: string;
+  file_path: string | null;
+  symbol_name: string | null;
+  start_line: number;
+  end_line: number;
+};
+
+export type ReviewFindingItem = {
+  finding_id: string;
+  finding_index: number;
+  section: string;
+  title: string;
+  description: string;
+  severity: string;
+  category: string | null;
+  confidence: number;
+  recommendation: string | null;
+  files: string[];
+  evidence_ids: string[];
+  evidence_refs: ReviewEvidenceRefItem[];
+  validation_status: string | null;
+};
+
+export type ReviewFindingsResponse = {
+  task_id: string;
+  findings: ReviewFindingItem[];
+};
+
+export type SeverityMix = {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+export type ReviewAgentStateItem = {
+  order: number;
+  agent_id: string;
+  label: string;
+  status: string;
+  findings_count: number;
+  evidence_count: number;
+  severity_mix: SeverityMix;
+  average_confidence: number | null;
+  error: string | null;
+};
+
+export type ReviewAgentStatesResponse = {
+  task_id: string;
+  agents: ReviewAgentStateItem[];
+};
+
 export type APIErrorPayload = {
   error: string;
   code: string;

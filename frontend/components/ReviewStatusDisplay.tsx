@@ -20,13 +20,24 @@ type ReviewStatusDisplayProps = {
 };
 
 export function ReviewStatusDisplay({ error, isRunning, review, taskId }: ReviewStatusDisplayProps) {
+  const isFailed = review?.status === "failed";
   return (
     <div className="mt-5 space-y-3">
       <StatusRow label="Task" value={taskId || "Not started"} />
       <StatusRow label="Status" value={review ? STATUS_LABELS[review.status] : "Idle"} />
-      {isRunning && review ? <ProgressRail status={review.status} /> : null}
-      {isRunning && review?.progress ? <RuntimeAgentProgress progress={review.progress} /> : null}
-      {error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
+      {(isRunning || isFailed) && review ? <ProgressRail status={review.status} /> : null}
+      {(isRunning || isFailed) && review?.progress ? <RuntimeAgentProgress progress={review.progress} /> : null}
+      {isFailed ? (
+        <div
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-medium text-destructive"
+          data-review-status="failed"
+          role="alert"
+        >
+          {review.error || error || "Review failed before completion."}
+        </div>
+      ) : error ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+      ) : null}
       {review?.status === "completed" ? (
         <Button asChild className="w-full" variant="outline">
           <a href={getReviewExportUrl(review.task_id)}>
@@ -113,6 +124,19 @@ function StatusRow({ label, value }: { label: string; value: string }) {
 }
 
 function ProgressRail({ status }: { status: ReviewStatus }) {
+  if (status === "failed") {
+    return (
+      <div
+        aria-label="Review progress"
+        className="flex items-center justify-center gap-2 rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground"
+        data-status="failed"
+      >
+        <X className="h-3.5 w-3.5" />
+        Review failed
+      </div>
+    );
+  }
+
   const statuses: ReviewStatus[] = ["pending", "cloning", "parsing", "summarizing", "reviewing", "completed"];
   const activeIndex = statuses.indexOf(status);
   return (

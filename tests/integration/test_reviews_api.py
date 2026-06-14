@@ -42,7 +42,7 @@ def test_create_review(api_client: tuple[TestClient, ReviewStore, FakeRunner]) -
 
     response = client.post("/api/reviews", json={"repo_url": "https://github.com/pallets/flask"})
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["task_id"] == "task-1"
     assert body["llm_mode"] == "mock"
@@ -85,7 +85,7 @@ def test_create_review_accepts_canonical_github_url(
 
     response = client.post("/api/reviews", json={"repo_url": "https://github.com/example/project.git"})
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert runner.submissions == ["https://github.com/example/project.git"]
 
 

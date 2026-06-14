@@ -28,7 +28,7 @@ PLANNED_AGENT_DETAILS = {
 def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRouter:
     router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 
-    @router.post("", response_model=ReviewCreateResponse)
+    @router.post("", response_model=ReviewCreateResponse, status_code=202)
     def create_review(payload: ReviewCreateRequest) -> ReviewCreateResponse:
         task_id = runner.submit(str(payload.repo_url), llm_mode=payload.llm_mode)
         return ReviewCreateResponse(task_id=task_id, llm_mode=payload.llm_mode)

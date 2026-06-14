@@ -460,7 +460,15 @@ class HumanReadableReportComposer:
 
     @staticmethod
     def _table_cell(value: str) -> str:
-        return " ".join(value.split()).replace("|", r"\|")
+        normalized = " ".join(value.split())
+        escaped: list[str] = []
+        preceding_backslashes = 0
+        for character in normalized:
+            if character == "|" and preceding_backslashes % 2 == 0:
+                escaped.append("\\")
+            escaped.append(character)
+            preceding_backslashes = preceding_backslashes + 1 if character == "\\" else 0
+        return "".join(escaped)
 
     @staticmethod
     def _code_list(values: list[str], limit: int) -> str:

@@ -1,4 +1,9 @@
-import type { APIErrorPayload, ReviewResponse } from "@/lib/types";
+import type {
+  APIErrorPayload,
+  ReviewAgentStatesResponse,
+  ReviewFindingsResponse,
+  ReviewResponse
+} from "@/lib/types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
@@ -18,6 +23,28 @@ export async function getReview(taskId: string): Promise<ReviewResponse> {
 
   if (!response.ok) throw await createApiError(response);
   return (await response.json()) as ReviewResponse;
+}
+
+export async function getReviewFindings(taskId: string): Promise<ReviewFindingsResponse> {
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}/findings`);
+
+  if (!response.ok) throw await createApiError(response);
+  return (await response.json()) as ReviewFindingsResponse;
+}
+
+export async function getReviewAgentStates(taskId: string): Promise<ReviewAgentStatesResponse> {
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}/agent-states`);
+
+  if (!response.ok) throw await createApiError(response);
+  return (await response.json()) as ReviewAgentStatesResponse;
+}
+
+export async function deleteReview(taskId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) throw await createApiError(response);
 }
 
 export async function listReviews(limit = 50): Promise<ReviewResponse[]> {

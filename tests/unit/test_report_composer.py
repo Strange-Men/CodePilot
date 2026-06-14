@@ -134,3 +134,26 @@ def test_composer_downranks_test_only_actions(sample_context) -> None:
 
     action_plan = report.split("# Action Plan", 1)[1].split("# Evidence Appendix", 1)[0]
     assert action_plan.index("Production boundary") < action_plan.index("Test helper")
+
+
+def test_table_cell_escapes_pipes_and_normalizes_multiline_whitespace() -> None:
+    value = "  foo | bar\nline one\t  line two  "
+
+    assert HumanReadableReportComposer._table_cell(value) == r"foo \| bar line one line two"
+
+
+def test_table_cell_preserves_windows_paths_and_readable_markdown() -> None:
+    values = [
+        r"C:\folder\file.py",
+        "**bold**",
+        "[link](https://example.com)",
+        "`code`",
+    ]
+
+    assert [HumanReadableReportComposer._table_cell(value) for value in values] == values
+
+
+def test_table_cell_pipe_escaping_is_idempotent() -> None:
+    escaped = HumanReadableReportComposer._table_cell("foo | bar")
+
+    assert HumanReadableReportComposer._table_cell(escaped) == escaped

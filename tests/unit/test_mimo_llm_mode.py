@@ -106,7 +106,7 @@ def test_api_default_review_uses_mock(tmp_path) -> None:
 
     response = client.post("/api/reviews", json={"repo_url": "https://github.com/pallets/flask"})
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["llm_mode"] == "mock"
 
@@ -129,7 +129,7 @@ def test_api_llm_mode_mock_explicit(tmp_path) -> None:
         json={"repo_url": "https://github.com/pallets/flask", "llm_mode": "mock"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
     assert body["llm_mode"] == "mock"
 
@@ -200,7 +200,7 @@ def test_api_request_without_llm_mode_backward_compatible(tmp_path) -> None:
 
     response = client.post("/api/reviews", json={"repo_url": "https://github.com/pallets/flask"})
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert response.json()["task_id"] == "task-1"
     assert runner.submissions[0] == ("https://github.com/pallets/flask", "mock")
 

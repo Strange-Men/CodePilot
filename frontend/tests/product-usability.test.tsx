@@ -9,8 +9,15 @@ import { ReviewStatusDisplay, RuntimeAgentProgress } from "../components/ReviewS
 import { ReviewSubmissionForm } from "../components/ReviewSubmissionForm";
 import ErrorPage from "../app/error";
 import Loading from "../app/loading";
-import { CodePilotApiError, createReview, listReviews } from "../lib/api";
-import type { ReviewResponse } from "../lib/types";
+import {
+  CodePilotApiError,
+  createReview,
+  deleteReview,
+  getReviewAgentStates,
+  getReviewFindings,
+  listReviews
+} from "../lib/api";
+import type { ReviewProgressSnapshot, ReviewResponse } from "../lib/types";
 import { validateGitHubRepositoryUrl } from "../lib/validation";
 
 let llmModeCalls: string[] = [];
@@ -25,17 +32,28 @@ const completedReview: ReviewResponse = {
   export_path: "reports/task-1.md"
 };
 
-const runningProgress = {
+const runningProgress: ReviewProgressSnapshot = {
   current_phase: "Running CodeSmellAgent",
   current_agent_id: "CodeSmellAgent",
   total_agents: 4,
   completed_agents: 1,
   agents: [
-    { order: 1, label: "A1 ArchitectureAgent", agent_id: "ArchitectureAgent", status: "completed" as const, findings_count: 1, evidence_count: 2, error: null },
-    { order: 2, label: "A2 CodeSmellAgent", agent_id: "CodeSmellAgent", status: "running" as const, findings_count: null, evidence_count: null, error: null },
-    { order: 3, label: "A3 MaintainabilityAgent", agent_id: "MaintainabilityAgent", status: "pending" as const, findings_count: null, evidence_count: null, error: null },
-    { order: 4, label: "A4 RefactorAgent", agent_id: "RefactorAgent", status: "pending" as const, findings_count: null, evidence_count: null, error: null }
+    { order: 1, label: "A1 ArchitectureAgent", agent_id: "ArchitectureAgent", status: "completed", findings_count: 1, evidence_count: 2, error: null },
+    { order: 2, label: "A2 CodeSmellAgent", agent_id: "CodeSmellAgent", status: "running", findings_count: null, evidence_count: null, error: null },
+    { order: 3, label: "A3 MaintainabilityAgent", agent_id: "MaintainabilityAgent", status: "pending", findings_count: null, evidence_count: null, error: null },
+    { order: 4, label: "A4 RefactorAgent", agent_id: "RefactorAgent", status: "pending", findings_count: null, evidence_count: null, error: null }
   ]
+};
+
+const failedProgress: ReviewProgressSnapshot = {
+  ...runningProgress,
+  current_phase: "Review failed",
+  completed_agents: 1,
+  agents: runningProgress.agents.map((agent) =>
+    agent.agent_id === "CodeSmellAgent"
+      ? { ...agent, status: "failed", error: "Agent execution failed." }
+      : agent
+  )
 };
 
 const agentReport = [
@@ -186,6 +204,65 @@ test("frontend API client loads review history", async () => {
     const history = await listReviews(10);
     assert.equal(history[0].task_id, "task-1");
     assert.match(requestedUrl, /\/api\/reviews\?limit=10$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("frontend API client loads structured review findings", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ task_id: "task-1", findings: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    const result = await getReviewFindings("task-1");
+    assert.deepEqual(result, { task_id: "task-1", findings: [] });
+    assert.match(requestedUrl, /\/api\/reviews\/task-1\/findings$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("frontend API client loads structured review agent states", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ task_id: "task-1", agents: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    const result = await getReviewAgentStates("task-1");
+    assert.deepEqual(result, { task_id: "task-1", agents: [] });
+    assert.match(requestedUrl, /\/api\/reviews\/task-1\/agent-states$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("frontend API client handles review deletion with an empty 204 response", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  let requestedMethod = "";
+  globalThis.fetch = async (input, init) => {
+    requestedUrl = String(input);
+    requestedMethod = init?.method || "";
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    await deleteReview("task-1");
+    assert.match(requestedUrl, /\/api\/reviews\/task-1$/);
+    assert.equal(requestedMethod, "DELETE");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -387,6 +464,58 @@ test("missing runtime progress falls back to the existing status display", () =>
 
   assert.match(html, /Parsing/);
   assert.match(html, /aria-label="Review progress"/);
+  assert.doesNotMatch(html, /Runtime agent progress/);
+});
+
+test("failed review renders a visually explicit failed progress state", () => {
+  const review: ReviewResponse = {
+    ...completedReview,
+    status: "failed",
+    error: "Review execution failed.",
+    report_markdown: null,
+    export_path: null
+  };
+  const html = renderToStaticMarkup(
+    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
+  );
+
+  assert.match(html, /data-review-status="failed"/);
+  assert.match(html, /data-status="failed"/);
+  assert.match(html, /Review execution failed/);
+});
+
+test("failed agent status remains visible after review polling stops", () => {
+  const review: ReviewResponse = {
+    ...completedReview,
+    status: "failed",
+    error: "Review execution failed.",
+    report_markdown: null,
+    export_path: null,
+    progress: failedProgress
+  };
+  const html = renderToStaticMarkup(
+    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
+  );
+
+  assert.match(html, /Runtime agent progress/);
+  assert.match(html, /data-agent-progress="CodeSmellAgent"/);
+  assert.match(html, /data-status="failed"/);
+});
+
+test("failed review without progress falls back to a safe message", () => {
+  const review: ReviewResponse = {
+    ...completedReview,
+    status: "failed",
+    error: null,
+    report_markdown: null,
+    export_path: null,
+    progress: null
+  };
+  const html = renderToStaticMarkup(
+    <ReviewStatusDisplay error={null} isRunning={false} review={review} taskId={review.task_id} />
+  );
+
+  assert.match(html, /Review failed before completion/);
   assert.doesNotMatch(html, /Runtime agent progress/);
 });
 
