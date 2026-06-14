@@ -189,6 +189,32 @@ class ReviewStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_review(self, task_id: str) -> bool:
+        terminal_statuses = {
+            ReviewStatus.completed.value,
+            ReviewStatus.failed.value,
+        }
+        with self._lock, self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT status FROM reviews WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+            if row is None:
+                conn.rollback()
+                return False
+            if row["status"] not in terminal_statuses:
+                conn.rollback()
+                raise ValueError("Only completed or failed reviews can be deleted.")
+
+            conn.execute("DELETE FROM review_graph_states WHERE task_id = ?", (task_id,))
+            conn.execute("DELETE FROM review_agent_states WHERE task_id = ?", (task_id,))
+            conn.execute("DELETE FROM review_evidence_refs WHERE task_id = ?", (task_id,))
+            conn.execute("DELETE FROM review_findings WHERE task_id = ?", (task_id,))
+            conn.execute("DELETE FROM reviews WHERE task_id = ?", (task_id,))
+            conn.commit()
+        return True
+
     def replace_structured_findings(
         self,
         task_id: str,

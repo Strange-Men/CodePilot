@@ -89,6 +89,53 @@ class ReviewStatusResponse(BaseModel):
     export_path: str | None = None
     progress: ReviewProgressSnapshot | None = None
 
+
+class ReviewEvidenceRefResponse(BaseModel):
+    evidence_id: str
+    file_path: str | None = None
+    symbol_name: str | None = None
+    start_line: int
+    end_line: int
+
+
+class ReviewFindingResponse(BaseModel):
+    finding_id: str
+    finding_index: int
+    section: str
+    title: str
+    description: str
+    severity: str
+    category: str | None = None
+    confidence: float
+    recommendation: str | None = None
+    files: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_refs: list[ReviewEvidenceRefResponse] = Field(default_factory=list)
+    validation_status: str | None = None
+
+
+class ReviewFindingsResponse(BaseModel):
+    task_id: str
+    findings: list[ReviewFindingResponse] = Field(default_factory=list)
+
+
+class ReviewAgentStateResponse(BaseModel):
+    order: int
+    agent_id: str
+    label: str
+    status: str
+    findings_count: int
+    evidence_count: int
+    severity_mix: dict[str, int]
+    average_confidence: float | None = None
+    error: str | None = None
+
+
+class ReviewAgentStatesResponse(BaseModel):
+    task_id: str
+    agents: list[ReviewAgentStateResponse] = Field(default_factory=list)
+
+
 __all__ = [
     "CodeFileSummary",
     "DependencyStructure",
@@ -100,8 +147,13 @@ __all__ = [
     "RepositoryInsights",
     "ReviewContext",
     "AgentProgressItem",
+    "ReviewAgentStateResponse",
+    "ReviewAgentStatesResponse",
     "ReviewCreateRequest",
     "ReviewCreateResponse",
+    "ReviewEvidenceRefResponse",
+    "ReviewFindingResponse",
+    "ReviewFindingsResponse",
     "ReviewProgressSnapshot",
     "ReviewStatus",
     "ReviewStatusResponse",

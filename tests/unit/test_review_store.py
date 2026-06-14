@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
 from backend.models.review_state import AgentExecutionState, ReviewState
@@ -293,3 +295,70 @@ def test_store_persists_review_state_for_internal_inspection(tmp_path: Path, sam
     assert inspection["review_state"]["evidence_bundles"] == {"ArchitectureAgent": ["ev_safe"]}
     assert "super-secret" not in str(inspection)
     assert "snippet" not in str(inspection["review_state"])
+
+
+def test_delete_review_explicitly_removes_all_related_rows(tmp_path: Path, sample_context) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    store.create_review("task-2", "https://github.com/example/two")
+    store.update_status("task-1", ReviewStatus.completed, report_markdown="# Complete")
+    store.update_status("task-2", ReviewStatus.completed, report_markdown="# Keep")
+    context = sample_context.to_review_context()
+    evidence = EvidenceRecord(
+        evidence_id="ev_safe",
+        file_path="app.py",
+        start_line=1,
+        end_line=2,
+        snippet="password=super-secret",
+        symbols=["create_app"],
+    )
+    context.evidence = [evidence]
+    finding = ReviewFinding(
+        section="Architecture Summary",
+        description="Validated finding.",
+        evidence_ids=["ev_safe"],
+    )
+    agent_state = AgentExecutionState(
+        agent_id="ArchitectureAgent",
+        status="completed",
+        findings=[finding],
+        evidence_ids=["ev_safe"],
+    )
+    review_state = ReviewState(
+        task_id="task-1",
+        context=context,
+        evidence_bundles={"ArchitectureAgent": [evidence]},
+        agent_results=[agent_state],
+        validated_findings=[finding],
+    )
+    store.replace_structured_findings("task-1", [finding], [evidence])
+    store.replace_agent_states("task-1", [agent_state])
+    store.replace_review_state("task-1", review_state.safe_snapshot())
+
+    assert store.delete_review("task-1") is True
+
+    assert store.get_review("task-1") is None
+    assert store.get_review("task-2") is not None
+    with store._connect() as conn:
+        for table in (
+            "review_graph_states",
+            "review_agent_states",
+            "review_evidence_refs",
+            "review_findings",
+        ):
+            count = conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE task_id = ?",
+                ("task-1",),
+            ).fetchone()[0]
+            assert count == 0
+
+
+def test_delete_review_rejects_active_status(tmp_path: Path) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    store.create_review("task-1", "https://github.com/example/one")
+    store.update_status("task-1", ReviewStatus.reviewing)
+
+    with pytest.raises(ValueError, match="completed or failed"):
+        store.delete_review("task-1")
+
+    assert store.get_review("task-1")["status"] == ReviewStatus.reviewing.value
