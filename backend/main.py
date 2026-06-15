@@ -10,6 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.api.errors import install_error_handlers
 from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings, get_settings
+from backend.services.localization_service import (
+    LLMTranslator,
+    LocalizationService,
+    MockTranslator,
+)
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import ReviewTaskRunner
 
@@ -43,7 +48,9 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    application.include_router(build_reviews_router(store, runner))
+    translator = MockTranslator() if settings.use_mock_llm else LLMTranslator(settings)
+    localization_service = LocalizationService(store, translator)
+    application.include_router(build_reviews_router(store, runner, localization_service))
 
     @application.get("/health")
     def health() -> dict[str, str]:

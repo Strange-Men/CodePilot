@@ -13,9 +13,10 @@ type OverviewPanelProps = {
   findings: ReviewFindingItem[];
   language: Language;
   review: ReviewResponse | null;
+  structuredLoading?: boolean;
 };
 
-export function OverviewPanel({ agents, findings, language, review }: OverviewPanelProps) {
+export function OverviewPanel({ agents, findings, language, review, structuredLoading }: OverviewPanelProps) {
   if (!review) {
     return (
       <EmptyState
@@ -62,14 +63,14 @@ export function OverviewPanel({ agents, findings, language, review }: OverviewPa
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard icon={CheckCircle2} label={t(language, "overview.agentsComplete")} value={`${completedAgents}/4`} />
-        <SummaryCard icon={ShieldAlert} label={t(language, "overview.findings")} value={String(findings.length)} />
-        <SummaryCard icon={Clock3} label={t(language, "overview.highRiskItems")} value={String(highRisk)} />
-        <SummaryCard icon={GitBranch} label={t(language, "overview.evidenceRefs")} value={String(evidenceCount)} />
+        <SummaryCard icon={CheckCircle2} label={t(language, "overview.agentsComplete")} loading={structuredLoading} value={structuredLoading ? "…" : `${completedAgents}/4`} />
+        <SummaryCard icon={ShieldAlert} label={t(language, "overview.findings")} loading={structuredLoading} value={structuredLoading ? "…" : String(findings.length)} />
+        <SummaryCard icon={Clock3} label={t(language, "overview.highRiskItems")} loading={structuredLoading} value={structuredLoading ? "…" : String(highRisk)} />
+        <SummaryCard icon={GitBranch} label={t(language, "overview.evidenceRefs")} loading={structuredLoading} value={structuredLoading ? "…" : String(evidenceCount)} />
       </div>
 
       <Card className="p-5 sm:p-6">
-        <AgentTimeline agents={agents} language={language} progress={review.progress} />
+        <AgentTimeline agents={agents} language={language} loading={structuredLoading} progress={review.progress} />
       </Card>
 
       {review.status === "failed" ? (
@@ -87,10 +88,12 @@ export function OverviewPanel({ agents, findings, language, review }: OverviewPa
 function SummaryCard({
   icon: Icon,
   label,
+  loading,
   value
 }: {
   icon: typeof CheckCircle2;
   label: string;
+  loading?: boolean;
   value: string;
 }) {
   return (
@@ -99,7 +102,7 @@ function SummaryCard({
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <Icon className="h-4 w-4 text-primary" />
       </div>
-      <p className="mt-3 font-mono text-2xl font-semibold">{value}</p>
+      <p className={`mt-3 font-mono text-2xl font-semibold ${loading ? "text-muted-foreground" : ""}`}>{value}</p>
     </div>
   );
 }

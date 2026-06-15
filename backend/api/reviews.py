@@ -20,6 +20,7 @@ from backend.reviewers.localized_report_renderer import (
     render_localized_finding_text,
     render_localized_report,
 )
+from backend.services.localization_service import LocalizationService
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import PLANNED_AGENTS, ReviewTaskRunner
 
@@ -30,7 +31,11 @@ PLANNED_AGENT_DETAILS = {
 }
 
 
-def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRouter:
+def build_reviews_router(
+    store: ReviewStore,
+    runner: ReviewTaskRunner,
+    localization_service: LocalizationService | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 
     @router.post("", response_model=ReviewCreateResponse, status_code=202)
@@ -48,21 +53,43 @@ def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRou
         row = _get_review_or_404(store, task_id)
         get_progress = getattr(runner, "get_progress", None)
         progress = get_progress(task_id) if callable(get_progress) else None
-        return _review_response(row, progress=progress, lang=normalized_lang)
+
+        report_markdown = row["report_markdown"]
+        if normalized_lang == "zh" and report_markdown:
+            if localization_service is not None:
+                source_updated_at = row.get("updated_at", "")
+                raw_findings = store.get_structured_findings(task_id)
+                report_markdown = localization_service.get_localized_report(
+                    task_id, normalized_lang, source_updated_at, report_markdown, raw_findings,
+                )
+            else:
+                report_markdown = render_localized_report(report_markdown, normalized_lang)
+
+        return _review_response(row, progress=progress, report_markdown=report_markdown)
 
     @router.get("/{task_id}/findings", response_model=ReviewFindingsResponse)
     def get_review_findings(task_id: str, lang: str = Query(default="en")) -> ReviewFindingsResponse:
         normalized_lang = normalize_language(lang)
-        _get_review_or_404(store, task_id)
+        review_row = _get_review_or_404(store, task_id)
         evidence_by_id = {
             row["evidence_id"]: row
             for row in store.get_evidence_refs(task_id)
         }
+        raw_findings = store.get_structured_findings(task_id)
+
+        if normalized_lang == "zh" and localization_service is not None:
+            source_updated_at = review_row.get("updated_at", "")
+            localized_findings = localization_service.get_localized_findings(
+                task_id, normalized_lang, source_updated_at, raw_findings,
+            )
+        else:
+            localized_findings = raw_findings
+
         return ReviewFindingsResponse(
             task_id=task_id,
             findings=[
                 _finding_response(row, evidence_by_id, lang=normalized_lang)
-                for row in store.get_structured_findings(task_id)
+                for row in localized_findings
             ],
         )
 
@@ -102,7 +129,15 @@ def build_reviews_router(store: ReviewStore, runner: ReviewTaskRunner) -> APIRou
                 "review_not_ready",
                 "The review must complete before its Markdown report can be exported.",
             )
-        content = render_localized_report(row["report_markdown"], normalized_lang)
+        content = row["report_markdown"]
+        if normalized_lang == "zh" and localization_service is not None:
+            source_updated_at = row.get("updated_at", "")
+            raw_findings = store.get_structured_findings(task_id)
+            content = localization_service.get_localized_report(
+                task_id, normalized_lang, source_updated_at, content, raw_findings,
+            )
+        else:
+            content = render_localized_report(content, normalized_lang)
         suffix = "-zh" if normalized_lang == "zh" else ""
         return Response(
             content=content,
@@ -167,13 +202,19 @@ def _finding_response(
     impact = row.get("impact")
     first_step = row.get("first_step")
     caveat = row.get("caveat")
+    confidence_rationale = row.get("confidence_rationale")
+    validation_tests = row.get("validation_tests") or []
     if lang == "zh":
-        title = render_localized_finding_text(title, lang) or title
-        description = render_localized_finding_text(description, lang) or description
-        recommendation = render_localized_finding_text(recommendation, lang)
-        impact = render_localized_finding_text(impact, lang)
-        first_step = render_localized_finding_text(first_step, lang)
-        caveat = render_localized_finding_text(caveat, lang)
+        title = row.get("title_zh") or render_localized_finding_text(title, lang) or title
+        description = row.get("description_zh") or render_localized_finding_text(description, lang) or description
+        recommendation = row.get("recommendation_zh") or render_localized_finding_text(recommendation, lang)
+        impact = row.get("impact_zh") or render_localized_finding_text(impact, lang)
+        first_step = row.get("first_step_zh") or render_localized_finding_text(first_step, lang)
+        caveat = row.get("caveat_zh") or render_localized_finding_text(caveat, lang)
+        confidence_rationale = row.get("confidence_rationale_zh") or confidence_rationale
+        zh_tests = row.get("validation_tests_zh")
+        if isinstance(zh_tests, list) and len(zh_tests) == len(validation_tests):
+            validation_tests = zh_tests
     return ReviewFindingResponse(
         finding_id=str(row["id"]),
         finding_index=row["finding_index"],
@@ -190,8 +231,8 @@ def _finding_response(
         validation_status=row["validation_status"],
         impact=impact,
         first_step=first_step,
-        validation_tests=row.get("validation_tests") or [],
-        confidence_rationale=row.get("confidence_rationale"),
+        validation_tests=validation_tests,
+        confidence_rationale=confidence_rationale,
         caveat=caveat,
     )
 
@@ -246,17 +287,14 @@ def _agent_state_response(
 def _review_response(
     row: dict,
     progress: ReviewProgressSnapshot | None = None,
-    lang: Language = "en",
+    report_markdown: str | None = None,
 ) -> ReviewStatusResponse:
-    report_markdown = row["report_markdown"]
-    if lang == "zh" and report_markdown:
-        report_markdown = render_localized_report(report_markdown, lang)
     return ReviewStatusResponse(
         task_id=row["task_id"],
         repo_url=row["repo_url"],
         status=row["status"],
         error=row["error"],
-        report_markdown=report_markdown,
+        report_markdown=report_markdown if report_markdown is not None else row["report_markdown"],
         export_path=row["export_path"],
         progress=progress,
     )

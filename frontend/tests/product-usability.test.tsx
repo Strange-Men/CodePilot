@@ -11,6 +11,7 @@ import { AgentStateCards } from "../components/workspace/AgentStateCards";
 import { AgentTimeline } from "../components/workspace/AgentTimeline";
 import { EvidencePanel } from "../components/workspace/EvidencePanel";
 import { FindingsPanel } from "../components/workspace/FindingsPanel";
+import { OverviewPanel } from "../components/workspace/OverviewPanel";
 import { applyTheme, nextTheme, ThemeToggle } from "../components/workspace/ThemeToggle";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
 import {
@@ -18,6 +19,7 @@ import {
   createReview,
   deleteReview,
   getReviewAgentStates,
+  getReviewExportUrl,
   getReviewFindings,
   listReviews
 } from "../lib/api";
@@ -835,4 +837,192 @@ test("t() returns Chinese values for empty states", () => {
   assert.equal(t("zh", "findings.noStructured"), "暂无结构化问题");
   assert.equal(t("zh", "evidence.noStructured"), "暂无结构化证据");
   assert.equal(t("zh", "metrics.notRecorded"), "暂无指标记录");
+});
+
+// --- Chinese prose localization tests ---
+
+const zhFindings: ReviewFindingItem[] = [
+  {
+    finding_id: "finding-zh",
+    finding_index: 0,
+    section: "Architecture Summary",
+    title: "基于证据的架构边界问题",
+    description: "所选证据指出了一个仓库关注点，在修改入口点、核心模块、共享依赖或重构边界之前应先审查。",
+    severity: "high",
+    category: "architecture",
+    confidence: 0.85,
+    recommendation: "在重构前为边界添加契约测试。",
+    files: ["backend/api/reviews.py"],
+    evidence_ids: ["ev_abc123"],
+    evidence_refs: [
+      {
+        evidence_id: "ev_abc123",
+        file_path: "backend/api/reviews.py",
+        symbol_name: "build_reviews_router",
+        start_line: 10,
+        end_line: 20
+      }
+    ],
+    validation_status: "validated",
+    impact: "如果接口契约未被保留，对此边界的更改可能影响多个使用者。",
+    first_step: "在重构前添加覆盖当前公共接口的表征测试。",
+    validation_tests: ["在任何边界更改前后运行完整测试套件。"],
+    confidence_rationale: "基于提示上下文中提供的证据记录。",
+    caveat: "如果此边界是公共 API 的一部分，更改它可能破坏下游使用者。"
+  }
+];
+
+test("Chinese findings render localized prose when API returns it", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={zhFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Chinese prose rendered
+  assert.match(html, /基于证据的架构边界问题/);
+  assert.match(html, /所选证据/);
+  assert.match(html, /在重构前为边界添加契约测试/);
+  assert.match(html, /如果接口契约未被保留/);
+  assert.match(html, /在重构前添加覆盖当前公共接口的表征测试/);
+  assert.match(html, /如果此边界是公共 API 的一部分/);
+  // Evidence IDs preserved
+  assert.match(html, /ev_abc123/);
+  // Files preserved
+  assert.match(html, /backend\/api\/reviews\.py/);
+  // Severity preserved
+  assert.match(html, /data-severity="high"/);
+});
+
+test("Chinese findings preserve evidence IDs regardless of prose language", () => {
+  const htmlEn = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
+  );
+  const htmlZh = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={zhFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Evidence IDs appear in both
+  assert.match(htmlEn, /E123/);
+  assert.match(htmlZh, /ev_abc123/);
+  // Both have severity badges
+  assert.match(htmlEn, /data-severity="high"/);
+  assert.match(htmlZh, /data-severity="high"/);
+});
+
+// --- AgentTimeline loading state tests ---
+
+test("AgentTimeline shows skeleton when loading and no agents", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={[]} language="en" loading={true} progress={null} />
+  );
+
+  // Should show skeleton, not pending agents
+  assert.match(html, /role="status"/);
+  assert.doesNotMatch(html, /data-agent-step=/);
+  assert.doesNotMatch(html, /data-status="pending"/);
+});
+
+test("AgentTimeline shows agents when not loading", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={structuredAgents} language="en" loading={false} progress={null} />
+  );
+
+  // Should show real agent data
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+  assert.match(html, /data-status="completed"/);
+});
+
+test("AgentTimeline shows agents even when loading if agents exist", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={structuredAgents} language="en" loading={true} progress={null} />
+  );
+
+  // Should show existing agents, not skeleton
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+});
+
+test("AgentTimeline shows progress when available regardless of loading", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={[]} language="en" loading={true} progress={runningProgress} />
+  );
+
+  // Should show progress timeline, not skeleton
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+  assert.match(html, /data-status="running"/);
+});
+
+// --- OverviewPanel loading state tests ---
+
+test("OverviewPanel shows loading indicator when structuredLoading is true", () => {
+  const html = renderToStaticMarkup(
+    <OverviewPanel agents={[]} findings={[]} language="en" review={completedReview} structuredLoading={true} />
+  );
+
+  // Should show loading ellipsis instead of 0/4
+  assert.match(html, /…/);
+  assert.doesNotMatch(html, />0\/4</);
+});
+
+test("OverviewPanel shows real data when not loading", () => {
+  const html = renderToStaticMarkup(
+    <OverviewPanel agents={structuredAgents} findings={structuredFindings} language="en" review={completedReview} structuredLoading={false} />
+  );
+
+  // Should show real counts (3 completed out of 4 agents)
+  assert.match(html, />3\/4</);
+  assert.match(html, />1</);  // findings count
+});
+
+// --- Chinese export URL tests ---
+
+test("export URL includes lang=zh when language is zh", () => {
+  const { getReviewExportUrl } = require("../lib/api");
+  const url = getReviewExportUrl("task-1", { lang: "zh" });
+  assert.match(url, /lang=zh/);
+  assert.match(url, /\/export/);
+});
+
+test("export URL has no lang param for English", () => {
+  const { getReviewExportUrl } = require("../lib/api");
+  const url = getReviewExportUrl("task-1", { lang: "en" });
+  assert.doesNotMatch(url, /lang=/);
+});
+
+// --- API lang parameter tests ---
+
+test("getReviewFindings includes lang param for zh", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ task_id: "task-1", findings: [] }));
+  };
+
+  try {
+    await getReviewFindings("task-1", { lang: "zh" });
+    assert.match(requestedUrl, /lang=zh/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getReviewFindings has no lang param for en", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ task_id: "task-1", findings: [] }));
+  };
+
+  try {
+    await getReviewFindings("task-1", { lang: "en" });
+    assert.doesNotMatch(requestedUrl, /lang=/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

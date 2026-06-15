@@ -1,8 +1,8 @@
 """Localized report rendering for CodePilot.
 
 Takes a canonical English report and re-renders it for the target language
-by translating headings and labels. Agent analysis content is preserved
-unchanged — only structural elements are localized.
+by translating headings, labels, and finding prose. Agent analysis content
+is preserved unchanged — only display prose is localized.
 """
 
 from __future__ import annotations
@@ -37,6 +37,73 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
 
     # Step 2: Translate bold labels within body text
     translated = translate_report_labels(translated, lang)
+
+    return translated
+
+
+def render_localized_report_with_prose(
+    report_markdown: str,
+    localized_findings: list[dict],
+    lang: Language,
+) -> str:
+    """Render a localized report with natural Chinese finding prose.
+
+    Translates headings and labels, then replaces English finding prose
+    (title, description, recommendation, impact, etc.) with localized
+    versions from the localized findings data.
+
+    Code identifiers, file paths, evidence IDs, severity, and confidence
+    are preserved unchanged.
+
+    Args:
+        report_markdown: The canonical English report markdown.
+        localized_findings: Findings with *_zh keys merged in.
+        lang: Target language ('en' or 'zh').
+
+    Returns:
+        The localized report markdown with natural Chinese prose.
+    """
+    if lang != "zh":
+        return report_markdown
+
+    # Step 1: Translate section headings and labels
+    translated = translate_report_headings(report_markdown, lang)
+    translated = translate_report_labels(translated, lang)
+
+    # Step 2: Build replacement map from localized findings
+    replacements: dict[str, str] = {}
+    for finding in localized_findings:
+        for key, value in finding.items():
+            if not key.endswith("_zh"):
+                continue
+            en_key = key.removesuffix("_zh")
+            en_value = finding.get(en_key)
+            if (
+                en_value
+                and value
+                and isinstance(en_value, str)
+                and isinstance(value, str)
+                and en_value != value
+            ):
+                replacements[en_value] = value
+
+        # Handle validation_tests (list of strings)
+        en_tests = finding.get("validation_tests") or []
+        zh_tests = finding.get("validation_tests_zh") or []
+        if isinstance(en_tests, list) and isinstance(zh_tests, list):
+            for en_test, zh_test in zip(en_tests, zh_tests, strict=False):
+                if (
+                    en_test
+                    and zh_test
+                    and isinstance(en_test, str)
+                    and isinstance(zh_test, str)
+                    and en_test != zh_test
+                ):
+                    replacements[en_test] = zh_test
+
+    # Step 3: Apply replacements (longest first to avoid partial matches)
+    for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):
+        translated = translated.replace(en, zh)
 
     return translated
 

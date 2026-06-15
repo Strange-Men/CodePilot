@@ -140,7 +140,7 @@ function renderPanel({
   structuredLoading
 }: Omit<WorkspaceTabsProps, "onTabChange">) {
   if (activeTab === "overview") {
-    return <OverviewPanel agents={agents} findings={findings} language={language} review={review} />;
+    return <OverviewPanel agents={agents} findings={findings} language={language} review={review} structuredLoading={structuredLoading} />;
   }
   if (!review) {
     return (
@@ -155,7 +155,7 @@ function renderPanel({
     return (
       <div className="space-y-5">
         <div className="rounded-xl border border-border bg-card p-5 shadow-panel sm:p-6">
-          <AgentTimeline agents={agents} language={language} progress={review.progress} />
+          <AgentTimeline agents={agents} language={language} loading={structuredLoading} progress={review.progress} />
         </div>
         {isRunning ? (
           <EmptyState

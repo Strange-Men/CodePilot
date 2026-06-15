@@ -12,6 +12,7 @@ from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding
+from backend.services.localization_service import LocalizationService, MockTranslator
 from backend.storage.sqlite import ReviewStore
 
 
@@ -932,3 +933,502 @@ def test_export_lang_zh_preserves_finding_content(
     # Content preserved
     assert "CodePilot analyzed 10 files." in response.text
     assert "`ev_123`" in response.text
+
+
+# --- Localization service integration tests ---
+
+
+@pytest.fixture
+def api_client_with_localization(tmp_path: Path) -> tuple[TestClient, ReviewStore, FakeRunner]:
+    store = ReviewStore(tmp_path / "reviews.db")
+    runner = FakeRunner(store)
+    translator = MockTranslator()
+    localization_service = LocalizationService(store, translator)
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(build_reviews_router(store, runner, localization_service))
+    return TestClient(app), store, runner
+
+
+def _create_review_with_mock_findings(
+    store: ReviewStore,
+    task_id: str = "task-zh-prose",
+) -> None:
+    store.create_review(task_id, "https://github.com/example/project")
+    store.update_status(task_id, ReviewStatus.completed, report_markdown="# Test")
+    store.replace_structured_findings(
+        task_id,
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description=(
+                    "The selected evidence highlights a repository concern that should be reviewed "
+                    "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
+                ),
+                severity="high",
+                category="architecture",
+                confidence=0.85,
+                recommendation="Add contract tests around the boundary before refactoring.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_abc123"],
+                evidence=["ev_abc123 -> backend/api/reviews.py:10-20"],
+                impact=(
+                    "Changes to this boundary may affect multiple consumers "
+                    "if the interface contract is not preserved."
+                ),
+                first_step=(
+                    "Add characterization tests covering the current "
+                    "public interface before restructuring."
+                ),
+                validation_tests=["Run the full test suite before and after any boundary change."],
+                confidence_rationale="Based on evidence records provided in the prompt context.",
+                caveat=(
+                    "If this boundary is part of a public API, "
+                    "changing it may break downstream consumers."
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_abc123",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+
+def test_findings_lang_zh_returns_chinese_prose(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    assert finding["title"] == "基于证据的架构边界问题"
+    assert "仓库关注点" in finding["description"]
+    assert "契约测试" in finding["recommendation"]
+
+
+def test_findings_lang_zh_preserves_evidence_ids(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    en_response = client.get("/api/reviews/task-zh-prose/findings?lang=en")
+    zh_response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    en_finding = en_response.json()["findings"][0]
+    zh_finding = zh_response.json()["findings"][0]
+    assert en_finding["evidence_ids"] == zh_finding["evidence_ids"]
+
+
+def test_findings_lang_zh_preserves_files(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    en_response = client.get("/api/reviews/task-zh-prose/findings?lang=en")
+    zh_response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    en_finding = en_response.json()["findings"][0]
+    zh_finding = zh_response.json()["findings"][0]
+    assert en_finding["files"] == zh_finding["files"]
+
+
+def test_findings_lang_zh_preserves_severity_and_confidence(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    en_response = client.get("/api/reviews/task-zh-prose/findings?lang=en")
+    zh_response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    en_finding = en_response.json()["findings"][0]
+    zh_finding = zh_response.json()["findings"][0]
+    assert en_finding["severity"] == zh_finding["severity"]
+    assert en_finding["confidence"] == zh_finding["confidence"]
+
+
+def test_findings_lang_zh_translates_impact_and_first_step(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    finding = response.json()["findings"][0]
+    assert "使用者" in finding["impact"]
+    assert "表征测试" in finding["first_step"]
+    assert "公共 API" in finding["caveat"]
+
+
+def test_findings_lang_zh_translates_validation_tests(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    finding = response.json()["findings"][0]
+    assert len(finding["validation_tests"]) == 1
+    assert "测试套件" in finding["validation_tests"][0]
+
+
+def test_findings_lang_zh_with_failing_translator(
+    tmp_path: Path,
+) -> None:
+    store = ReviewStore(tmp_path / "reviews.db")
+    runner = FakeRunner(store)
+
+    class FailingTranslator:
+        def translate_finding_prose(self, finding: dict) -> dict:
+            raise RuntimeError("LLM unavailable")
+
+    localization_service = LocalizationService(store, FailingTranslator())
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(build_reviews_router(store, runner, localization_service))
+    client = TestClient(app)
+
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    # Falls back to English prose
+    assert finding["title"] == "Evidence-grounded architecture boundary"
+    assert finding["severity"] == "high"
+
+
+# --- Chinese report prose tests ---
+
+
+def test_get_review_lang_zh_returns_chinese_report_prose(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese report should contain localized finding prose, not only translated headings."""
+    client, store, _ = api_client_with_localization
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Action Plan\n"
+        "## 1. Evidence-grounded architecture boundary\n"
+        "- **Why it matters:** Changes to this boundary may affect multiple consumers "
+        "if the interface contract is not preserved.\n"
+        "- **First step:** Add characterization tests covering the current "
+        "public interface before restructuring.\n"
+        "- **Caveat:** If this boundary is part of a public API, "
+        "changing it may break downstream consumers.\n"
+        "- **Evidence:** `ev_abc123`\n"
+    )
+    store.create_review("task-zh-report", "https://github.com/example/project")
+    store.update_status("task-zh-report", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-report",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description=(
+                    "The selected evidence highlights a repository concern that should be reviewed "
+                    "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
+                ),
+                severity="high",
+                category="architecture",
+                confidence=0.85,
+                recommendation="Add contract tests around the boundary before refactoring.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_abc123"],
+                evidence=["ev_abc123 -> backend/api/reviews.py:10-20"],
+                impact=(
+                    "Changes to this boundary may affect multiple consumers "
+                    "if the interface contract is not preserved."
+                ),
+                first_step=(
+                    "Add characterization tests covering the current "
+                    "public interface before restructuring."
+                ),
+                validation_tests=["Run the full test suite before and after any boundary change."],
+                confidence_rationale="Based on evidence records provided in the prompt context.",
+                caveat=(
+                    "If this boundary is part of a public API, "
+                    "changing it may break downstream consumers."
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_abc123",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-zh-report?lang=zh")
+
+    assert response.status_code == 200
+    report_md = response.json()["report_markdown"]
+    # Headings should be Chinese
+    assert "# 执行摘要" in report_md
+    assert "# 行动计划" in report_md
+    # Finding prose should be Chinese (not only headings)
+    assert "使用者" in report_md
+    assert "表征测试" in report_md
+    assert "公共 API" in report_md
+    # Evidence IDs preserved
+    assert "ev_abc123" in report_md
+
+
+def test_export_lang_zh_returns_chinese_prose(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese export should contain localized finding prose."""
+    client, store, _ = api_client_with_localization
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Action Plan\n"
+        "## 1. Evidence-grounded architecture boundary\n"
+        "- **Why it matters:** Changes to this boundary may affect multiple consumers "
+        "if the interface contract is not preserved.\n"
+        "- **Evidence:** `ev_abc123`\n"
+    )
+    store.create_review("task-zh-export", "https://github.com/example/project")
+    store.update_status("task-zh-export", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-export",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description=(
+                    "The selected evidence highlights a repository concern that should be reviewed "
+                    "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
+                ),
+                severity="high",
+                category="architecture",
+                confidence=0.85,
+                recommendation="Add contract tests around the boundary before refactoring.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_abc123"],
+                evidence=["ev_abc123 -> backend/api/reviews.py:10-20"],
+                impact=(
+                    "Changes to this boundary may affect multiple consumers "
+                    "if the interface contract is not preserved."
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_abc123",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-zh-export/export?lang=zh")
+
+    assert response.status_code == 200
+    # Headings translated
+    assert "# 执行摘要" in response.text
+    assert "# 行动计划" in response.text
+    # Finding prose translated
+    assert "使用者" in response.text
+    # Evidence IDs preserved
+    assert "ev_abc123" in response.text
+    # Filename includes -zh
+    assert "codepilot-review-task-zh-export-zh.md" in response.headers["content-disposition"]
+
+
+def test_get_review_lang_zh_preserves_severity_and_confidence_in_report(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese report should preserve severity and confidence values."""
+    client, store, _ = api_client_with_localization
+    report = "# Executive Summary\n0 high, 1 medium.\n"
+    store.create_review("task-zh-sev", "https://github.com/example/project")
+    store.update_status("task-zh-sev", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-sev",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description="desc",
+                severity="high",
+                confidence=0.85,
+                files=["a.py"],
+                evidence_ids=["ev_a"],
+                evidence=["ev_a -> a.py:1-5"],
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_a", file_path="a.py", start_line=1, end_line=5,
+                snippet="code", kind="symbol", symbols=[],
+            ),
+        ],
+    )
+
+    en_response = client.get("/api/reviews/task-zh-sev?lang=en")
+    zh_response = client.get("/api/reviews/task-zh-sev?lang=zh")
+
+    assert en_response.status_code == 200
+    assert zh_response.status_code == 200
+    # Both should have the same task_id and status
+    assert en_response.json()["task_id"] == zh_response.json()["task_id"]
+    assert en_response.json()["status"] == zh_response.json()["status"]
+
+
+def test_get_review_lang_zh_report_cache_hit(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Repeated zh requests should use cached report."""
+    client, store, _ = api_client_with_localization
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Action Plan\n"
+        "## 1. Evidence-grounded architecture boundary\n"
+        "- **Why it matters:** Changes to this boundary may affect multiple consumers "
+        "if the interface contract is not preserved.\n"
+    )
+    store.create_review("task-zh-cache", "https://github.com/example/project")
+    store.update_status("task-zh-cache", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-cache",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description="desc",
+                severity="high",
+                confidence=0.85,
+                files=["a.py"],
+                evidence_ids=["ev_a"],
+                evidence=["ev_a -> a.py:1-5"],
+                impact=(
+                    "Changes to this boundary may affect multiple consumers "
+                    "if the interface contract is not preserved."
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_a", file_path="a.py", start_line=1, end_line=5,
+                snippet="code", kind="symbol", symbols=[],
+            ),
+        ],
+    )
+
+    # First request — cache miss
+    response1 = client.get("/api/reviews/task-zh-cache?lang=zh")
+    # Second request — cache hit
+    response2 = client.get("/api/reviews/task-zh-cache?lang=zh")
+
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+    # Both should return the same Chinese report
+    assert response1.json()["report_markdown"] == response2.json()["report_markdown"]
+    # Report should contain Chinese prose
+    assert "使用者" in response1.json()["report_markdown"]
+
+
+def test_get_review_lang_en_unchanged_with_localization(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """English report should remain unchanged when localization service is available."""
+    client, store, _ = api_client_with_localization
+    report = "# Executive Summary\nCodePilot analyzed 10 files.\n"
+    store.create_review("task-en", "https://github.com/example/project")
+    store.update_status("task-en", ReviewStatus.completed, report_markdown=report)
+
+    response = client.get("/api/reviews/task-en?lang=en")
+
+    assert response.status_code == 200
+    assert "# Executive Summary" in response.json()["report_markdown"]
+    assert "# 执行摘要" not in response.json()["report_markdown"]
+
+
+def test_export_lang_zh_with_failing_translator(
+    tmp_path: Path,
+) -> None:
+    """Chinese export should fall back gracefully when translator fails."""
+    store = ReviewStore(tmp_path / "reviews.db")
+    runner = FakeRunner(store)
+
+    class FailingTranslator:
+        def translate_finding_prose(self, finding: dict) -> dict:
+            raise RuntimeError("LLM unavailable")
+
+    localization_service = LocalizationService(store, FailingTranslator())
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(build_reviews_router(store, runner, localization_service))
+    client = TestClient(app)
+
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Action Plan\n"
+        "## 1. Evidence-grounded architecture boundary\n"
+        "- **Why it matters:** Changes to this boundary may affect multiple consumers.\n"
+    )
+    store.create_review("task-fail", "https://github.com/example/project")
+    store.update_status("task-fail", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-fail",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description="desc",
+                severity="high",
+                confidence=0.85,
+                files=["a.py"],
+                evidence_ids=["ev_a"],
+                evidence=["ev_a -> a.py:1-5"],
+                impact="Changes to this boundary may affect multiple consumers.",
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_a", file_path="a.py", start_line=1, end_line=5,
+                snippet="code", kind="symbol", symbols=[],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-fail/export?lang=zh")
+
+    # Should not crash — falls back to heading/label translation
+    assert response.status_code == 200
+    # Headings should still be translated
+    assert "# 执行摘要" in response.text
+    # English prose preserved (translator failed)
+    assert "Changes to this boundary" in response.text

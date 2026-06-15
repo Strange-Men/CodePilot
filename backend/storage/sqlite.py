@@ -121,6 +121,20 @@ class ReviewStore:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_localizations (
+                    task_id TEXT NOT NULL,
+                    language TEXT NOT NULL,
+                    source_updated_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    report_markdown TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES reviews(task_id) ON DELETE CASCADE,
+                    PRIMARY KEY (task_id, language)
+                )
+                """
+            )
             conn.commit()
             self._add_column_if_missing(conn, "review_findings", "impact", "TEXT")
             self._add_column_if_missing(conn, "review_findings", "first_step", "TEXT")
@@ -265,6 +279,7 @@ class ReviewStore:
                 conn.rollback()
                 raise ValueError("Only completed or failed reviews can be deleted.")
 
+            conn.execute("DELETE FROM review_localizations WHERE task_id = ?", (task_id,))
             conn.execute("DELETE FROM review_graph_states WHERE task_id = ?", (task_id,))
             conn.execute("DELETE FROM review_agent_states WHERE task_id = ?", (task_id,))
             conn.execute("DELETE FROM review_evidence_refs WHERE task_id = ?", (task_id,))
@@ -412,6 +427,39 @@ class ReviewStore:
                 (task_id,),
             ).fetchall()
         return [self._decode_json_columns(dict(row)) for row in rows]
+
+    def get_localization(self, task_id: str, language: str) -> dict | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM review_localizations WHERE task_id = ? AND language = ?",
+                (task_id, language),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def set_localization(
+        self,
+        task_id: str,
+        language: str,
+        source_updated_at: str,
+        payload_json: str | None = None,
+        report_markdown: str | None = None,
+    ) -> None:
+        now = self._now()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO review_localizations
+                    (task_id, language, source_updated_at, payload_json, report_markdown, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id, language) DO UPDATE SET
+                    source_updated_at = excluded.source_updated_at,
+                    payload_json = COALESCE(excluded.payload_json, review_localizations.payload_json),
+                    report_markdown = COALESCE(excluded.report_markdown, review_localizations.report_markdown),
+                    created_at = excluded.created_at
+                """,
+                (task_id, language, source_updated_at, payload_json, report_markdown, now),
+            )
+            conn.commit()
 
     def replace_review_state(self, task_id: str, state: PersistedReviewState) -> None:
         now = self._now()

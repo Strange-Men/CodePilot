@@ -164,8 +164,9 @@ export function WorkspaceShell() {
     setRepoUrl(historicalReview.repo_url);
     setError(historicalReview.error);
     setFieldError(null);
-    setFindings([]);
-    setAgents([]);
+    setStructuredLoading(true);
+    setStructuredError(null);
+    setStructuredReloadKey((key) => key + 1);
     setActiveTab("overview");
   }
 
