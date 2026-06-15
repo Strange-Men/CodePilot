@@ -34,6 +34,67 @@ def test_structured_finding_renders_future_facing_metadata() -> None:
     assert "Recommendation: Extract a focused orchestration service." in markdown
 
 
+def test_structured_finding_accepts_useful_fields() -> None:
+    finding = ReviewFinding(
+        section="Code Smells",
+        title="Duplicate dispatch logic",
+        description="Two paths implement similar dispatch.",
+        severity="medium",
+        confidence=0.75,
+        files=["app.py", "blueprint.py"],
+        recommendation="Extract shared logic.",
+        evidence_ids=["ev_abc123"],
+        impact="Changes may need to be duplicated across both paths.",
+        first_step="Add characterization tests before refactoring.",
+        validation_tests=["tests/test_blueprints.py", "tests/test_basic.py"],
+        confidence_rationale="Multiple evidence records confirm the pattern.",
+        caveat="Mature public API; avoid breaking compatibility.",
+    )
+
+    assert finding.impact == "Changes may need to be duplicated across both paths."
+    assert finding.first_step == "Add characterization tests before refactoring."
+    assert finding.validation_tests == ["tests/test_blueprints.py", "tests/test_basic.py"]
+    assert finding.confidence_rationale == "Multiple evidence records confirm the pattern."
+    assert finding.caveat == "Mature public API; avoid breaking compatibility."
+
+
+def test_structured_finding_useful_fields_render_in_markdown() -> None:
+    finding = ReviewFinding(
+        section="Code Smells",
+        title="Duplicate dispatch logic",
+        description="Two paths implement similar dispatch.",
+        severity="medium",
+        recommendation="Extract shared logic.",
+        impact="Changes may need duplication.",
+        first_step="Add tests first.",
+        validation_tests=["tests/test_blueprints.py"],
+        caveat="Public API compatibility required.",
+    )
+
+    markdown = finding.to_markdown()
+
+    assert "Impact: Changes may need duplication." in markdown
+    assert "First step: Add tests first." in markdown
+    assert "Validation tests: tests/test_blueprints.py" in markdown
+    assert "Caveat: Public API compatibility required." in markdown
+
+
+def test_structured_finding_missing_useful_fields_render_cleanly() -> None:
+    finding = ReviewFinding(
+        section="Code Smells",
+        title="Simple finding",
+        description="A simple finding without useful fields.",
+        severity="low",
+    )
+
+    markdown = finding.to_markdown()
+
+    assert "Impact:" not in markdown
+    assert "First step:" not in markdown
+    assert "Validation tests:" not in markdown
+    assert "Caveat:" not in markdown
+
+
 def test_adapter_renders_structured_draft_with_unchanged_contract_order() -> None:
     draft = StructuredReviewDraft(
         findings=[

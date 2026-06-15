@@ -127,7 +127,12 @@ const structuredFindings: ReviewFindingItem[] = [
         end_line: 35
       }
     ],
-    validation_status: "validated"
+    validation_status: "validated",
+    impact: "Changes to this boundary may affect multiple consumers.",
+    first_step: "Add characterization tests before restructuring.",
+    validation_tests: ["tests/test_blueprints.py", "tests/test_basic.py"],
+    confidence_rationale: "Multiple evidence records confirm the pattern.",
+    caveat: "Public API; preserve backward compatibility."
   }
 ];
 
@@ -361,6 +366,62 @@ test("findings and severity badges render from structured findings", () => {
   assert.match(html, /data-severity="high"/);
   assert.match(html, /src\/app\.py/);
   assert.match(html, /Separate transport/);
+});
+
+test("findings panel renders useful fields when available", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /Changes to this boundary may affect multiple consumers/);
+  assert.match(html, /Add characterization tests before restructuring/);
+  assert.match(html, /tests\/test_blueprints\.py/);
+  assert.match(html, /tests\/test_basic\.py/);
+  assert.match(html, /Public API; preserve backward compatibility/);
+});
+
+test("findings panel does not render empty useful field labels", () => {
+  const minimalFindings: ReviewFindingItem[] = [
+    {
+      finding_id: "finding-minimal",
+      finding_index: 0,
+      section: "Code Smells",
+      title: "Simple finding",
+      description: "A simple finding.",
+      severity: "low",
+      category: null,
+      confidence: 0.5,
+      recommendation: null,
+      files: [],
+      evidence_ids: [],
+      evidence_refs: [],
+      validation_status: "validated",
+      impact: null,
+      first_step: null,
+      validation_tests: [],
+      confidence_rationale: null,
+      caveat: null
+    }
+  ];
+
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={minimalFindings}
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.doesNotMatch(html, /Impact/);
+  assert.doesNotMatch(html, /First safe step/);
+  assert.doesNotMatch(html, /Validation tests/);
+  assert.doesNotMatch(html, /Caveat/);
 });
 
 test("evidence IDs render from structured finding evidence references", () => {

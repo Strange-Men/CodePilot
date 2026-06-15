@@ -164,6 +164,11 @@ def _finding_response(
         evidence_ids=row["evidence_ids"],
         evidence_refs=evidence_refs,
         validation_status=row["validation_status"],
+        impact=row.get("impact"),
+        first_step=row.get("first_step"),
+        validation_tests=row.get("validation_tests") or [],
+        confidence_rationale=row.get("confidence_rationale"),
+        caveat=row.get("caveat"),
     )
 
 

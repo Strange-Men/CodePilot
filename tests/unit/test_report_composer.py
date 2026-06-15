@@ -81,6 +81,83 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
     assert "## MaintainabilityAgent" in report
 
 
+def test_composer_uses_useful_fields_in_action_plan(sample_context) -> None:
+    context = sample_context.to_review_context()
+    evidence_id = stable_evidence_id("app.py", 1, 10, "def main(): pass")
+    context.evidence = [
+        EvidenceRecord(
+            evidence_id=evidence_id,
+            file_path="app.py",
+            start_line=1,
+            end_line=10,
+            snippet="def main(): pass",
+            kind="symbol",
+            symbols=["main"],
+        )
+    ]
+    draft = StructuredReviewDraft(
+        findings=[
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Duplicate dispatch logic",
+                description="Two paths implement similar dispatch.",
+                severity="medium",
+                confidence=0.8,
+                files=["app.py"],
+                recommendation="Extract shared logic.",
+                evidence_ids=[evidence_id],
+                impact="Changes may need to be duplicated across both paths, risking inconsistency.",
+                first_step="Add characterization tests covering both dispatch paths before refactoring.",
+                validation_tests=["tests/test_blueprints.py", "tests/test_basic.py"],
+                confidence_rationale="Multiple evidence records confirm the pattern.",
+                caveat="Mature public API; avoid breaking compatibility without migration path.",
+            )
+        ]
+    )
+
+    report = HumanReadableReportComposer().compose(context, draft)
+
+    assert "**Why it matters:** Changes may need to be duplicated across both paths, risking inconsistency." in report
+    assert "**First step:** Add characterization tests covering both dispatch paths before refactoring." in report
+    assert "**Validation tests:** `tests/test_blueprints.py`, `tests/test_basic.py`" in report
+    assert "**Caveat:** Mature public API; avoid breaking compatibility without migration path." in report
+
+
+def test_composer_falls_back_to_description_when_impact_missing(sample_context) -> None:
+    context = sample_context.to_review_context()
+    evidence_id = stable_evidence_id("app.py", 1, 10, "def main(): pass")
+    context.evidence = [
+        EvidenceRecord(
+            evidence_id=evidence_id,
+            file_path="app.py",
+            start_line=1,
+            end_line=10,
+            snippet="def main(): pass",
+            kind="symbol",
+            symbols=["main"],
+        )
+    ]
+    draft = StructuredReviewDraft(
+        findings=[
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Simple finding",
+                description="A finding without useful fields.",
+                severity="low",
+                confidence=0.5,
+                files=["app.py"],
+                recommendation="Review the code.",
+                evidence_ids=[evidence_id],
+            )
+        ]
+    )
+
+    report = HumanReadableReportComposer().compose(context, draft)
+
+    assert "**Why it matters:** A finding without useful fields." in report
+    assert "**Caveat:**" not in report
+
+
 def test_composer_bounds_top_risks_and_action_plan(sample_context) -> None:
     findings = [
         ReviewFinding(

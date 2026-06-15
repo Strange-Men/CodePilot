@@ -277,19 +277,26 @@ class HumanReadableReportComposer:
                 if symbols
                 else f"the cited code path in {files}"
             )
-            validation = self._validation_hint(context, finding.files, symbols)
+            why_it_matters = finding.impact.strip() if finding.impact else finding.description.strip()
+            first_step = finding.first_step.strip() if finding.first_step else self._first_step(finding, symbols)
+            if finding.validation_tests:
+                validation = ", ".join(f"`{test}`" for test in finding.validation_tests)
+            else:
+                validation = self._validation_hint(context, finding.files, symbols)
             lines.extend(
                 [
                     f"## {index}. {finding.title or finding.category or 'Repository finding'}",
-                    f"- **Why it matters:** {finding.description.strip()}",
+                    f"- **Why it matters:** {why_it_matters}",
                     f"- **Where:** {files}",
                     f"- **Likely responsibility area:** {responsibility}.",
-                    f"- **First step:** {self._first_step(finding, symbols)}",
+                    f"- **First step:** {first_step}",
                     f"- **Change risk:** {self._change_risk(context, finding)}",
                     f"- **Evidence:** {evidence or 'No validated evidence reference.'}",
                     f"- **Validation tests:** {validation}",
                 ]
             )
+            if finding.caveat:
+                lines.append(f"- **Caveat:** {finding.caveat.strip()}")
         return "\n".join(lines)
 
     @staticmethod

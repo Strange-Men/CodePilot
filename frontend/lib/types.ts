@@ -59,6 +59,11 @@ export type ReviewFindingItem = {
   evidence_ids: string[];
   evidence_refs: ReviewEvidenceRefItem[];
   validation_status: string | null;
+  impact: string | null;
+  first_step: string | null;
+  validation_tests: string[];
+  confidence_rationale: string | null;
+  caveat: string | null;
 };
 
 export type ReviewFindingsResponse = {

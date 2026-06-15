@@ -89,6 +89,39 @@ export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPan
               <p className="mt-1 text-sm leading-6">{finding.recommendation}</p>
             </div>
           ) : null}
+          {finding.impact ? (
+            <div className="mt-3 border-l-2 border-amber-400/60 pl-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Impact</p>
+              <p className="mt-1 text-sm leading-6">{finding.impact}</p>
+            </div>
+          ) : null}
+          {finding.first_step ? (
+            <div className="mt-3 border-l-2 border-emerald-400/60 pl-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">First safe step</p>
+              <p className="mt-1 text-sm leading-6">{finding.first_step}</p>
+            </div>
+          ) : null}
+          {finding.validation_tests.length ? (
+            <div className="mt-3 pl-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Validation tests</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {finding.validation_tests.map((test) => (
+                  <code
+                    className="rounded-md border border-border bg-panel px-2 py-0.5 font-mono text-xs"
+                    key={test}
+                  >
+                    {test}
+                  </code>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {finding.caveat ? (
+            <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caveat</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{finding.caveat}</p>
+            </div>
+          ) : null}
           {finding.evidence_ids.length ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
               <span className="text-muted-foreground">Evidence</span>

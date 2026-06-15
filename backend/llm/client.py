@@ -98,6 +98,74 @@ class MockLLMClient:
             "maintainability": "Stabilize the cited dependency boundary and cover it with focused tests.",
             "refactor": "Extract the cited responsibility behind a smaller interface.",
         }
+        impact_by_category = {
+            "architecture": (
+                "Changes to this boundary may affect multiple consumers "
+                "if the interface contract is not preserved."
+            ),
+            "code_smell": (
+                "The cited responsibility may accumulate unrelated "
+                "changes, increasing merge conflict risk."
+            ),
+            "maintainability": (
+                "Without focused test coverage, future changes to "
+                "this area may introduce silent regressions."
+            ),
+            "refactor": (
+                "Leaving the current structure unaddressed makes "
+                "future feature work slower and riskier."
+            ),
+        }
+        first_step_by_category = {
+            "architecture": (
+                "Add characterization tests covering the current "
+                "public interface before restructuring."
+            ),
+            "code_smell": (
+                "Identify the single highest-complexity responsibility "
+                "and extract it behind a focused interface."
+            ),
+            "maintainability": (
+                "Add targeted tests for the cited boundary, "
+                "then review dependency directions."
+            ),
+            "refactor": (
+                "Write tests that pin current behavior, "
+                "then extract the smallest reusable unit."
+            ),
+        }
+        validation_by_category = {
+            "architecture": [
+                "Run the full test suite before and after any boundary change.",
+            ],
+            "code_smell": [
+                "Run targeted unit tests for the cited module after each extraction step.",
+            ],
+            "maintainability": [
+                "Run the test suite and verify no new warnings or failures appear.",
+            ],
+            "refactor": [
+                "Run the test suite after each incremental extraction.",
+            ],
+        }
+        caveat_by_category = {
+            "architecture": (
+                "If this boundary is part of a public API, "
+                "changing it may break downstream consumers."
+            ),
+            "code_smell": (
+                "Some duplication may be intentional to "
+                "preserve independent extension points."
+            ),
+            "maintainability": (
+                "This finding is based on structural signals; "
+                "confirm with production behavior before acting."
+            ),
+            "refactor": (
+                "Refactoring should be incremental; avoid large-scope "
+                "changes without intermediate verification."
+            ),
+        }
         return [
             RawLLMFinding(
                 title=title_by_category.get(category, "Evidence-grounded repository finding"),
@@ -113,6 +181,11 @@ class MockLLMClient:
                     "Review the cited evidence before changing code.",
                 ),
                 evidence_ids=evidence_ids[:3],
+                impact=impact_by_category.get(category),
+                first_step=first_step_by_category.get(category),
+                validation_tests=validation_by_category.get(category, []),
+                confidence_rationale="Based on evidence records provided in the prompt context.",
+                caveat=caveat_by_category.get(category),
             )
         ]
 

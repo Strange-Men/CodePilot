@@ -112,6 +112,11 @@ class ReviewFindingResponse(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     evidence_refs: list[ReviewEvidenceRefResponse] = Field(default_factory=list)
     validation_status: str | None = None
+    impact: str | None = None
+    first_step: str | None = None
+    validation_tests: list[str] = Field(default_factory=list)
+    confidence_rationale: str | None = None
+    caveat: str | None = None
 
 
 class ReviewFindingsResponse(BaseModel):

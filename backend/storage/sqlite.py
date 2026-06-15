@@ -122,6 +122,11 @@ class ReviewStore:
                 """
             )
             conn.commit()
+            self._add_column_if_missing(conn, "review_findings", "impact", "TEXT")
+            self._add_column_if_missing(conn, "review_findings", "first_step", "TEXT")
+            self._add_column_if_missing(conn, "review_findings", "validation_tests_json", "TEXT NOT NULL DEFAULT '[]'")
+            self._add_column_if_missing(conn, "review_findings", "confidence_rationale", "TEXT")
+            self._add_column_if_missing(conn, "review_findings", "caveat", "TEXT")
             existing = conn.execute(
                 "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
             ).fetchone()
@@ -284,9 +289,10 @@ class ReviewStore:
                     INSERT INTO review_findings (
                         task_id, finding_index, section, title, description, severity, category,
                         confidence, recommendation, files_json, evidence_ids_json, evidence_json,
-                        validation_status, created_at
+                        validation_status, created_at,
+                        impact, first_step, validation_tests_json, confidence_rationale, caveat
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task_id,
@@ -303,6 +309,11 @@ class ReviewStore:
                         self._json(finding.evidence),
                         "validated",
                         now,
+                        finding.impact,
+                        finding.first_step,
+                        self._json(finding.validation_tests),
+                        finding.confidence_rationale,
+                        finding.caveat,
                     ),
                 )
 
@@ -442,6 +453,13 @@ class ReviewStore:
             "agent_states": self.get_agent_states(task_id),
             "review_state": state.model_dump(mode="json") if state is not None else None,
         }
+
+    @staticmethod
+    def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, col_def: str) -> None:
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+            conn.commit()
 
     @staticmethod
     def _now() -> str:

@@ -11,6 +11,11 @@ class RawLLMFinding(BaseModel):
     confidence: float = 0.5
     recommendation: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
+    impact: str | None = None
+    first_step: str | None = None
+    validation_tests: list[str] = Field(default_factory=list)
+    confidence_rationale: str | None = None
+    caveat: str | None = None
 
 
 class ReviewFinding(BaseModel):
@@ -24,6 +29,11 @@ class ReviewFinding(BaseModel):
     recommendation: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
+    impact: str | None = None
+    first_step: str | None = None
+    validation_tests: list[str] = Field(default_factory=list)
+    confidence_rationale: str | None = None
+    caveat: str | None = None
 
     def to_markdown(self) -> str:
         if self.title is None:
@@ -39,6 +49,14 @@ class ReviewFinding(BaseModel):
             heading = f"{heading} Evidence: {', '.join(self.evidence_ids)}."
         if self.recommendation:
             heading = f"{heading}\n  Recommendation: {self.recommendation.strip()}"
+        if self.impact:
+            heading = f"{heading}\n  Impact: {self.impact.strip()}"
+        if self.first_step:
+            heading = f"{heading}\n  First step: {self.first_step.strip()}"
+        if self.validation_tests:
+            heading = f"{heading}\n  Validation tests: {', '.join(self.validation_tests)}"
+        if self.caveat:
+            heading = f"{heading}\n  Caveat: {self.caveat.strip()}"
         if self.evidence:
             heading = f"{heading}\n  Grounding: {'; '.join(self.evidence)}"
         return heading

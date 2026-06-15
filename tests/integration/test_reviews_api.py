@@ -289,11 +289,108 @@ def test_get_review_findings_returns_structured_findings_and_evidence_refs(
                 }
             ],
             "validation_status": "validated",
+            "impact": None,
+            "first_step": None,
+            "validation_tests": [],
+            "confidence_rationale": None,
+            "caveat": None,
         }
     ]
     assert "super-secret" not in response.text
     assert "snippet" not in response.text
     assert "agent_id" not in response.text
+
+
+def test_get_review_findings_returns_useful_fields_when_present(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-1", "https://github.com/example/project")
+    store.replace_structured_findings(
+        "task-1",
+        [
+            ReviewFinding(
+                section="Code Smells",
+                title="Duplicate dispatch",
+                description="Two paths implement similar dispatch.",
+                severity="medium",
+                category="code_smell",
+                confidence=0.75,
+                recommendation="Extract shared logic.",
+                files=["app.py"],
+                evidence_ids=["ev_dup"],
+                evidence=["ev_dup -> app.py:1-10"],
+                impact="Changes may need duplication across paths.",
+                first_step="Add tests before refactoring.",
+                validation_tests=["tests/test_blueprints.py", "tests/test_basic.py"],
+                confidence_rationale="Multiple evidence records confirm the pattern.",
+                caveat="Mature public API; preserve compatibility.",
+            )
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_dup",
+                file_path="app.py",
+                start_line=1,
+                end_line=10,
+                snippet="def dispatch(): pass",
+                kind="symbol",
+                symbols=["dispatch"],
+            )
+        ],
+    )
+
+    response = client.get("/api/reviews/task-1/findings")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    assert finding["impact"] == "Changes may need duplication across paths."
+    assert finding["first_step"] == "Add tests before refactoring."
+    assert finding["validation_tests"] == ["tests/test_blueprints.py", "tests/test_basic.py"]
+    assert finding["confidence_rationale"] == "Multiple evidence records confirm the pattern."
+    assert finding["caveat"] == "Mature public API; preserve compatibility."
+
+
+def test_get_review_findings_returns_null_useful_fields_for_legacy_data(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-1", "https://github.com/example/project")
+    store.replace_structured_findings(
+        "task-1",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Legacy finding",
+                description="A finding without useful fields.",
+                severity="low",
+                files=["old.py"],
+                evidence_ids=["ev_legacy"],
+                evidence=["ev_legacy -> old.py:1-5"],
+            )
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_legacy",
+                file_path="old.py",
+                start_line=1,
+                end_line=5,
+                snippet="pass",
+                kind="symbol",
+                symbols=[],
+            )
+        ],
+    )
+
+    response = client.get("/api/reviews/task-1/findings")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    assert finding["impact"] is None
+    assert finding["first_step"] is None
+    assert finding["validation_tests"] == []
+    assert finding["confidence_rationale"] is None
+    assert finding["caveat"] is None
 
 
 def test_get_review_findings_returns_empty_list_for_legacy_review(

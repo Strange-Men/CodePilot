@@ -6,12 +6,12 @@
 
 ## Current Test Inventory
 
-`pytest` collected 372 tests: 371 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 379 tests: 378 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 316 | 37 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, and failed-agent persistence. |
-| Integration | 24 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, and v3 agent-state persistence. |
+| Unit | 338 | 37 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, and useful finding fields. |
+| Integration | 40 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, and useful finding fields in API responses. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
 | Frontend | 19 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, and LLM mode selector. |

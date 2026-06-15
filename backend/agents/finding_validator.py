@@ -35,4 +35,9 @@ class FindingValidator:
             recommendation=finding.recommendation,
             evidence_ids=[record.evidence_id for record in evidence],
             evidence=grounding,
+            impact=finding.impact,
+            first_step=finding.first_step,
+            validation_tests=finding.validation_tests,
+            confidence_rationale=finding.confidence_rationale,
+            caveat=finding.caveat,
         )
