@@ -419,6 +419,36 @@ def test_get_review_agent_states_returns_empty_list_for_legacy_review(
     assert response.json() == {"task_id": "task-1", "agents": []}
 
 
+def test_get_review_agent_states_returns_four_agents_for_v3_review(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-v3", "https://github.com/example/project")
+    store.replace_agent_states(
+        "task-v3",
+        [
+            AgentExecutionState(agent_id="ArchitectureAgent", status="completed", validation_status="validated"),
+            AgentExecutionState(agent_id="CodeSmellAgent", status="completed", validation_status="validated"),
+            AgentExecutionState(agent_id="MaintainabilityAgent", status="completed", validation_status="validated"),
+            AgentExecutionState(agent_id="RefactorAgent", status="completed", validation_status="validated"),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-v3/agent-states")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_id"] == "task-v3"
+    assert len(body["agents"]) == 4
+    assert [agent["agent_id"] for agent in body["agents"]] == [
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    ]
+    assert all(agent["status"] == "completed" for agent in body["agents"])
+
+
 def test_get_review_agent_states_returns_404_for_missing_review(
     api_client: tuple[TestClient, ReviewStore, FakeRunner],
 ) -> None:

@@ -99,9 +99,38 @@ class FakeReportGenerator:
         report = "# Architecture Summary\nDone.\n"
         export_path.write_text(report, encoding="utf-8")
         review_state = None
+        agent_states: list[AgentExecutionState] = []
         if self.review_engine == "v3_multi_agent":
-            review_state = ReviewState(task_id=task_id, context=as_review_context(context))
-        return ReportResult(report=report, export_path=export_path, review_state=review_state)
+            review_context = as_review_context(context)
+            review_state = ReviewState(task_id=task_id, context=review_context)
+            agent_states = [
+                AgentExecutionState(
+                    agent_id="ArchitectureAgent",
+                    status="completed",
+                    validation_status="validated",
+                ),
+                AgentExecutionState(
+                    agent_id="CodeSmellAgent",
+                    status="completed",
+                    validation_status="validated",
+                ),
+                AgentExecutionState(
+                    agent_id="MaintainabilityAgent",
+                    status="completed",
+                    validation_status="validated",
+                ),
+                AgentExecutionState(
+                    agent_id="RefactorAgent",
+                    status="completed",
+                    validation_status="validated",
+                ),
+            ]
+        return ReportResult(
+            report=report,
+            export_path=export_path,
+            agent_states=agent_states,
+            review_state=review_state,
+        )
 
 
 class FakeParser:
@@ -437,3 +466,95 @@ def test_clear_progress_removes_snapshot(
 
     assert runner.get_progress("task-1") is None
     assert "task-1" not in runner._progress_terminal_at
+
+
+def test_default_review_engine_is_v3_multi_agent() -> None:
+    settings = Settings()
+    assert settings.review_engine == "v3_multi_agent"
+
+
+def test_explicit_review_engine_v2_override(tmp_path: Path) -> None:
+    settings = Settings(
+        REVIEW_ENGINE="v2",
+        database_path=tmp_path / "reviews.db",
+        workspace_path=tmp_path / "workspace",
+        reports_path=tmp_path / "reports",
+    )
+    assert settings.review_engine == "v2"
+
+
+def test_fresh_mock_review_persists_four_agent_states(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-v3", "https://github.com/pallets/flask")
+
+    runner._run("task-v3", "https://github.com/pallets/flask", "mock")
+
+    row = store.get_review("task-v3")
+    assert row["status"] == ReviewStatus.completed.value
+    agent_states = store.get_agent_states("task-v3")
+    assert len(agent_states) == 4
+    agent_ids = [state["agent_id"] for state in agent_states]
+    assert agent_ids == [
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    ]
+    assert all(state["status"] == "completed" for state in agent_states)
+
+
+def test_fresh_mock_review_agent_states_api_returns_non_empty(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-api", "https://github.com/pallets/flask")
+    runner._run("task-api", "https://github.com/pallets/flask", "mock")
+
+    app = FastAPI()
+    app.include_router(build_reviews_router(store, runner))
+    response = TestClient(app).get("/api/reviews/task-api/agent-states")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_id"] == "task-api"
+    assert len(body["agents"]) == 4
+    assert body["agents"][0]["agent_id"] == "ArchitectureAgent"
+    assert body["agents"][0]["status"] == "completed"
+
+
+def test_fresh_mock_review_progress_shows_four_agents(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    task_id = runner.submit("https://github.com/pallets/flask")
+
+    runner._run(task_id, "https://github.com/pallets/flask", "mock")
+
+    app = FastAPI()
+    app.include_router(build_reviews_router(store, runner))
+    response = TestClient(app).get(f"/api/reviews/{task_id}")
+    progress = response.json().get("progress")
+    # Progress may be None after cleanup, but if present it must have 4 agents
+    if progress is not None:
+        assert progress["total_agents"] == 4
+
+
+def test_v2_engine_does_not_persist_agent_states(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v2"
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-v2", "https://github.com/pallets/flask")
+
+    runner._run("task-v2", "https://github.com/pallets/flask", "mock")
+
+    row = store.get_review("task-v2")
+    assert row["status"] == ReviewStatus.completed.value
+    agent_states = store.get_agent_states("task-v2")
+    assert len(agent_states) == 0

@@ -52,9 +52,10 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-V3 review engines are opt-in:
+The default review engine is `v3_multi_agent`. Override to use a different engine:
 
 ```text
+REVIEW_ENGINE=v2
 REVIEW_ENGINE=v3_single_agent
 REVIEW_ENGINE=v3_multi_agent
 ```

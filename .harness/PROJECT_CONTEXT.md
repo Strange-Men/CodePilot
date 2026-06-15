@@ -178,7 +178,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `PYTHON_VERSION` | `3.11.11` | Runtime documentation in `.env.example`. |
 | `USE_MOCK_LLM` | `true` | Toggle deterministic mock LLM vs real API. |
 | `ENABLE_REAL_LLM` | `false` | Required opt-in guard before a real OpenAI-compatible client can be used. |
-| `REVIEW_ENGINE` | `v2` | Selects `v2`, `v3_single_agent`, or `v3_multi_agent`. |
+| `REVIEW_ENGINE` | `v3_multi_agent` | Selects `v2`, `v3_single_agent`, or `v3_multi_agent`. |
 | `OPENAI_API_KEY` | empty | Required only when `USE_MOCK_LLM=false`. |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible endpoint. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model name. |

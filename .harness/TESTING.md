@@ -1,17 +1,17 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-13
-> Verified with: `pytest` and frontend tests on 2026-06-13
+> Last updated: 2026-06-15
+> Verified with: `pytest` and frontend tests on 2026-06-15
 
 ## Current Test Inventory
 
-`pytest` collected 358 tests: 357 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 365 tests: 364 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 303 | 37 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, and MiMo LLM mode. |
-| Integration | 23 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, and diff mode. |
+| Unit | 309 | 37 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, and v3 multi-agent default engine behavior. |
+| Integration | 24 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, and v3 agent-state persistence. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
 | Frontend | 19 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, and LLM mode selector. |

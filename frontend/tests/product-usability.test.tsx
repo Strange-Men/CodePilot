@@ -403,6 +403,18 @@ test("old report fallback renders without structured data or agent summaries", (
   assert.match(agents, /predates persisted agent summaries/);
 });
 
+test("completed v3 review renders four real agent states, not pending placeholders", () => {
+  const html = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} progress={null} />);
+
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+  assert.match(html, /data-status="completed"/);
+  assert.doesNotMatch(html, /data-status="pending"/);
+  assert.match(html, /ArchitectureAgent/);
+  assert.match(html, /CodeSmellAgent/);
+  assert.match(html, /MaintainabilityAgent/);
+  assert.match(html, /RefactorAgent/);
+});
+
 test("light and dark theme helpers toggle the root class and persist preference", () => {
   let dark = false;
   let persisted = "";

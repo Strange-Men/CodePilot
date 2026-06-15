@@ -77,6 +77,6 @@ def test_mixed_repository_runs_all_matching_parsers_and_merges_report(tmp_path: 
     assert "Full-stack mixed-language application" in report
     assert "backend/app.py" in report
     assert "frontend/app.ts" in report
-    assert "# Repository Insights" in report
-    assert "## Onboarding Guide" in report
-    assert "## Risk Hotspots" in report
+    assert "# Executive Summary" in report
+    assert "# Evidence Appendix" in report
+    assert "# Agent Summary" in report
