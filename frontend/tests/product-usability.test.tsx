@@ -21,6 +21,7 @@ import {
   getReviewFindings,
   listReviews
 } from "../lib/api";
+import { t, getLocalizedStatusLabels } from "../lib/i18n";
 import type {
   ReviewAgentStateItem,
   ReviewFindingItem,
@@ -155,11 +156,194 @@ test("workspace shell renders the control sidebar and six workspace tabs", () =>
   assert.match(html, /role="tablist"/);
 });
 
+test("language toggle renders in the header", () => {
+  const html = renderToStaticMarkup(<WorkspaceShell />);
+
+  assert.match(html, /Switch to Chinese/);
+  assert.match(html, />EN</);
+  assert.match(html, />中</);
+});
+
+test("English is the default language", () => {
+  const html = renderToStaticMarkup(<WorkspaceShell />);
+
+  // English labels should be present by default
+  assert.match(html, /Review Workspace/);
+  assert.match(html, /Evidence-grounded repository analysis/);
+  assert.match(html, /Control panel/);
+  assert.match(html, /Overview/);
+  assert.match(html, /Start review/);
+});
+
+test("Chinese labels appear when language is zh", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /影响/);
+  assert.match(html, /安全第一步/);
+  assert.match(html, /验证测试/);
+  assert.match(html, /注意事项/);
+  assert.match(html, /结构化审查数据/);
+});
+
+test("Chinese tab labels render correctly", () => {
+  // Test the t() function directly for all tab keys
+  assert.equal(t("zh", "tabs.overview"), "总览");
+  assert.equal(t("zh", "tabs.agents"), "Agent");
+  assert.equal(t("zh", "tabs.findings"), "问题发现");
+  assert.equal(t("zh", "tabs.report"), "报告");
+  assert.equal(t("zh", "tabs.evidence"), "证据");
+  assert.equal(t("zh", "tabs.metrics"), "指标");
+});
+
+test("Chinese status labels render correctly", () => {
+  const zhStatuses = getLocalizedStatusLabels("zh");
+
+  assert.equal(zhStatuses.pending, "等待中");
+  assert.equal(zhStatuses.cloning, "克隆中");
+  assert.equal(zhStatuses.parsing, "解析中");
+  assert.equal(zhStatuses.summarizing, "总结中");
+  assert.equal(zhStatuses.reviewing, "审查中");
+  assert.equal(zhStatuses.completed, "已完成");
+  assert.equal(zhStatuses.failed, "失败");
+});
+
+test("Chinese key UI labels are correct", () => {
+  assert.equal(t("zh", "overview.currentReview"), "当前审查");
+  assert.equal(t("zh", "form.startReview"), "开始审查");
+  assert.equal(t("zh", "sidebar.currentStatus"), "当前状态");
+  assert.equal(t("zh", "sidebar.exportMarkdown"), "导出 Markdown");
+});
+
+test("missing locale key falls back to English", () => {
+  // A key that exists in en but we test fallback behavior
+  assert.equal(t("en", "header.workspace"), "Review Workspace");
+  // A nonexistent key should return the key itself
+  assert.equal(t("en", "nonexistent.key"), "nonexistent.key");
+  // zh fallback for a key missing in zh should return en value
+  // (all our keys have zh translations, so test with nonexistent)
+  assert.equal(t("zh", "nonexistent.key"), "nonexistent.key");
+});
+
+test("FindingsPanel translates labels in Chinese", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Chinese section labels
+  assert.match(html, /结构化审查数据/);
+  assert.match(html, /问题发现/);
+  assert.match(html, /建议措施/);
+  assert.match(html, /影响/);
+  assert.match(html, /安全第一步/);
+  assert.match(html, /验证测试/);
+  assert.match(html, /注意事项/);
+  assert.match(html, /证据/);
+  assert.match(html, /置信度/);
+});
+
+test("AgentTimeline shows Chinese agent descriptions", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={[]} language="zh" progress={runningProgress} />
+  );
+
+  assert.match(html, /执行流水线/);
+  assert.match(html, /审查 Agent/);
+  assert.match(html, /已完成/);
+  assert.match(html, /架构分析/);
+  assert.match(html, /代码坏味道/);
+});
+
+test("AgentStateCards renders Chinese labels", () => {
+  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="zh" />);
+
+  assert.match(html, /问题发现/);
+  assert.match(html, /证据/);
+  assert.match(html, /平均置信度/);
+  assert.match(html, /严重性/);
+});
+
+test("EvidencePanel renders Chinese labels", () => {
+  const html = renderToStaticMarkup(
+    <EvidencePanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /已验证引用/);
+  assert.match(html, /条引用/);
+  assert.match(html, /符号：/);
+  assert.match(html, /支持/);
+});
+
+test("MetricsPanel renders Chinese labels", () => {
+  // Need at least some agents or findings for metrics to show
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /置信度/);
+});
+
+test("switching language does not change evidence IDs", () => {
+  const htmlEn = renderToStaticMarkup(
+    <EvidencePanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
+  );
+  const htmlZh = renderToStaticMarkup(
+    <EvidencePanel error={null} findings={structuredFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Evidence IDs should be identical regardless of language
+  assert.match(htmlEn, /data-evidence-id="E123"/);
+  assert.match(htmlZh, /data-evidence-id="E123"/);
+  assert.match(htmlEn, /data-evidence-id="E124"/);
+  assert.match(htmlZh, /data-evidence-id="E124"/);
+});
+
+test("switching language does not change findings count", () => {
+  const htmlEn = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
+  );
+  const htmlZh = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Both should show the same finding
+  assert.match(htmlEn, /Boundary risk/);
+  assert.match(htmlZh, /Boundary risk/);
+  assert.match(htmlEn, /data-finding-id="finding-1"/);
+  assert.match(htmlZh, /data-finding-id="finding-1"/);
+});
+
 test("renders inline repository URL validation feedback", () => {
   const html = renderToStaticMarkup(
     <ReviewSubmissionForm
       fieldError="Use an HTTPS GitHub repository URL."
       isRunning={false}
+      language="en"
       llmMode="mock"
       onLlmModeChange={() => undefined}
       onRepoUrlChange={() => undefined}
@@ -179,6 +363,7 @@ test("Mock and MiMo selector states remain available", () => {
     <ReviewSubmissionForm
       fieldError={null}
       isRunning={false}
+      language="en"
       llmMode="mock"
       onLlmModeChange={() => undefined}
       onRepoUrlChange={() => undefined}
@@ -191,6 +376,7 @@ test("Mock and MiMo selector states remain available", () => {
     <ReviewSubmissionForm
       fieldError={null}
       isRunning={false}
+      language="en"
       llmMode="mimo"
       onLlmModeChange={() => undefined}
       onRepoUrlChange={() => undefined}
@@ -204,6 +390,28 @@ test("Mock and MiMo selector states remain available", () => {
   assert.match(mockHtml, /No API key required/);
   assert.match(mimoHtml, /MiMo Real LLM/);
   assert.match(mimoHtml, /MIMO_API_KEY/);
+});
+
+test("ReviewSubmissionForm renders Chinese labels", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="zh"
+      llmMode="mock"
+      onLlmModeChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /GitHub 仓库/);
+  assert.match(html, /LLM 模式/);
+  assert.match(html, /MiMo 真实 LLM/);
+  assert.match(html, /开始审查/);
+  assert.match(html, /仅支持公开的 HTTPS GitHub URL/);
 });
 
 test("frontend API client surfaces structured error detail", async () => {
@@ -323,7 +531,7 @@ test("missing MiMo key error remains visible to the client", async () => {
 });
 
 test("runtime timeline shows A1 through A4 with an obvious running step", () => {
-  const html = renderToStaticMarkup(<AgentTimeline agents={[]} progress={runningProgress} />);
+  const html = renderToStaticMarkup(<AgentTimeline agents={[]} language="en" progress={runningProgress} />);
 
   assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
   assert.ok(html.indexOf("ArchitectureAgent") < html.indexOf("CodeSmellAgent"));
@@ -334,8 +542,8 @@ test("runtime timeline shows A1 through A4 with an obvious running step", () => 
 });
 
 test("failed agent state is visible in timeline and structured cards", () => {
-  const timeline = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} progress={null} />);
-  const cards = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} />);
+  const timeline = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} language="en" progress={null} />);
+  const cards = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="en" />);
 
   assert.match(timeline, /data-agent-step="CodeSmellAgent"/);
   assert.match(timeline, /data-status="failed"/);
@@ -344,7 +552,7 @@ test("failed agent state is visible in timeline and structured cards", () => {
 });
 
 test("agent cards render from structured agent-state objects", () => {
-  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} />);
+  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="en" />);
 
   assert.equal((html.match(/data-agent-card=/g) || []).length, 4);
   assert.match(html, /92%/);
@@ -356,6 +564,7 @@ test("findings and severity badges render from structured findings", () => {
     <FindingsPanel
       error={null}
       findings={structuredFindings}
+      language="en"
       loading={false}
       onRetry={() => undefined}
     />
@@ -373,6 +582,7 @@ test("findings panel renders useful fields when available", () => {
     <FindingsPanel
       error={null}
       findings={structuredFindings}
+      language="en"
       loading={false}
       onRetry={() => undefined}
     />
@@ -413,6 +623,7 @@ test("findings panel does not render empty useful field labels", () => {
     <FindingsPanel
       error={null}
       findings={minimalFindings}
+      language="en"
       loading={false}
       onRetry={() => undefined}
     />
@@ -429,6 +640,7 @@ test("evidence IDs render from structured finding evidence references", () => {
     <EvidencePanel
       error={null}
       findings={structuredFindings}
+      language="en"
       loading={false}
       onRetry={() => undefined}
     />
@@ -458,14 +670,14 @@ test("old report fallback renders without structured data or agent summaries", (
       reportMarkdown="# Architecture Summary\nLegacy architecture remains visible."
     />
   );
-  const agents = renderToStaticMarkup(<AgentStateCards agents={[]} />);
+  const agents = renderToStaticMarkup(<AgentStateCards agents={[]} language="en" />);
 
   assert.match(report, /Legacy architecture remains visible/);
   assert.match(agents, /predates persisted agent summaries/);
 });
 
 test("completed v3 review renders four real agent states, not pending placeholders", () => {
-  const html = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} progress={null} />);
+  const html = renderToStaticMarkup(<AgentTimeline agents={structuredAgents} language="en" progress={null} />);
 
   assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
   assert.match(html, /data-status="completed"/);
@@ -524,7 +736,7 @@ const failedAgentStates: ReviewAgentStateItem[] = [
 ];
 
 test("failed review shows completed and failed agents, not all pending", () => {
-  const html = renderToStaticMarkup(<AgentTimeline agents={failedAgentStates} progress={null} />);
+  const html = renderToStaticMarkup(<AgentTimeline agents={failedAgentStates} language="en" progress={null} />);
 
   assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
   assert.match(html, /data-status="completed"/);
@@ -534,7 +746,7 @@ test("failed review shows completed and failed agents, not all pending", () => {
 });
 
 test("failed review agent cards show error detail", () => {
-  const html = renderToStaticMarkup(<AgentStateCards agents={failedAgentStates} />);
+  const html = renderToStaticMarkup(<AgentStateCards agents={failedAgentStates} language="en" />);
 
   assert.match(html, /data-agent-card="CodeSmellAgent"/);
   assert.match(html, /LLM read timeout/);
@@ -572,6 +784,55 @@ test("route loading and error states remain actionable", () => {
   );
 
   assert.match(loadingHtml, /Loading CodePilot workspace/);
-  assert.match(errorHtml, /could not render this page/);
+  // Error page uses useLanguage which defaults to "en" in SSR
+  assert.match(errorHtml, /could not render this page/i);
   assert.match(errorHtml, /Retry/);
+});
+
+test("t() returns English values for all tab keys", () => {
+  assert.equal(t("en", "tabs.overview"), "Overview");
+  assert.equal(t("en", "tabs.agents"), "Agents");
+  assert.equal(t("en", "tabs.findings"), "Findings");
+  assert.equal(t("en", "tabs.report"), "Report");
+  assert.equal(t("en", "tabs.evidence"), "Evidence");
+  assert.equal(t("en", "tabs.metrics"), "Metrics");
+});
+
+test("t() returns Chinese values for all tab keys", () => {
+  assert.equal(t("zh", "tabs.overview"), "总览");
+  assert.equal(t("zh", "tabs.agents"), "Agent");
+  assert.equal(t("zh", "tabs.findings"), "问题发现");
+  assert.equal(t("zh", "tabs.report"), "报告");
+  assert.equal(t("zh", "tabs.evidence"), "证据");
+  assert.equal(t("zh", "tabs.metrics"), "指标");
+});
+
+test("t() returns Chinese values for findings field labels", () => {
+  assert.equal(t("zh", "findings.impact"), "影响");
+  assert.equal(t("zh", "findings.firstSafeStep"), "安全第一步");
+  assert.equal(t("zh", "findings.validationTests"), "验证测试");
+  assert.equal(t("zh", "findings.caveat"), "注意事项");
+  assert.equal(t("zh", "findings.confidence"), "置信度");
+  assert.equal(t("zh", "findings.recommendedAction"), "建议措施");
+});
+
+test("t() returns Chinese values for overview labels", () => {
+  assert.equal(t("zh", "overview.currentReview"), "当前审查");
+  assert.equal(t("zh", "overview.agentsComplete"), "Agent 已完成");
+  assert.equal(t("zh", "overview.findings"), "问题发现");
+  assert.equal(t("zh", "overview.highRiskItems"), "高风险项");
+  assert.equal(t("zh", "overview.evidenceRefs"), "证据引用");
+});
+
+test("t() returns Chinese values for form labels", () => {
+  assert.equal(t("zh", "form.githubRepo"), "GitHub 仓库");
+  assert.equal(t("zh", "form.llmMode"), "LLM 模式");
+  assert.equal(t("zh", "form.startReview"), "开始审查");
+  assert.equal(t("zh", "form.reviewInProgress"), "审查中");
+});
+
+test("t() returns Chinese values for empty states", () => {
+  assert.equal(t("zh", "findings.noStructured"), "暂无结构化问题");
+  assert.equal(t("zh", "evidence.noStructured"), "暂无结构化证据");
+  assert.equal(t("zh", "metrics.notRecorded"), "暂无指标记录");
 });

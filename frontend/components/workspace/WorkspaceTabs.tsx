@@ -19,6 +19,8 @@ import { FindingsPanel } from "@/components/workspace/FindingsPanel";
 import { MetricsPanel } from "@/components/workspace/MetricsPanel";
 import { OverviewPanel } from "@/components/workspace/OverviewPanel";
 import { ReportPanel } from "@/components/workspace/ReportPanel";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { ReviewAgentStateItem, ReviewFindingItem, ReviewResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +31,7 @@ type WorkspaceTabsProps = {
   agents: ReviewAgentStateItem[];
   findings: ReviewFindingItem[];
   isRunning: boolean;
+  language: Language;
   onRetryStructuredData: () => void;
   onTabChange: (tab: WorkspaceTab) => void;
   review: ReviewResponse | null;
@@ -36,20 +39,21 @@ type WorkspaceTabsProps = {
   structuredLoading: boolean;
 };
 
-const tabs = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "agents", label: "Agents", icon: Bot },
-  { id: "findings", label: "Findings", icon: ShieldAlert },
-  { id: "report", label: "Report", icon: FileText },
-  { id: "evidence", label: "Evidence", icon: FileSearch },
-  { id: "metrics", label: "Metrics", icon: BarChart3 }
-] satisfies { id: WorkspaceTab; label: string; icon: typeof LayoutDashboard }[];
+const tabConfigs = [
+  { id: "overview" as WorkspaceTab, key: "tabs.overview", icon: LayoutDashboard },
+  { id: "agents" as WorkspaceTab, key: "tabs.agents", icon: Bot },
+  { id: "findings" as WorkspaceTab, key: "tabs.findings", icon: ShieldAlert },
+  { id: "report" as WorkspaceTab, key: "tabs.report", icon: FileText },
+  { id: "evidence" as WorkspaceTab, key: "tabs.evidence", icon: FileSearch },
+  { id: "metrics" as WorkspaceTab, key: "tabs.metrics", icon: BarChart3 }
+];
 
 export function WorkspaceTabs({
   activeTab,
   agents,
   findings,
   isRunning,
+  language,
   onRetryStructuredData,
   onTabChange,
   review,
@@ -60,22 +64,22 @@ export function WorkspaceTabs({
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     let nextIndex = currentIndex;
-    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabConfigs.length) % tabConfigs.length;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabConfigs.length;
     if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = tabs.length - 1;
-    onTabChange(tabs[nextIndex].id);
-    document.getElementById(`workspace-tab-${tabs[nextIndex].id}`)?.focus();
+    if (event.key === "End") nextIndex = tabConfigs.length - 1;
+    onTabChange(tabConfigs[nextIndex].id);
+    document.getElementById(`workspace-tab-${tabConfigs[nextIndex].id}`)?.focus();
   }
 
   return (
     <section className="min-w-0">
       <div
-        aria-label="Review workspace sections"
+        aria-label={t(language, "tabs.workspaceSections")}
         className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 shadow-panel sm:grid-cols-6"
         role="tablist"
       >
-        {tabs.map((tab, index) => {
+        {tabConfigs.map((tab, index) => {
           const Icon = tab.icon;
           return (
             <button
@@ -96,7 +100,7 @@ export function WorkspaceTabs({
               type="button"
             >
               <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              <span>{t(language, tab.key)}</span>
             </button>
           );
         })}
@@ -113,6 +117,7 @@ export function WorkspaceTabs({
           agents,
           findings,
           isRunning,
+          language,
           onRetryStructuredData,
           review,
           structuredError,
@@ -128,20 +133,21 @@ function renderPanel({
   agents,
   findings,
   isRunning,
+  language,
   onRetryStructuredData,
   review,
   structuredError,
   structuredLoading
 }: Omit<WorkspaceTabsProps, "onTabChange">) {
   if (activeTab === "overview") {
-    return <OverviewPanel agents={agents} findings={findings} review={review} />;
+    return <OverviewPanel agents={agents} findings={findings} language={language} review={review} />;
   }
   if (!review) {
     return (
       <EmptyState
-        description="Start or select a review to populate this workspace section."
-        icon={tabs.find((tab) => tab.id === activeTab)?.icon || LayoutDashboard}
-        title="No review selected"
+        description={t(language, "tabs.noReviewDescription")}
+        icon={tabConfigs.find((tab) => tab.id === activeTab)?.icon || LayoutDashboard}
+        title={t(language, "tabs.noReviewSelected")}
       />
     );
   }
@@ -149,31 +155,31 @@ function renderPanel({
     return (
       <div className="space-y-5">
         <div className="rounded-xl border border-border bg-card p-5 shadow-panel sm:p-6">
-          <AgentTimeline agents={agents} progress={review.progress} />
+          <AgentTimeline agents={agents} language={language} progress={review.progress} />
         </div>
         {isRunning ? (
           <EmptyState
-            description="Persisted counts, confidence, and severity summaries become available after the agent pipeline completes."
+            description={t(language, "tabs.agentSummariesProcessingDesc")}
             icon={Bot}
-            title="Agent summaries are still processing"
+            title={t(language, "tabs.agentSummariesProcessing")}
           />
         ) : structuredLoading ? (
           <div className="grid gap-4 lg:grid-cols-2" role="status">
             {Array.from({ length: 4 }, (_, index) => (
               <div className="skeleton h-56 rounded-xl" key={index} />
             ))}
-            <span className="sr-only">Loading persisted agent states</span>
+            <span className="sr-only">{t(language, "tabs.loadingAgentStates")}</span>
           </div>
         ) : structuredError ? (
           <EmptyState
-            actionLabel="Retry agent states"
+            actionLabel={t(language, "tabs.retryAgentStates")}
             description={structuredError}
             icon={Bot}
             onAction={onRetryStructuredData}
-            title="Agent summaries could not be loaded"
+            title={t(language, "tabs.agentSummariesLoadError")}
           />
         ) : (
-          <AgentStateCards agents={agents} />
+          <AgentStateCards agents={agents} language={language} />
         )}
       </div>
     );
@@ -182,9 +188,9 @@ function renderPanel({
     if (isRunning) {
       return (
         <EmptyState
-          description="Findings appear here after the agents finish validation and the review reaches a terminal state."
+          description={t(language, "tabs.findingsValidatedDesc")}
           icon={ShieldAlert}
-          title="Findings are being validated"
+          title={t(language, "tabs.findingsBeingValidated")}
         />
       );
     }
@@ -192,21 +198,22 @@ function renderPanel({
       <FindingsPanel
         error={structuredError}
         findings={findings}
+        language={language}
         loading={structuredLoading}
         onRetry={onRetryStructuredData}
       />
     );
   }
   if (activeTab === "report") {
-    return <ReportPanel isRunning={isRunning} reportMarkdown={review?.report_markdown} />;
+    return <ReportPanel isRunning={isRunning} language={language} reportMarkdown={review?.report_markdown} />;
   }
   if (activeTab === "evidence") {
     if (isRunning) {
       return (
         <EmptyState
-          description="Validated file, symbol, and line references appear after the review completes."
+          description={t(language, "tabs.evidenceCollectedDesc")}
           icon={FileSearch}
-          title="Evidence is being collected"
+          title={t(language, "tabs.evidenceBeingCollected")}
         />
       );
     }
@@ -214,6 +221,7 @@ function renderPanel({
       <EvidencePanel
         error={structuredError}
         findings={findings}
+        language={language}
         loading={structuredLoading}
         onRetry={onRetryStructuredData}
       />
@@ -222,9 +230,9 @@ function renderPanel({
   if (isRunning) {
     return (
       <EmptyState
-        description="Review metrics finalize when structured findings and persisted agent states are available."
+        description={t(language, "tabs.metricsProcessingDesc")}
         icon={BarChart3}
-        title="Metrics are still processing"
+        title={t(language, "tabs.metricsStillProcessing")}
       />
     );
   }
@@ -234,20 +242,20 @@ function renderPanel({
         {Array.from({ length: 4 }, (_, index) => (
           <div className="skeleton h-28 rounded-xl" key={index} />
         ))}
-        <span className="sr-only">Loading review metrics</span>
+        <span className="sr-only">{t(language, "tabs.loadingReviewMetrics")}</span>
       </div>
     );
   }
   if (structuredError) {
     return (
       <EmptyState
-        actionLabel="Retry metrics"
+        actionLabel={t(language, "tabs.retryMetrics")}
         description={structuredError}
         icon={BarChart3}
         onAction={onRetryStructuredData}
-        title="Metrics could not be loaded"
+        title={t(language, "tabs.metricsLoadError")}
       />
     );
   }
-  return <MetricsPanel agents={agents} findings={findings} />;
+  return <MetricsPanel agents={agents} findings={findings} language={language} />;
 }

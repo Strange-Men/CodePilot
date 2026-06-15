@@ -4,10 +4,13 @@ import { Github, Loader2, Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 
 type ReviewSubmissionFormProps = {
   fieldError: string | null;
   isRunning: boolean;
+  language: Language;
   llmMode: "mock" | "mimo";
   onLlmModeChange: (mode: "mock" | "mimo") => void;
   onRepoUrlChange: (repoUrl: string) => void;
@@ -19,6 +22,7 @@ type ReviewSubmissionFormProps = {
 export function ReviewSubmissionForm({
   fieldError,
   isRunning,
+  language,
   llmMode,
   onLlmModeChange,
   onRepoUrlChange,
@@ -30,7 +34,7 @@ export function ReviewSubmissionForm({
     <form className="space-y-4" onSubmit={onSubmit}>
       <div className="space-y-2">
         <label className="text-xs font-semibold text-foreground" htmlFor="repo-url">
-          GitHub repository
+          {t(language, "form.githubRepo")}
         </label>
         <div className="relative">
           <Github className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -47,7 +51,7 @@ export function ReviewSubmissionForm({
           />
         </div>
         <p className="text-xs leading-5 text-muted-foreground" id="repo-url-help">
-          Public HTTPS GitHub URLs only.
+          {t(language, "form.githubHelp")}
         </p>
       </div>
       {fieldError ? (
@@ -57,7 +61,7 @@ export function ReviewSubmissionForm({
       ) : null}
       <div className="space-y-2">
         <label className="text-xs font-semibold text-foreground" htmlFor="llm-mode-select">
-          LLM Mode
+          {t(language, "form.llmMode")}
         </label>
         <select
           className="flex h-11 w-full cursor-pointer rounded-lg border border-input bg-card px-3 py-2 text-base transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
@@ -66,18 +70,18 @@ export function ReviewSubmissionForm({
           onChange={(event) => onLlmModeChange(event.target.value as "mock" | "mimo")}
           disabled={submitting || isRunning}
         >
-          <option value="mock">Mock LLM</option>
-          <option value="mimo">MiMo Real LLM</option>
+          <option value="mock">{t(language, "form.mockLlm")}</option>
+          <option value="mimo">{t(language, "form.mimoRealLlm")}</option>
         </select>
         <p className="text-xs leading-5 text-muted-foreground">
           {llmMode === "mock"
-            ? "Uses deterministic mock output. No API key required."
-            : "Uses backend MiMo configuration. Requires MIMO_API_KEY in backend .env."}
+            ? t(language, "form.mockDescription")
+            : t(language, "form.mimoDescription")}
         </p>
       </div>
       <Button className="w-full" disabled={submitting || isRunning} type="submit">
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-        {isRunning ? "Review in progress" : "Start review"}
+        {isRunning ? t(language, "form.reviewInProgress") : t(language, "form.startReview")}
       </Button>
     </form>
   );

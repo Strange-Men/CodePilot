@@ -5,12 +5,15 @@ import React from "react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { STATUS_LABELS, terminalStatuses } from "@/lib/report";
+import type { Language } from "@/lib/i18n";
+import { getLocalizedStatusLabels, t } from "@/lib/i18n";
+import { terminalStatuses } from "@/lib/report";
 import type { ReviewResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type ReviewHistoryPanelProps = {
   error: string | null;
+  language: Language;
   loading: boolean;
   onDelete: (taskId: string) => Promise<void>;
   onRetry: () => void;
@@ -21,6 +24,7 @@ type ReviewHistoryPanelProps = {
 
 export function ReviewHistoryPanel({
   error,
+  language,
   loading,
   onDelete,
   onRetry,
@@ -30,6 +34,7 @@ export function ReviewHistoryPanel({
 }: ReviewHistoryPanelProps) {
   const [confirmTaskId, setConfirmTaskId] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const statusLabels = getLocalizedStatusLabels(language);
 
   async function removeReview(taskId: string) {
     if (confirmTaskId !== taskId) {
@@ -50,10 +55,10 @@ export function ReviewHistoryPanel({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Saved runs
+            {t(language, "history.savedRuns")}
           </p>
           <h2 className="mt-1 text-sm font-semibold" id="review-history-title">
-            Review history
+            {t(language, "history.heading")}
           </h2>
         </div>
         <span className="font-mono text-xs text-muted-foreground">{reviews.length}</span>
@@ -64,7 +69,7 @@ export function ReviewHistoryPanel({
           {Array.from({ length: 3 }, (_, index) => (
             <div className="skeleton h-16 rounded-lg" key={index} />
           ))}
-          <span className="sr-only">Loading previous reviews</span>
+          <span className="sr-only">{t(language, "history.loadingReviews")}</span>
         </div>
       ) : null}
 
@@ -72,7 +77,7 @@ export function ReviewHistoryPanel({
         <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <p className="text-xs leading-5 text-destructive">{error}</p>
           <Button className="mt-2" onClick={onRetry} size="sm" type="button" variant="outline">
-            Retry history
+            {t(language, "history.retryHistory")}
           </Button>
         </div>
       ) : null}
@@ -80,7 +85,7 @@ export function ReviewHistoryPanel({
       {!loading && !error && reviews.length === 0 ? (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-dashed border-border p-3 text-xs leading-5 text-muted-foreground">
           <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
-          Completed and in-progress reviews will appear here.
+          {t(language, "history.emptyDesc")}
         </div>
       ) : null}
 
@@ -106,17 +111,17 @@ export function ReviewHistoryPanel({
                 <span className="block truncate text-xs font-semibold">{repositoryName(review.repo_url)}</span>
                 <span className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <span className={`h-1.5 w-1.5 rounded-full ${statusDot(review.status)}`} />
-                  {STATUS_LABELS[review.status]}
+                  {statusLabels[review.status]}
                 </span>
               </button>
               {canDelete ? (
                 <Button
-                  aria-label={confirming ? `Confirm delete ${repositoryName(review.repo_url)}` : `Delete ${repositoryName(review.repo_url)}`}
+                  aria-label={confirming ? `${t(language, "history.confirmDelete")} ${repositoryName(review.repo_url)}` : `${t(language, "history.deleteReview")} ${repositoryName(review.repo_url)}`}
                   className={cn("self-center", confirming && "px-2 text-destructive")}
                   disabled={deletingTaskId === review.task_id}
                   onClick={() => void removeReview(review.task_id)}
                   size={confirming ? "sm" : "icon"}
-                  title={confirming ? "Confirm delete" : "Delete review"}
+                  title={confirming ? t(language, "history.confirmDelete") : t(language, "history.deleteReview")}
                   type="button"
                   variant="ghost"
                 >
@@ -125,7 +130,7 @@ export function ReviewHistoryPanel({
                   ) : confirming ? (
                     <>
                       <X className="h-4 w-4" />
-                      Confirm
+                      {t(language, "history.confirm")}
                     </>
                   ) : (
                     <Trash2 className="h-4 w-4" />

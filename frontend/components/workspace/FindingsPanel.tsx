@@ -3,35 +3,38 @@ import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/workspace/EmptyState";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { ReviewFindingItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type FindingsPanelProps = {
   error: string | null;
   findings: ReviewFindingItem[];
+  language: Language;
   loading: boolean;
   onRetry: () => void;
 };
 
-export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPanelProps) {
-  if (loading) return <PanelSkeleton rows={3} />;
+export function FindingsPanel({ error, findings, language, loading, onRetry }: FindingsPanelProps) {
+  if (loading) return <PanelSkeleton language={language} rows={3} />;
   if (error) {
     return (
       <EmptyState
-        actionLabel="Retry findings"
+        actionLabel={t(language, "findings.retryFindings")}
         description={error}
         icon={RefreshCcw}
         onAction={onRetry}
-        title="Findings could not be loaded"
+        title={t(language, "findings.loadError")}
       />
     );
   }
   if (!findings.length) {
     return (
       <EmptyState
-        description="No structured findings were stored for this review. Legacy report content is still available in the Report tab."
+        description={t(language, "findings.noStructuredDesc")}
         icon={FileWarning}
-        title="No structured findings"
+        title={t(language, "findings.noStructured")}
       />
     );
   }
@@ -41,12 +44,12 @@ export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPan
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Structured review data
+            {t(language, "findings.structuredData")}
           </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">Findings</h2>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">{t(language, "findings.heading")}</h2>
         </div>
         <span className="rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground">
-          {findings.length} total
+          {language === "zh" ? `${t(language, "findings.total")} ${findings.length} 项` : `${findings.length} ${t(language, "findings.total")}`}
         </span>
       </div>
 
@@ -60,7 +63,7 @@ export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPan
             <SeverityBadge severity={finding.severity} />
             <span className="text-xs text-muted-foreground">{finding.section}</span>
             <span className="ml-auto font-mono text-xs text-muted-foreground">
-              {Math.round(finding.confidence * 100)}% confidence
+              {t(language, "findings.confidence")} {Math.round(finding.confidence * 100)}%
             </span>
           </div>
           <h3 className="mt-4 text-base font-semibold tracking-tight">
@@ -85,25 +88,25 @@ export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPan
           ) : null}
           {finding.recommendation ? (
             <div className="mt-4 border-l-2 border-primary/60 pl-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">Recommended action</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t(language, "findings.recommendedAction")}</p>
               <p className="mt-1 text-sm leading-6">{finding.recommendation}</p>
             </div>
           ) : null}
           {finding.impact ? (
             <div className="mt-3 border-l-2 border-amber-400/60 pl-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Impact</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">{t(language, "findings.impact")}</p>
               <p className="mt-1 text-sm leading-6">{finding.impact}</p>
             </div>
           ) : null}
           {finding.first_step ? (
             <div className="mt-3 border-l-2 border-emerald-400/60 pl-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">First safe step</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(language, "findings.firstSafeStep")}</p>
               <p className="mt-1 text-sm leading-6">{finding.first_step}</p>
             </div>
           ) : null}
           {finding.validation_tests.length ? (
             <div className="mt-3 pl-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Validation tests</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(language, "findings.validationTests")}</p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {finding.validation_tests.map((test) => (
                   <code
@@ -118,13 +121,13 @@ export function FindingsPanel({ error, findings, loading, onRetry }: FindingsPan
           ) : null}
           {finding.caveat ? (
             <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caveat</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(language, "findings.caveat")}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">{finding.caveat}</p>
             </div>
           ) : null}
           {finding.evidence_ids.length ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Evidence</span>
+              <span className="text-muted-foreground">{t(language, "findings.evidence")}</span>
               {finding.evidence_ids.map((evidenceId) => (
                 <code
                   className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono font-semibold text-primary"
@@ -164,7 +167,7 @@ const severityStyles: Record<string, string> = {
   informational: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
 };
 
-function PanelSkeleton({ rows }: { rows: number }) {
+function PanelSkeleton({ language, rows }: { language: Language; rows: number }) {
   return (
     <div className="space-y-4" role="status">
       <div className="skeleton h-8 w-44 rounded-lg" />
@@ -176,7 +179,7 @@ function PanelSkeleton({ rows }: { rows: number }) {
           <div className="skeleton mt-2 h-4 w-4/5 rounded" />
         </div>
       ))}
-      <span className="sr-only">Loading structured findings</span>
+      <span className="sr-only">{t(language, "findings.loading")}</span>
     </div>
   );
 }

@@ -2,20 +2,23 @@ import { Activity, BarChart3, Database, ShieldAlert } from "lucide-react";
 import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { ReviewAgentStateItem, ReviewFindingItem } from "@/lib/types";
 
 type MetricsPanelProps = {
   agents: ReviewAgentStateItem[];
   findings: ReviewFindingItem[];
+  language: Language;
 };
 
-export function MetricsPanel({ agents, findings }: MetricsPanelProps) {
+export function MetricsPanel({ agents, findings, language }: MetricsPanelProps) {
   if (!agents.length && !findings.length) {
     return (
       <EmptyState
-        description="Structured metrics are unavailable for this legacy review. Use the Report tab for the original analysis."
+        description={t(language, "metrics.notRecordedDesc")}
         icon={BarChart3}
-        title="Metrics are not recorded"
+        title={t(language, "metrics.notRecorded")}
       />
     );
   }
@@ -33,25 +36,25 @@ export function MetricsPanel({ agents, findings }: MetricsPanelProps) {
     <div className="space-y-5" data-structured-metrics>
       <div>
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-          Review telemetry
+          {t(language, "metrics.telemetry")}
         </p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight">Metrics</h2>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight">{t(language, "metrics.heading")}</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={ShieldAlert} label="Findings" value={String(findings.length)} />
-        <MetricCard icon={Database} label="Evidence refs" value={String(evidenceCount)} />
-        <MetricCard icon={Activity} label="Agent records" value={String(agents.length)} />
+        <MetricCard icon={ShieldAlert} label={t(language, "metrics.findings")} value={String(findings.length)} />
+        <MetricCard icon={Database} label={t(language, "metrics.evidenceRefs")} value={String(evidenceCount)} />
+        <MetricCard icon={Activity} label={t(language, "metrics.agentRecords")} value={String(agents.length)} />
         <MetricCard
           icon={BarChart3}
-          label="Avg confidence"
+          label={t(language, "metrics.avgConfidence")}
           value={findings.length ? `${Math.round(averageConfidence * 100)}%` : "n/a"}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-border bg-card p-5 shadow-panel">
-          <h3 className="text-sm font-semibold">Severity distribution</h3>
+          <h3 className="text-sm font-semibold">{t(language, "metrics.severityDist")}</h3>
           <div className="mt-5 space-y-4">
             {Object.entries(severity).map(([label, count]) => (
               <div key={label}>
@@ -70,10 +73,10 @@ export function MetricsPanel({ agents, findings }: MetricsPanelProps) {
           </div>
         </section>
         <section className="rounded-xl border border-border bg-card p-5 shadow-panel">
-          <h3 className="text-sm font-semibold">Risk signal</h3>
+          <h3 className="text-sm font-semibold">{t(language, "metrics.riskSignal")}</h3>
           <p className="mt-4 font-mono text-4xl font-semibold tracking-tight">{highRisk}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Critical or high severity findings that should be triaged before routine cleanup.
+            {t(language, "metrics.riskSignalDesc")}
           </p>
         </section>
       </div>

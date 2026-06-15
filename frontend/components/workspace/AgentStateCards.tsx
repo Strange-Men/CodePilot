@@ -2,16 +2,18 @@ import { Activity, AlertTriangle, CheckCircle2, Database } from "lucide-react";
 import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { ReviewAgentStateItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function AgentStateCards({ agents }: { agents: ReviewAgentStateItem[] }) {
+export function AgentStateCards({ agents, language }: { agents: ReviewAgentStateItem[]; language: Language }) {
   if (!agents.length) {
     return (
       <EmptyState
-        description="This review predates persisted agent summaries. The report remains available in the Report tab."
+        description={t(language, "agentCards.notRecordedDesc")}
         icon={Activity}
-        title="Agent summaries are not recorded"
+        title={t(language, "agentCards.notRecorded")}
       />
     );
   }
@@ -42,19 +44,19 @@ export function AgentStateCards({ agents }: { agents: ReviewAgentStateItem[] }) 
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              {agent.status}
+              {t(language, `agentStatus.${agent.status}`)}
             </span>
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-3">
-            <Metric label="Findings" value={String(agent.findings_count)} />
-            <Metric label="Evidence" value={String(agent.evidence_count)} />
+            <Metric label={t(language, "agentCards.findings")} value={String(agent.findings_count)} />
+            <Metric label={t(language, "agentCards.evidence")} value={String(agent.evidence_count)} />
             <Metric
-              label="Avg confidence"
+              label={t(language, "agentCards.avgConfidence")}
               value={agent.average_confidence === null ? "n/a" : `${Math.round(agent.average_confidence * 100)}%`}
             />
             <Metric
-              label="Severity"
+              label={t(language, "agentCards.severity")}
               value={severitySummary(agent)}
             />
           </dl>
@@ -73,7 +75,6 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-panel px-3 py-2.5">
       <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {label === "Evidence" ? <Database className="h-3.5 w-3.5" /> : null}
         {label}
       </dt>
       <dd className="mt-1 font-mono text-sm font-semibold">{value}</dd>

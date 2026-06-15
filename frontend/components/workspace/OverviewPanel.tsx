@@ -4,22 +4,24 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { AgentTimeline } from "@/components/workspace/AgentTimeline";
 import { EmptyState } from "@/components/workspace/EmptyState";
-import { STATUS_LABELS } from "@/lib/report";
+import type { Language } from "@/lib/i18n";
+import { getLocalizedStatusLabels, t } from "@/lib/i18n";
 import type { ReviewAgentStateItem, ReviewFindingItem, ReviewResponse } from "@/lib/types";
 
 type OverviewPanelProps = {
   agents: ReviewAgentStateItem[];
   findings: ReviewFindingItem[];
+  language: Language;
   review: ReviewResponse | null;
 };
 
-export function OverviewPanel({ agents, findings, review }: OverviewPanelProps) {
+export function OverviewPanel({ agents, findings, language, review }: OverviewPanelProps) {
   if (!review) {
     return (
       <EmptyState
-        description="Import a public GitHub repository from the control panel. CodePilot will map the repository, run four review agents, and assemble an evidence-grounded report."
+        description={t(language, "overview.startReviewDesc")}
         icon={GitBranch}
-        title="Start a repository review"
+        title={t(language, "overview.startReview")}
       />
     );
   }
@@ -30,6 +32,7 @@ export function OverviewPanel({ agents, findings, review }: OverviewPanelProps) 
   const highRisk = findings.filter((finding) =>
     ["critical", "high"].includes(finding.severity.toLowerCase())
   ).length;
+  const statusLabels = getLocalizedStatusLabels(language);
 
   return (
     <div className="space-y-5">
@@ -40,18 +43,18 @@ export function OverviewPanel({ agents, findings, review }: OverviewPanelProps) 
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                  Current review
+                  {t(language, "overview.currentReview")}
                 </p>
                 <h2 className="mt-2 break-all text-xl font-semibold tracking-tight sm:text-2xl">
                   {repositoryName(review.repo_url)}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  {overviewMessage(review)}
+                  {overviewMessage(review, language)}
                 </p>
               </div>
               <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-semibold">
                 <span className={`h-2 w-2 rounded-full ${statusDot(review.status)}`} />
-                {STATUS_LABELS[review.status]}
+                {statusLabels[review.status]}
               </span>
             </div>
           </div>
@@ -59,21 +62,21 @@ export function OverviewPanel({ agents, findings, review }: OverviewPanelProps) 
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard icon={CheckCircle2} label="Agents complete" value={`${completedAgents}/4`} />
-        <SummaryCard icon={ShieldAlert} label="Findings" value={String(findings.length)} />
-        <SummaryCard icon={Clock3} label="High-risk items" value={String(highRisk)} />
-        <SummaryCard icon={GitBranch} label="Evidence refs" value={String(evidenceCount)} />
+        <SummaryCard icon={CheckCircle2} label={t(language, "overview.agentsComplete")} value={`${completedAgents}/4`} />
+        <SummaryCard icon={ShieldAlert} label={t(language, "overview.findings")} value={String(findings.length)} />
+        <SummaryCard icon={Clock3} label={t(language, "overview.highRiskItems")} value={String(highRisk)} />
+        <SummaryCard icon={GitBranch} label={t(language, "overview.evidenceRefs")} value={String(evidenceCount)} />
       </div>
 
       <Card className="p-5 sm:p-6">
-        <AgentTimeline agents={agents} progress={review.progress} />
+        <AgentTimeline agents={agents} language={language} progress={review.progress} />
       </Card>
 
       {review.status === "failed" ? (
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-5" role="alert">
-          <p className="font-semibold text-destructive">Review interrupted</p>
+          <p className="font-semibold text-destructive">{t(language, "overview.reviewInterrupted")}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {review.error || "The review stopped before completion. Start a new review after checking the repository and provider configuration."}
+            {review.error || overviewMessage(review, language)}
           </p>
         </div>
       ) : null}
@@ -109,12 +112,12 @@ function repositoryName(repoUrl: string): string {
   }
 }
 
-function overviewMessage(review: ReviewResponse): string {
+function overviewMessage(review: ReviewResponse, language: Language): string {
   if (review.status === "completed") {
-    return "Review complete. Structured agent, finding, evidence, and metric data is ready across the workspace tabs.";
+    return t(language, "overview.reviewComplete");
   }
   if (review.status === "failed") {
-    return "The latest execution did not complete. Persisted progress remains visible for diagnosis.";
+    return t(language, "overview.reviewFailed");
   }
   return review.progress?.current_phase || "Preparing the review pipeline.";
 }

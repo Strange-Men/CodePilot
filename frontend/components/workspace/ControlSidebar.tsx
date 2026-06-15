@@ -6,7 +6,8 @@ import { ReviewSubmissionForm } from "@/components/ReviewSubmissionForm";
 import { Button } from "@/components/ui/button";
 import { ReviewHistoryPanel } from "@/components/workspace/ReviewHistoryPanel";
 import { getReviewExportUrl } from "@/lib/api";
-import { STATUS_LABELS } from "@/lib/report";
+import type { Language } from "@/lib/i18n";
+import { getLocalizedStatusLabels, t } from "@/lib/i18n";
 import type { ReviewResponse } from "@/lib/types";
 
 type ControlSidebarProps = {
@@ -16,6 +17,7 @@ type ControlSidebarProps = {
   historyError: string | null;
   historyLoading: boolean;
   isRunning: boolean;
+  language: Language;
   llmMode: "mock" | "mimo";
   onDelete: (taskId: string) => Promise<void>;
   onHistoryRetry: () => void;
@@ -37,6 +39,7 @@ export function ControlSidebar({
   historyError,
   historyLoading,
   isRunning,
+  language,
   llmMode,
   onDelete,
   onHistoryRetry,
@@ -51,16 +54,17 @@ export function ControlSidebar({
   taskId
 }: ControlSidebarProps) {
   const currentTaskId = review?.task_id || taskId;
+  const statusLabels = getLocalizedStatusLabels(language);
 
   return (
     <aside className="rounded-xl border border-border bg-card p-5 shadow-panel lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
       <div>
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
-          Control panel
+          {t(language, "sidebar.controlPanel")}
         </p>
-        <h2 className="mt-1 text-lg font-semibold tracking-tight">Repository review</h2>
+        <h2 className="mt-1 text-lg font-semibold tracking-tight">{t(language, "sidebar.repositoryReview")}</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Import a public GitHub repository and run the evidence-grounded review pipeline.
+          {t(language, "sidebar.description")}
         </p>
       </div>
 
@@ -68,6 +72,7 @@ export function ControlSidebar({
         <ReviewSubmissionForm
           fieldError={fieldError}
           isRunning={isRunning}
+          language={language}
           llmMode={llmMode}
           onLlmModeChange={onLlmModeChange}
           onRepoUrlChange={onRepoUrlChange}
@@ -77,13 +82,13 @@ export function ControlSidebar({
         />
       </div>
 
-      <section aria-label="Current task status" className="mt-5 rounded-xl border border-border bg-panel p-4">
+      <section aria-label={t(language, "sidebar.currentStatus")} className="mt-5 rounded-xl border border-border bg-panel p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted-foreground">Current status</span>
+          <span className="text-xs font-medium text-muted-foreground">{t(language, "sidebar.currentStatus")}</span>
           {isRunning ? <LoaderCircle className="h-4 w-4 animate-spin text-primary" /> : <Radio className="h-4 w-4 text-muted-foreground" />}
         </div>
         <p className="mt-2 text-sm font-semibold">
-          {review ? STATUS_LABELS[review.status] : taskId ? "Queued" : "Not started"}
+          {review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "sidebar.notStarted")}
         </p>
         {currentTaskId ? (
           <code className="mt-2 block truncate font-mono text-[11px] text-muted-foreground" title={currentTaskId}>
@@ -122,7 +127,7 @@ export function ControlSidebar({
         <Button asChild className="mt-4 w-full" variant="outline">
           <a href={getReviewExportUrl(review.task_id)}>
             <Download className="h-4 w-4" />
-            Export Markdown
+            {t(language, "sidebar.exportMarkdown")}
             <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
           </a>
         </Button>
@@ -130,6 +135,7 @@ export function ControlSidebar({
 
       <ReviewHistoryPanel
         error={historyError}
+        language={language}
         loading={historyLoading}
         onDelete={onDelete}
         onRetry={onHistoryRetry}

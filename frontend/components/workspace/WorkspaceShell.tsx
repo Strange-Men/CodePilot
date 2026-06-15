@@ -6,8 +6,10 @@ import React from "react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ControlSidebar } from "@/components/workspace/ControlSidebar";
+import { LanguageToggle } from "@/components/workspace/LanguageToggle";
 import { ThemeToggle } from "@/components/workspace/ThemeToggle";
 import { type WorkspaceTab, WorkspaceTabs } from "@/components/workspace/WorkspaceTabs";
+import { useLanguage } from "@/hooks/useLanguage";
 import { useReviewPolling } from "@/hooks/useReviewPolling";
 import {
   createReview,
@@ -16,7 +18,8 @@ import {
   getReviewFindings,
   listReviews
 } from "@/lib/api";
-import { STATUS_LABELS, terminalStatuses } from "@/lib/report";
+import { getLocalizedStatusLabels, t } from "@/lib/i18n";
+import { terminalStatuses } from "@/lib/report";
 import type { ReviewAgentStateItem, ReviewFindingItem, ReviewResponse } from "@/lib/types";
 import { validateGitHubRepositoryUrl } from "@/lib/validation";
 
@@ -37,7 +40,9 @@ export function WorkspaceShell() {
   const [structuredLoading, setStructuredLoading] = useState(false);
   const [structuredError, setStructuredError] = useState<string | null>(null);
   const [structuredReloadKey, setStructuredReloadKey] = useState(0);
+  const [language, setLanguage] = useLanguage();
 
+  const statusLabels = getLocalizedStatusLabels(language);
   const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
 
   const refreshHistory = useCallback(async () => {
@@ -174,11 +179,11 @@ export function WorkspaceShell() {
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-base font-semibold tracking-tight">CodePilot</h1>
                 <span className="hidden font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground sm:inline">
-                  Review Workspace
+                  {t(language, "header.workspace")}
                 </span>
               </div>
               <p className="hidden truncate text-xs text-muted-foreground sm:block">
-                Evidence-grounded repository analysis
+                {t(language, "header.tagline")}
               </p>
             </div>
           </div>
@@ -190,8 +195,9 @@ export function WorkspaceShell() {
             </span>
             <span className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-xs font-semibold sm:px-3">
               <Radio className={`h-3.5 w-3.5 ${isRunning ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
-              {review ? STATUS_LABELS[review.status] : taskId ? "Queued" : "Idle"}
+              {review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "header.idle")}
             </span>
+            <LanguageToggle language={language} onLanguageChange={setLanguage} />
             <ThemeToggle />
           </div>
         </div>
@@ -205,6 +211,7 @@ export function WorkspaceShell() {
           historyError={historyError}
           historyLoading={historyLoading}
           isRunning={isRunning}
+          language={language}
           llmMode={llmMode}
           onDelete={removeReview}
           onHistoryRetry={() => void refreshHistory()}
@@ -223,6 +230,7 @@ export function WorkspaceShell() {
           agents={agents}
           findings={findings}
           isRunning={isRunning}
+          language={language}
           onRetryStructuredData={() => setStructuredReloadKey((key) => key + 1)}
           onTabChange={setActiveTab}
           review={review}

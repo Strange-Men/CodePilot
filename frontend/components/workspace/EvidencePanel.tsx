@@ -2,11 +2,14 @@ import { Braces, FileSearch, RefreshCcw } from "lucide-react";
 import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { ReviewEvidenceRefItem, ReviewFindingItem } from "@/lib/types";
 
 type EvidencePanelProps = {
   error: string | null;
   findings: ReviewFindingItem[];
+  language: Language;
   loading: boolean;
   onRetry: () => void;
 };
@@ -15,25 +18,25 @@ type EvidenceItem = ReviewEvidenceRefItem & {
   findingTitles: string[];
 };
 
-export function EvidencePanel({ error, findings, loading, onRetry }: EvidencePanelProps) {
+export function EvidencePanel({ error, findings, language, loading, onRetry }: EvidencePanelProps) {
   if (loading) {
     return (
       <div className="grid gap-4 lg:grid-cols-2" role="status">
         {Array.from({ length: 4 }, (_, index) => (
           <div className="skeleton h-40 rounded-xl" key={index} />
         ))}
-        <span className="sr-only">Loading evidence references</span>
+        <span className="sr-only">{t(language, "evidence.loading")}</span>
       </div>
     );
   }
   if (error) {
     return (
       <EmptyState
-        actionLabel="Retry evidence"
+        actionLabel={t(language, "evidence.retryEvidence")}
         description={error}
         icon={RefreshCcw}
         onAction={onRetry}
-        title="Evidence could not be loaded"
+        title={t(language, "evidence.loadError")}
       />
     );
   }
@@ -42,9 +45,9 @@ export function EvidencePanel({ error, findings, loading, onRetry }: EvidencePan
   if (!evidence.length) {
     return (
       <EmptyState
-        description="No structured evidence references were persisted for this review. The Markdown report may contain a legacy appendix."
+        description={t(language, "evidence.noStructuredDesc")}
         icon={FileSearch}
-        title="No structured evidence"
+        title={t(language, "evidence.noStructured")}
       />
     );
   }
@@ -54,11 +57,11 @@ export function EvidencePanel({ error, findings, loading, onRetry }: EvidencePan
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Validated references
+            {t(language, "evidence.validatedRefs")}
           </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">Evidence</h2>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">{t(language, "evidence.heading")}</h2>
         </div>
-        <span className="font-mono text-xs text-muted-foreground">{evidence.length} references</span>
+        <span className="font-mono text-xs text-muted-foreground">{evidence.length} {t(language, "evidence.references")}</span>
       </div>
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {evidence.map((item) => (
@@ -76,18 +79,18 @@ export function EvidencePanel({ error, findings, loading, onRetry }: EvidencePan
                   {item.evidence_id}
                 </code>
                 <p className="mt-2 break-words font-mono text-xs text-muted-foreground">
-                  {formatLocation(item)}
+                  {formatLocation(item, language)}
                 </p>
               </div>
             </div>
             {item.symbol_name ? (
               <p className="mt-4 text-sm">
-                <span className="text-muted-foreground">Symbol:</span>{" "}
+                <span className="text-muted-foreground">{t(language, "evidence.symbol")}</span>{" "}
                 <code className="font-mono">{item.symbol_name}</code>
               </p>
             ) : null}
             <div className="mt-4 border-t border-border pt-3">
-              <p className="text-xs font-medium text-muted-foreground">Supports</p>
+              <p className="text-xs font-medium text-muted-foreground">{t(language, "evidence.supports")}</p>
               <p className="mt-1 text-sm leading-5">{item.findingTitles.join(", ")}</p>
             </div>
           </article>
@@ -126,8 +129,8 @@ function collectEvidence(findings: ReviewFindingItem[]): EvidenceItem[] {
   return [...evidence.values()];
 }
 
-function formatLocation(item: ReviewEvidenceRefItem): string {
-  if (!item.file_path) return "Location unavailable";
+function formatLocation(item: ReviewEvidenceRefItem, language: Language): string {
+  if (!item.file_path) return t(language, "evidence.locationUnavailable");
   if (!item.start_line) return item.file_path;
   const lines = item.end_line && item.end_line !== item.start_line
     ? `${item.start_line}-${item.end_line}`

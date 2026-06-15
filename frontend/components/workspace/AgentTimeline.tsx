@@ -1,6 +1,8 @@
 import { Check, Circle, LoaderCircle, Minus, X } from "lucide-react";
 import React from "react";
 
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type {
   AgentProgressItem,
   AgentProgressStatus,
@@ -18,10 +20,18 @@ const plannedAgents = [
 
 type AgentTimelineProps = {
   agents: ReviewAgentStateItem[];
+  language: Language;
   progress?: ReviewProgressSnapshot | null;
 };
 
-export function AgentTimeline({ agents, progress }: AgentTimelineProps) {
+const agentDescKeys: Record<string, string> = {
+  ArchitectureAgent: "架构分析",
+  CodeSmellAgent: "代码坏味道",
+  MaintainabilityAgent: "可维护性",
+  RefactorAgent: "重构建议"
+};
+
+export function AgentTimeline({ agents, language, progress }: AgentTimelineProps) {
   const steps = timelineSteps(agents, progress);
 
   return (
@@ -29,21 +39,21 @@ export function AgentTimeline({ agents, progress }: AgentTimelineProps) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Execution pipeline
+            {t(language, "timeline.executionPipeline")}
           </p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight" id="agent-timeline-title">
-            Review agents
+            {t(language, "timeline.reviewAgents")}
           </h2>
         </div>
         {progress ? (
           <span className="font-mono text-xs text-muted-foreground">
-            {progress.completed_agents}/{progress.total_agents} complete
+            {progress.completed_agents}/{progress.total_agents} {t(language, "timeline.complete")}
           </span>
         ) : null}
       </div>
 
       <ol
-        aria-label="Review agent timeline"
+        aria-label={t(language, "timeline.reviewAgents")}
         className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
       >
         {steps.map((agent, index) => (
@@ -70,11 +80,14 @@ export function AgentTimeline({ agents, progress }: AgentTimelineProps) {
               <StatusIcon status={agent.status} />
             </div>
             <p className="mt-5 break-words text-sm font-semibold">{agent.agent_id}</p>
+            {language === "zh" ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">{agentDescKeys[agent.agent_id] || agent.agent_id}</p>
+            ) : null}
             <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-xs capitalize text-muted-foreground">{agent.status}</span>
+              <span className="text-xs capitalize text-muted-foreground">{t(language, `agentStatus.${agent.status}`)}</span>
               {agent.findings_count !== null ? (
                 <span className="font-mono text-xs text-muted-foreground">
-                  {agent.findings_count} findings
+                  {agent.findings_count} {t(language, "timeline.findings")}
                 </span>
               ) : null}
             </div>

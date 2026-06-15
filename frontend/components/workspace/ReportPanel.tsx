@@ -3,6 +3,8 @@ import React from "react";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { EmptyState } from "@/components/workspace/EmptyState";
+import type { Language } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import {
   architectureGraphSection,
   legacyReportAppendixSections,
@@ -11,6 +13,7 @@ import {
 
 type ReportPanelProps = {
   isRunning: boolean;
+  language: Language;
   reportMarkdown: string | null | undefined;
 };
 
@@ -20,17 +23,17 @@ const deEmphasizedSections = new Set([
   architectureGraphSection
 ]);
 
-export function ReportPanel({ isRunning, reportMarkdown }: ReportPanelProps) {
+export function ReportPanel({ isRunning, language, reportMarkdown }: ReportPanelProps) {
   if (!reportMarkdown) {
     return (
       <EmptyState
         description={
           isRunning
-            ? "The report is assembled after the review agents finish. Runtime progress remains available in Overview and Agents."
-            : "Select a completed review or start a new one to read its Markdown report."
+            ? t(language, "report.inProgressDesc")
+            : t(language, "report.noReportDesc")
         }
         icon={isRunning ? RefreshCcw : FileText}
-        title={isRunning ? "Report generation is in progress" : "No report selected"}
+        title={isRunning ? t(language, "report.inProgress") : t(language, "report.noReport")}
       />
     );
   }
@@ -55,11 +58,11 @@ export function ReportPanel({ isRunning, reportMarkdown }: ReportPanelProps) {
     <div className="grid gap-5 min-[1200px]:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="hidden min-[1200px]:block">
         <nav
-          aria-label="Report section navigation"
+          aria-label={t(language, "report.sectionNav")}
           className="sticky top-24 rounded-xl border border-border bg-card p-3 shadow-panel"
         >
           <p className="px-2 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Report outline
+            {t(language, "report.outline")}
           </p>
           {sections.map(([title]) => (
             <a
@@ -80,7 +83,7 @@ export function ReportPanel({ isRunning, reportMarkdown }: ReportPanelProps) {
             key={title}
           >
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
-              Report section
+              {t(language, "report.section")}
             </p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">{title}</h2>
             <div className="mt-5">
@@ -91,7 +94,7 @@ export function ReportPanel({ isRunning, reportMarkdown }: ReportPanelProps) {
         {appendices.length ? (
           <details className="rounded-xl border border-border bg-card shadow-panel">
             <summary className="min-h-11 cursor-pointer px-5 py-3 text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:text-foreground sm:px-7">
-              Legacy appendices and repository diagnostics
+              {t(language, "report.legacyAppendices")}
             </summary>
             <div className="space-y-5 border-t border-border p-5 sm:p-7">
               {appendices.map(([title, content]) => (

@@ -1,0 +1,361 @@
+export type Language = "en" | "zh";
+
+const dictionaries: Record<Language, Record<string, string>> = {
+  en: {
+    // Header
+    "header.workspace": "Review Workspace",
+    "header.tagline": "Evidence-grounded repository analysis",
+    "header.queued": "Queued",
+    "header.idle": "Idle",
+
+    // Status labels
+    "status.pending": "Pending",
+    "status.cloning": "Cloning",
+    "status.parsing": "Parsing",
+    "status.summarizing": "Summarizing",
+    "status.reviewing": "Reviewing",
+    "status.completed": "Completed",
+    "status.failed": "Failed",
+
+    // Control sidebar
+    "sidebar.controlPanel": "Control panel",
+    "sidebar.repositoryReview": "Repository review",
+    "sidebar.description": "Import a public GitHub repository and run the evidence-grounded review pipeline.",
+    "sidebar.currentStatus": "Current status",
+    "sidebar.notStarted": "Not started",
+    "sidebar.exportMarkdown": "Export Markdown",
+
+    // Review submission form
+    "form.githubRepo": "GitHub repository",
+    "form.githubHelp": "Public HTTPS GitHub URLs only.",
+    "form.llmMode": "LLM Mode",
+    "form.mockLlm": "Mock LLM",
+    "form.mimoRealLlm": "MiMo Real LLM",
+    "form.mockDescription": "Uses deterministic mock output. No API key required.",
+    "form.mimoDescription": "Uses backend MiMo configuration. Requires MIMO_API_KEY in backend .env.",
+    "form.startReview": "Start review",
+    "form.reviewInProgress": "Review in progress",
+
+    // Workspace tabs
+    "tabs.overview": "Overview",
+    "tabs.agents": "Agents",
+    "tabs.findings": "Findings",
+    "tabs.report": "Report",
+    "tabs.evidence": "Evidence",
+    "tabs.metrics": "Metrics",
+    "tabs.workspaceSections": "Review workspace sections",
+
+    // Tab empty states
+    "tabs.noReviewSelected": "No review selected",
+    "tabs.noReviewDescription": "Start or select a review to populate this workspace section.",
+    "tabs.agentSummariesProcessing": "Agent summaries are still processing",
+    "tabs.agentSummariesProcessingDesc": "Persisted counts, confidence, and severity summaries become available after the agent pipeline completes.",
+    "tabs.loadingAgentStates": "Loading persisted agent states",
+    "tabs.retryAgentStates": "Retry agent states",
+    "tabs.agentSummariesLoadError": "Agent summaries could not be loaded",
+    "tabs.findingsBeingValidated": "Findings are being validated",
+    "tabs.findingsValidatedDesc": "Findings appear here after the agents finish validation and the review reaches a terminal state.",
+    "tabs.evidenceBeingCollected": "Evidence is being collected",
+    "tabs.evidenceCollectedDesc": "Validated file, symbol, and line references appear after the review completes.",
+    "tabs.metricsStillProcessing": "Metrics are still processing",
+    "tabs.metricsProcessingDesc": "Review metrics finalize when structured findings and persisted agent states are available.",
+    "tabs.loadingReviewMetrics": "Loading review metrics",
+    "tabs.retryMetrics": "Retry metrics",
+    "tabs.metricsLoadError": "Metrics could not be loaded",
+
+    // Overview panel
+    "overview.startReview": "Start a repository review",
+    "overview.startReviewDesc": "Import a public GitHub repository from the control panel. CodePilot will map the repository, run four review agents, and assemble an evidence-grounded report.",
+    "overview.currentReview": "Current review",
+    "overview.agentsComplete": "Agents complete",
+    "overview.findings": "Findings",
+    "overview.highRiskItems": "High-risk items",
+    "overview.evidenceRefs": "Evidence refs",
+    "overview.reviewComplete": "Review complete. Structured agent, finding, evidence, and metric data is ready across the workspace tabs.",
+    "overview.reviewFailed": "The latest execution did not complete. Persisted progress remains visible for diagnosis.",
+    "overview.reviewInterrupted": "Review interrupted",
+
+    // Agent timeline
+    "timeline.executionPipeline": "Execution pipeline",
+    "timeline.reviewAgents": "Review agents",
+    "timeline.complete": "complete",
+    "timeline.findings": "findings",
+
+    // Agent status (also used in timeline and state cards)
+    "agentStatus.pending": "pending",
+    "agentStatus.running": "running",
+    "agentStatus.completed": "completed",
+    "agentStatus.failed": "failed",
+    "agentStatus.skipped": "skipped",
+
+    // Agent state cards
+    "agentCards.notRecorded": "Agent summaries are not recorded",
+    "agentCards.notRecordedDesc": "This review predates persisted agent summaries. The report remains available in the Report tab.",
+    "agentCards.findings": "Findings",
+    "agentCards.evidence": "Evidence",
+    "agentCards.avgConfidence": "Avg confidence",
+    "agentCards.severity": "Severity",
+
+    // Findings panel
+    "findings.structuredData": "Structured review data",
+    "findings.heading": "Findings",
+    "findings.total": "total",
+    "findings.recommendedAction": "Recommended action",
+    "findings.impact": "Impact",
+    "findings.firstSafeStep": "First safe step",
+    "findings.validationTests": "Validation tests",
+    "findings.caveat": "Caveat",
+    "findings.evidence": "Evidence",
+    "findings.confidence": "confidence",
+    "findings.noStructured": "No structured findings",
+    "findings.noStructuredDesc": "No structured findings were stored for this review. Legacy report content is still available in the Report tab.",
+    "findings.retryFindings": "Retry findings",
+    "findings.loadError": "Findings could not be loaded",
+    "findings.loading": "Loading structured findings",
+
+    // Evidence panel
+    "evidence.validatedRefs": "Validated references",
+    "evidence.heading": "Evidence",
+    "evidence.references": "references",
+    "evidence.symbol": "Symbol:",
+    "evidence.supports": "Supports",
+    "evidence.locationUnavailable": "Location unavailable",
+    "evidence.noStructured": "No structured evidence",
+    "evidence.noStructuredDesc": "No structured evidence references were persisted for this review. The Markdown report may contain a legacy appendix.",
+    "evidence.retryEvidence": "Retry evidence",
+    "evidence.loadError": "Evidence could not be loaded",
+    "evidence.loading": "Loading evidence references",
+
+    // Metrics panel
+    "metrics.telemetry": "Review telemetry",
+    "metrics.heading": "Metrics",
+    "metrics.findings": "Findings",
+    "metrics.evidenceRefs": "Evidence refs",
+    "metrics.agentRecords": "Agent records",
+    "metrics.avgConfidence": "Avg confidence",
+    "metrics.severityDist": "Severity distribution",
+    "metrics.riskSignal": "Risk signal",
+    "metrics.riskSignalDesc": "Critical or high severity findings that should be triaged before routine cleanup.",
+    "metrics.notRecorded": "Metrics are not recorded",
+    "metrics.notRecordedDesc": "Structured metrics are unavailable for this legacy review. Use the Report tab for the original analysis.",
+
+    // Report panel
+    "report.outline": "Report outline",
+    "report.section": "Report section",
+    "report.legacyAppendices": "Legacy appendices and repository diagnostics",
+    "report.inProgress": "Report generation is in progress",
+    "report.noReport": "No report selected",
+    "report.inProgressDesc": "The report is assembled after the review agents finish. Runtime progress remains available in Overview and Agents.",
+    "report.noReportDesc": "Select a completed review or start a new one to read its Markdown report.",
+    "report.sectionNav": "Report section navigation",
+
+    // Review history panel
+    "history.savedRuns": "Saved runs",
+    "history.heading": "Review history",
+    "history.emptyDesc": "Completed and in-progress reviews will appear here.",
+    "history.retryHistory": "Retry history",
+    "history.confirmDelete": "Confirm delete",
+    "history.deleteReview": "Delete review",
+    "history.loadingReviews": "Loading previous reviews",
+    "history.confirm": "Confirm",
+
+    // Error page
+    "error.title": "CodePilot could not render this page",
+    "error.description": "Your review data is safe. Retry the page, or reload a previous report from history.",
+    "error.retry": "Retry",
+
+    // Loading page
+    "loading.workspace": "Loading CodePilot workspace"
+  },
+
+  zh: {
+    // Header
+    "header.workspace": "审查工作台",
+    "header.tagline": "基于证据的仓库分析",
+    "header.queued": "排队中",
+    "header.idle": "空闲",
+
+    // Status labels
+    "status.pending": "等待中",
+    "status.cloning": "克隆中",
+    "status.parsing": "解析中",
+    "status.summarizing": "总结中",
+    "status.reviewing": "审查中",
+    "status.completed": "已完成",
+    "status.failed": "失败",
+
+    // Control sidebar
+    "sidebar.controlPanel": "控制面板",
+    "sidebar.repositoryReview": "仓库审查",
+    "sidebar.description": "导入公开的 GitHub 仓库，运行基于证据的审查流水线。",
+    "sidebar.currentStatus": "当前状态",
+    "sidebar.notStarted": "未开始",
+    "sidebar.exportMarkdown": "导出 Markdown",
+
+    // Review submission form
+    "form.githubRepo": "GitHub 仓库",
+    "form.githubHelp": "仅支持公开的 HTTPS GitHub URL。",
+    "form.llmMode": "LLM 模式",
+    "form.mockLlm": "Mock LLM",
+    "form.mimoRealLlm": "MiMo 真实 LLM",
+    "form.mockDescription": "使用确定性 Mock 输出，无需 API 密钥。",
+    "form.mimoDescription": "使用后端 MiMo 配置，需在后端 .env 中设置 MIMO_API_KEY。",
+    "form.startReview": "开始审查",
+    "form.reviewInProgress": "审查中",
+
+    // Workspace tabs
+    "tabs.overview": "总览",
+    "tabs.agents": "Agent",
+    "tabs.findings": "问题发现",
+    "tabs.report": "报告",
+    "tabs.evidence": "证据",
+    "tabs.metrics": "指标",
+    "tabs.workspaceSections": "审查工作台各分区",
+
+    // Tab empty states
+    "tabs.noReviewSelected": "未选择审查",
+    "tabs.noReviewDescription": "开始或选择一项审查以填充此工作台分区。",
+    "tabs.agentSummariesProcessing": "Agent 摘要处理中",
+    "tabs.agentSummariesProcessingDesc": "持久化的计数、置信度和严重性摘要将在 Agent 流水线完成后可用。",
+    "tabs.loadingAgentStates": "加载持久化 Agent 状态",
+    "tabs.retryAgentStates": "重试 Agent 状态",
+    "tabs.agentSummariesLoadError": "无法加载 Agent 摘要",
+    "tabs.findingsBeingValidated": "正在验证问题发现",
+    "tabs.findingsValidatedDesc": "Agent 完成验证且审查到达终态后，问题发现将显示在此处。",
+    "tabs.evidenceBeingCollected": "正在收集证据",
+    "tabs.evidenceCollectedDesc": "审查完成后，已验证的文件、符号和行引用将显示。",
+    "tabs.metricsStillProcessing": "指标处理中",
+    "tabs.metricsProcessingDesc": "结构化问题发现和持久化 Agent 状态就绪后，审查指标将最终确定。",
+    "tabs.loadingReviewMetrics": "加载审查指标",
+    "tabs.retryMetrics": "重试指标",
+    "tabs.metricsLoadError": "无法加载指标",
+
+    // Overview panel
+    "overview.startReview": "开始仓库审查",
+    "overview.startReviewDesc": "从控制面板导入公开的 GitHub 仓库。CodePilot 将映射仓库、运行四个审查 Agent，并组装基于证据的报告。",
+    "overview.currentReview": "当前审查",
+    "overview.agentsComplete": "Agent 已完成",
+    "overview.findings": "问题发现",
+    "overview.highRiskItems": "高风险项",
+    "overview.evidenceRefs": "证据引用",
+    "overview.reviewComplete": "审查完成。结构化 Agent、问题发现、证据和指标数据已在工作台各标签中就绪。",
+    "overview.reviewFailed": "最近一次执行未完成。持久化的进度仍可用于诊断。",
+    "overview.reviewInterrupted": "审查中断",
+
+    // Agent timeline
+    "timeline.executionPipeline": "执行流水线",
+    "timeline.reviewAgents": "审查 Agent",
+    "timeline.complete": "已完成",
+    "timeline.findings": "个问题",
+
+    // Agent status
+    "agentStatus.pending": "等待中",
+    "agentStatus.running": "运行中",
+    "agentStatus.completed": "已完成",
+    "agentStatus.failed": "失败",
+    "agentStatus.skipped": "已跳过",
+
+    // Agent state cards
+    "agentCards.notRecorded": "未记录 Agent 摘要",
+    "agentCards.notRecordedDesc": "此审查早于持久化 Agent 摘要功能。报告仍可在「报告」标签中查看。",
+    "agentCards.findings": "问题发现",
+    "agentCards.evidence": "证据",
+    "agentCards.avgConfidence": "平均置信度",
+    "agentCards.severity": "严重性",
+
+    // Findings panel
+    "findings.structuredData": "结构化审查数据",
+    "findings.heading": "问题发现",
+    "findings.total": "共",
+    "findings.recommendedAction": "建议措施",
+    "findings.impact": "影响",
+    "findings.firstSafeStep": "安全第一步",
+    "findings.validationTests": "验证测试",
+    "findings.caveat": "注意事项",
+    "findings.evidence": "证据",
+    "findings.confidence": "置信度",
+    "findings.noStructured": "暂无结构化问题",
+    "findings.noStructuredDesc": "此审查未存储结构化问题发现。旧版报告内容仍可在「报告」标签中查看。",
+    "findings.retryFindings": "重试问题发现",
+    "findings.loadError": "无法加载问题发现",
+    "findings.loading": "加载结构化问题发现",
+
+    // Evidence panel
+    "evidence.validatedRefs": "已验证引用",
+    "evidence.heading": "证据",
+    "evidence.references": "条引用",
+    "evidence.symbol": "符号：",
+    "evidence.supports": "支持",
+    "evidence.locationUnavailable": "位置不可用",
+    "evidence.noStructured": "暂无结构化证据",
+    "evidence.noStructuredDesc": "此审查未持久化结构化证据引用。Markdown 报告可能包含旧版附录。",
+    "evidence.retryEvidence": "重试证据",
+    "evidence.loadError": "无法加载证据",
+    "evidence.loading": "加载证据引用",
+
+    // Metrics panel
+    "metrics.telemetry": "审查遥测",
+    "metrics.heading": "指标",
+    "metrics.findings": "问题发现",
+    "metrics.evidenceRefs": "证据引用",
+    "metrics.agentRecords": "Agent 记录",
+    "metrics.avgConfidence": "平均置信度",
+    "metrics.severityDist": "严重性分布",
+    "metrics.riskSignal": "风险信号",
+    "metrics.riskSignalDesc": "应在常规清理前优先处理的严重或高危问题发现。",
+    "metrics.notRecorded": "暂无指标记录",
+    "metrics.notRecordedDesc": "此旧版审查无结构化指标。请使用「报告」标签查看原始分析。",
+
+    // Report panel
+    "report.outline": "报告大纲",
+    "report.section": "报告章节",
+    "report.legacyAppendices": "旧版附录与仓库诊断",
+    "report.inProgress": "报告生成中",
+    "report.noReport": "未选择报告",
+    "report.inProgressDesc": "报告将在审查 Agent 完成后组装。运行时进度仍可在总览和 Agent 中查看。",
+    "report.noReportDesc": "选择已完成的审查或开始新的审查以查看其 Markdown 报告。",
+    "report.sectionNav": "报告章节导航",
+
+    // Review history panel
+    "history.savedRuns": "已保存记录",
+    "history.heading": "审查历史",
+    "history.emptyDesc": "已完成和进行中的审查将显示在此处。",
+    "history.retryHistory": "重试历史",
+    "history.confirmDelete": "确认删除",
+    "history.deleteReview": "删除审查",
+    "history.loadingReviews": "加载历史审查",
+    "history.confirm": "确认",
+
+    // Error page
+    "error.title": "CodePilot 无法渲染此页面",
+    "error.description": "您的审查数据是安全的。请重试页面，或从历史记录中重新加载之前的报告。",
+    "error.retry": "重试",
+
+    // Loading page
+    "loading.workspace": "加载 CodePilot 工作台"
+  }
+};
+
+export function t(language: Language, key: string): string {
+  const value = dictionaries[language]?.[key];
+  if (value !== undefined) return value;
+  return dictionaries.en[key] ?? key;
+}
+
+const STATUS_KEYS: Record<string, string> = {
+  pending: "status.pending",
+  cloning: "status.cloning",
+  parsing: "status.parsing",
+  summarizing: "status.summarizing",
+  reviewing: "status.reviewing",
+  completed: "status.completed",
+  failed: "status.failed"
+};
+
+export function getLocalizedStatusLabels(language: Language): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [status, key] of Object.entries(STATUS_KEYS)) {
+    result[status] = t(language, key);
+  }
+  return result;
+}
