@@ -32,15 +32,25 @@ class StructuredLLMResult:
 
 
 class StructuredLLMClient:
-    def __init__(self, llm_client: LLMClient, *, model: str = "gpt-4o-mini", max_retries: int = 1) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        *,
+        model: str = "gpt-4o-mini",
+        max_retries: int = 1,
+        max_findings: int | None = None,
+    ) -> None:
         self.llm_client = llm_client
         self.max_retries = max_retries
+        self.max_findings = max_findings
         self.cost_tracker = CostTracker(model=model)
 
     def generate_findings(self, prompt: str, *, allowed_evidence_ids: set[str]) -> StructuredLLMResult:
         structured_mock = getattr(self.llm_client, "generate_structured_findings", None)
         if callable(structured_mock):
             findings = self._filter_allowed(structured_mock(prompt), allowed_evidence_ids)
+            if self.max_findings is not None:
+                findings = findings[: self.max_findings]
             return StructuredLLMResult(findings=findings)
 
         errors: list[str] = []
@@ -50,6 +60,8 @@ class StructuredLLMClient:
             self.cost_tracker.record(current_prompt, completion)
             try:
                 findings = self._parse_findings(completion)
+                if self.max_findings is not None:
+                    findings = findings[: self.max_findings]
                 return StructuredLLMResult(
                     findings=self._filter_allowed(findings, allowed_evidence_ids),
                     invalid_attempts=attempt,

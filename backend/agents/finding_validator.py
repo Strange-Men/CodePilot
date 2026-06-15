@@ -40,4 +40,5 @@ class FindingValidator:
             validation_tests=finding.validation_tests,
             confidence_rationale=finding.confidence_rationale,
             caveat=finding.caveat,
+            display=finding.display,
         )

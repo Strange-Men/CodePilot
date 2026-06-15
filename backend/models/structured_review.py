@@ -3,6 +3,30 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class BilingualTextField(BaseModel):
+    """Display text in one language for a single prose field."""
+
+    title: str | None = None
+    description: str | None = None
+    recommendation: str | None = None
+    impact: str | None = None
+    first_step: str | None = None
+    validation_tests: list[str] = Field(default_factory=list)
+    confidence_rationale: str | None = None
+    caveat: str | None = None
+
+
+class DisplayFields(BaseModel):
+    """Bilingual display fields for a finding.
+
+    Structural fields (severity, confidence, evidence_ids, files, category)
+    remain language-neutral and are NOT included here.
+    """
+
+    en: BilingualTextField = Field(default_factory=BilingualTextField)
+    zh: BilingualTextField = Field(default_factory=BilingualTextField)
+
+
 class RawLLMFinding(BaseModel):
     title: str
     description: str
@@ -16,6 +40,7 @@ class RawLLMFinding(BaseModel):
     validation_tests: list[str] = Field(default_factory=list)
     confidence_rationale: str | None = None
     caveat: str | None = None
+    display: DisplayFields | None = None
 
 
 class ReviewFinding(BaseModel):
@@ -34,6 +59,25 @@ class ReviewFinding(BaseModel):
     validation_tests: list[str] = Field(default_factory=list)
     confidence_rationale: str | None = None
     caveat: str | None = None
+    display: DisplayFields | None = None
+
+    def _display_field(self, field: str, lang: str = "en") -> str | None:
+        """Get a display field value for the given language, falling back to English."""
+        if self.display is not None:
+            lang_fields = getattr(self.display, lang, None) or self.display.en
+            value = getattr(lang_fields, field, None)
+            if value is not None:
+                return value
+        # Fallback to canonical English field
+        return getattr(self, field, None)
+
+    def _display_validation_tests(self, lang: str = "en") -> list[str]:
+        """Get validation_tests for the given language, falling back to English."""
+        if self.display is not None:
+            lang_fields = getattr(self.display, lang, None) or self.display.en
+            if lang_fields.validation_tests:
+                return lang_fields.validation_tests
+        return self.validation_tests
 
     def to_markdown(self) -> str:
         if self.title is None:
@@ -61,6 +105,45 @@ class ReviewFinding(BaseModel):
             heading = f"{heading}\n  Grounding: {'; '.join(self.evidence)}"
         return heading
 
+    def to_localized_markdown(self, lang: str = "en") -> str:
+        """Generate localized markdown using bilingual display fields.
+
+        For lang='en', equivalent to to_markdown().
+        For lang='zh', uses display.zh fields when available.
+        Code symbols, file paths, evidence IDs are never translated.
+        """
+        title = self._display_field("title", lang) or self.title
+        description = self._display_field("description", lang) or self.description
+        if title is None:
+            return (description or "").strip()
+
+        heading = f"- **{title}:** {(description or '').strip()}"
+        if self.category or self.confidence is not None:
+            confidence = f"{self.confidence:.2f}" if self.confidence is not None else "n/a"
+            heading = f"{heading} Category: {self.category or 'general'}; confidence={confidence}."
+        if self.files:
+            heading = f"{heading} Files: {', '.join(f'`{path}`' for path in self.files)}."
+        if self.evidence_ids:
+            heading = f"{heading} Evidence: {', '.join(self.evidence_ids)}."
+        recommendation = self._display_field("recommendation", lang)
+        if recommendation:
+            heading = f"{heading}\n  Recommendation: {recommendation.strip()}"
+        impact = self._display_field("impact", lang)
+        if impact:
+            heading = f"{heading}\n  Impact: {impact.strip()}"
+        first_step = self._display_field("first_step", lang)
+        if first_step:
+            heading = f"{heading}\n  First step: {first_step.strip()}"
+        validation_tests = self._display_validation_tests(lang)
+        if validation_tests:
+            heading = f"{heading}\n  Validation tests: {', '.join(validation_tests)}"
+        caveat = self._display_field("caveat", lang)
+        if caveat:
+            heading = f"{heading}\n  Caveat: {caveat.strip()}"
+        if self.evidence:
+            heading = f"{heading}\n  Grounding: {'; '.join(self.evidence)}"
+        return heading
+
 
 class StructuredReviewDraft(BaseModel):
     findings: list[ReviewFinding] = Field(default_factory=list)
@@ -71,5 +154,11 @@ class StructuredReviewDraft(BaseModel):
     def section_markdown(self, section: str) -> str:
         return "\n\n".join(
             finding.to_markdown()
+            for finding in self.findings_for(section)
+        ).strip()
+
+    def section_localized_markdown(self, section: str, lang: str = "en") -> str:
+        return "\n\n".join(
+            finding.to_localized_markdown(lang)
             for finding in self.findings_for(section)
         ).strip()

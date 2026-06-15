@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 # Localization schema version — bump to invalidate stale caches
 # ---------------------------------------------------------------------------
 
-LOCALIZATION_SCHEMA_VERSION = "v3.5.7"
+LOCALIZATION_SCHEMA_VERSION = "v3.5.8"
 
 
 def _versioned_source_key(source_updated_at: str) -> str:

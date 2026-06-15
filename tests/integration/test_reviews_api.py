@@ -11,7 +11,7 @@ from backend.api.reviews import build_reviews_router
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
 from backend.models.review_state import AgentExecutionState
-from backend.models.structured_review import ReviewFinding
+from backend.models.structured_review import BilingualTextField, DisplayFields, ReviewFinding
 from backend.services.localization_service import LocalizationService, MockTranslator
 from backend.storage.sqlite import ReviewStore
 
@@ -1725,3 +1725,405 @@ def test_findings_lang_en_does_not_trigger_zh_localization(
     assert finding["title"] == "Evidence-grounded architecture boundary"
     # Should NOT have Chinese prose
     assert "架构" not in finding["title"]
+
+
+# --- V3.5.8 bilingual output tests ---
+
+
+def _create_bilingual_review(
+    store: ReviewStore,
+    task_id: str = "task-bi",
+) -> None:
+    """Create a review with bilingual display fields (new format)."""
+    store.create_review(task_id, "https://github.com/example/project")
+    store.update_status(task_id, ReviewStatus.completed, report_markdown="# Test")
+    store.replace_structured_findings(
+        task_id,
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Boundary risk in API layer",
+                description="The API boundary has mixed responsibilities.",
+                severity="high",
+                category="architecture",
+                confidence=0.91,
+                recommendation="Separate transport and domain responsibilities.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_safe"],
+                evidence=["ev_safe -> backend/api/reviews.py:10-20"],
+                impact="Changes may affect multiple consumers.",
+                first_step="Add characterization tests first.",
+                validation_tests=["Run the full test suite before and after."],
+                confidence_rationale="Multiple evidence records confirm.",
+                caveat="Public API compatibility must be preserved.",
+                display=DisplayFields(
+                    en=BilingualTextField(
+                        title="Boundary risk in API layer",
+                        description="The API boundary has mixed responsibilities.",
+                        recommendation="Separate transport and domain responsibilities.",
+                        impact="Changes may affect multiple consumers.",
+                        first_step="Add characterization tests first.",
+                        validation_tests=["Run the full test suite before and after."],
+                        confidence_rationale="Multiple evidence records confirm.",
+                        caveat="Public API compatibility must be preserved.",
+                    ),
+                    zh=BilingualTextField(
+                        title="API 层存在边界风险",
+                        description="API 边界混合了多种职责。",
+                        recommendation="分离传输层和领域层职责。",
+                        impact="变更可能影响多个依赖方。",
+                        first_step="先添加表征测试。",
+                        validation_tests=["在变更前后运行完整测试套件。"],
+                        confidence_rationale="多条证据记录确认了该模式。",
+                        caveat="必须保留公共 API 兼容性。",
+                    ),
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+
+def test_bilingual_findings_zh_uses_stored_display(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """New bilingual reviews should return zh display fields without LLM."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    response = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    assert finding["title"] == "API 层存在边界风险"
+    assert finding["description"] == "API 边界混合了多种职责。"
+    assert finding["recommendation"] == "分离传输层和领域层职责。"
+    assert finding["impact"] == "变更可能影响多个依赖方。"
+    assert finding["first_step"] == "先添加表征测试。"
+    assert finding["caveat"] == "必须保留公共 API 兼容性。"
+    assert "变更前后运行完整测试套件" in finding["validation_tests"][0]
+
+
+def test_bilingual_findings_en_uses_english_display(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """English mode should still work for bilingual reviews."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    response = client.get("/api/reviews/task-bi/findings?lang=en")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    assert finding["title"] == "Boundary risk in API layer"
+    assert finding["description"] == "The API boundary has mixed responsibilities."
+
+
+def test_bilingual_findings_preserves_evidence_ids(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Evidence IDs must be identical across en/zh."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    en = client.get("/api/reviews/task-bi/findings?lang=en")
+    zh = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert en.json()["findings"][0]["evidence_ids"] == zh.json()["findings"][0]["evidence_ids"]
+
+
+def test_bilingual_findings_preserves_files(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """File paths must be identical across en/zh."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    en = client.get("/api/reviews/task-bi/findings?lang=en")
+    zh = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert en.json()["findings"][0]["files"] == zh.json()["findings"][0]["files"]
+
+
+def test_bilingual_findings_preserves_severity_and_confidence(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Severity and confidence must be identical across en/zh."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    en = client.get("/api/reviews/task-bi/findings?lang=en")
+    zh = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    en_f = en.json()["findings"][0]
+    zh_f = zh.json()["findings"][0]
+    assert en_f["severity"] == zh_f["severity"] == "high"
+    assert en_f["confidence"] == zh_f["confidence"] == 0.91
+
+
+def test_bilingual_report_zh_uses_stored_display(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese report for bilingual reviews should use stored zh fields."""
+    client, store, _ = api_client
+    # Report content uses the exact English impact text so replacement works
+    report = (
+        "# Action Plan\n"
+        "## 1. Boundary risk in API layer\n"
+        "- Changes may affect multiple consumers.\n"
+        "- **Evidence:** `ev_safe`\n"
+    )
+    store.create_review("task-bi-report", "https://github.com/example/project")
+    store.update_status("task-bi-report", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-bi-report",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Boundary risk in API layer",
+                description="The API boundary has mixed responsibilities.",
+                severity="high",
+                category="architecture",
+                confidence=0.91,
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_safe"],
+                evidence=["ev_safe -> backend/api/reviews.py:10-20"],
+                impact="Changes may affect multiple consumers.",
+                display=DisplayFields(
+                    en=BilingualTextField(
+                        title="Boundary risk in API layer",
+                        impact="Changes may affect multiple consumers.",
+                    ),
+                    zh=BilingualTextField(
+                        title="API 层存在边界风险",
+                        impact="变更可能影响多个依赖方。",
+                    ),
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-bi-report?lang=zh")
+
+    assert response.status_code == 200
+    report_md = response.json()["report_markdown"]
+    # Chinese display fields should replace English prose
+    assert "变更可能影响多个依赖方" in report_md
+    # Evidence IDs preserved
+    assert "ev_safe" in report_md
+
+
+def test_bilingual_export_zh_uses_stored_display(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese export for bilingual reviews should use stored zh fields."""
+    client, store, _ = api_client
+    # Report content uses the exact English impact text so replacement works
+    report = (
+        "# Action Plan\n"
+        "- Changes may affect multiple consumers.\n"
+        "- **Evidence:** `ev_safe`\n"
+    )
+    store.create_review("task-bi-export", "https://github.com/example/project")
+    store.update_status("task-bi-export", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-bi-export",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Boundary risk",
+                description="desc",
+                severity="high",
+                category="architecture",
+                confidence=0.91,
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_safe"],
+                evidence=["ev_safe -> backend/api/reviews.py:10-20"],
+                impact="Changes may affect multiple consumers.",
+                display=DisplayFields(
+                    en=BilingualTextField(impact="Changes may affect multiple consumers."),
+                    zh=BilingualTextField(impact="变更可能影响多个依赖方。"),
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-bi-export/export?lang=zh")
+
+    assert response.status_code == 200
+    assert "变更可能影响多个依赖方" in response.text
+    assert "ev_safe" in response.text
+    # Headings should be translated
+    assert "行动计划" in response.text
+
+
+def test_bilingual_review_zh_does_not_call_translator(
+    tmp_path: Path,
+) -> None:
+    """New bilingual reviews should NOT call the translator for zh."""
+    store = ReviewStore(tmp_path / "reviews.db")
+    runner = FakeRunner(store)
+
+    class TrackingTranslator:
+        called = False
+
+        def translate_finding_prose(self, finding: dict) -> dict:
+            TrackingTranslator.called = True
+            raise RuntimeError("Should not be called")
+
+    localization_service = LocalizationService(store, TrackingTranslator())
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(build_reviews_router(store, runner, localization_service))
+    client = TestClient(app)
+
+    _create_bilingual_review(store)
+
+    # Request zh — should NOT call translator
+    response = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert response.status_code == 200
+    assert TrackingTranslator.called is False
+    finding = response.json()["findings"][0]
+    assert finding["title"] == "API 层存在边界风险"
+
+
+def test_legacy_review_falls_back_to_translator(
+    tmp_path: Path,
+) -> None:
+    """Old reviews without bilingual display should fall back to translator."""
+    store = ReviewStore(tmp_path / "reviews.db")
+    runner = FakeRunner(store)
+
+    class TrackingTranslator:
+        called = False
+
+        def translate_finding_prose(self, finding: dict) -> dict:
+            TrackingTranslator.called = True
+            return {"title_zh": "翻译标题", "description_zh": "翻译描述"}
+
+    localization_service = LocalizationService(store, TrackingTranslator())
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(build_reviews_router(store, runner, localization_service))
+    client = TestClient(app)
+
+    # Create a legacy review WITHOUT bilingual display fields
+    store.create_review("task-legacy", "https://github.com/example/project")
+    store.update_status("task-legacy", ReviewStatus.completed, report_markdown="# Test")
+    store.replace_structured_findings(
+        "task-legacy",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Legacy finding",
+                description="Legacy description",
+                severity="high",
+                files=["a.py"],
+                evidence_ids=["ev_legacy"],
+                evidence=["ev_legacy -> a.py:1-5"],
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_legacy",
+                file_path="a.py",
+                start_line=1,
+                end_line=5,
+                snippet="code",
+                kind="symbol",
+                symbols=[],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-legacy/findings?lang=zh")
+
+    assert response.status_code == 200
+    assert TrackingTranslator.called is True
+
+
+def test_bilingual_switch_en_to_zh_is_instant(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Switching from en to zh should use stored fields, not call LLM."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    # Both requests should work without any LLM calls
+    en = client.get("/api/reviews/task-bi/findings?lang=en")
+    zh = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert en.status_code == 200
+    assert zh.status_code == 200
+    # Different titles
+    assert en.json()["findings"][0]["title"] == "Boundary risk in API layer"
+    assert zh.json()["findings"][0]["title"] == "API 层存在边界风险"
+    # Same structural fields
+    assert en.json()["findings"][0]["evidence_ids"] == zh.json()["findings"][0]["evidence_ids"]
+    assert en.json()["findings"][0]["severity"] == zh.json()["findings"][0]["severity"]
+
+
+def test_bilingual_zh_no_bad_terms(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese output must never contain banned terms."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    response = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    for field in ("title", "description", "recommendation", "impact", "first_step", "caveat"):
+        value = finding.get(field, "")
+        assert "代码坏味道" not in value, f"Banned term in {field}: {value}"
+        assert "[zh]" not in value, f"[zh] prefix in {field}: {value}"
+
+
+def test_bilingual_zh_no_raw_severity_in_findings(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese findings should not contain raw English severity/confidence text."""
+    client, store, _ = api_client
+    _create_bilingual_review(store)
+
+    response = client.get("/api/reviews/task-bi/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    # Structural fields stay as-is (these are canonical values, not display text)
+    assert finding["severity"] == "high"
+    assert finding["confidence"] == 0.91

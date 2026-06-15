@@ -11,7 +11,7 @@ import httpx
 from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.core.report_contract import REPORT_SECTIONS, report_section_heading_list
-from backend.models.structured_review import RawLLMFinding
+from backend.models.structured_review import BilingualTextField, DisplayFields, RawLLMFinding
 
 logger = get_logger(__name__)
 
@@ -166,26 +166,96 @@ class MockLLMClient:
                 "changes without intermediate verification."
             ),
         }
+        title_en = title_by_category.get(category, "Evidence-grounded repository finding")
+        description_en = (
+            "The selected evidence highlights a repository concern that should be reviewed "
+            "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
+        )
+        recommendation_en = recommendation_by_category.get(
+            category,
+            "Review the cited evidence before changing code.",
+        )
+        impact_en = impact_by_category.get(category)
+        first_step_en = first_step_by_category.get(category)
+        validation_tests_en = validation_by_category.get(category, [])
+        confidence_rationale_en = "Based on evidence records provided in the prompt context."
+        caveat_en = caveat_by_category.get(category)
+
+        zh_title_map = {
+            "architecture": "架构边界需要审查",
+            "code_smell": "代码质量问题需要关注",
+            "maintainability": "可维护性风险需要改善",
+            "refactor": "重构候选需要评估",
+        }
+        zh_recommendation_map = {
+            "architecture": "在重构前为该边界添加契约测试，确保接口行为不变。",
+            "code_smell": "检查引用的代码路径，优先降低复杂度最高的职责。",
+            "maintainability": "稳定引用的依赖边界，并用针对性测试覆盖。",
+            "refactor": "将引用的职责提取到更小的接口中，降低耦合度。",
+        }
+        zh_impact_map = {
+            "architecture": "如果接口契约未被保留，该边界的变更可能影响多个依赖方。",
+            "code_smell": "该职责可能积累不相关的变更，增加合并冲突的风险。",
+            "maintainability": "缺少针对性测试覆盖时，后续变更可能引入隐蔽的回归问题。",
+            "refactor": "不改善当前结构会导致后续功能开发更慢、风险更高。",
+        }
+        zh_first_step_map = {
+            "architecture": "在重构前为当前公共接口添加表征测试，锁定现有行为。",
+            "code_smell": "识别复杂度最高的职责，将其提取到独立接口中。",
+            "maintainability": "为引用的边界添加针对性测试，然后审查依赖方向是否合理。",
+            "refactor": "编写测试锁定当前行为，然后提取最小的可复用单元。",
+        }
+        zh_validation_map = {
+            "architecture": ["在边界变更前后运行完整测试套件，确认无回归。"],
+            "code_smell": ["在每个提取步骤后运行引用模块的单元测试。"],
+            "maintainability": ["运行测试套件，确认没有新增警告或失败。"],
+            "refactor": ["每次增量提取后运行测试套件。"],
+        }
+        zh_caveat_map = {
+            "architecture": "如果该边界属于公共 API，变更可能破坏下游使用者。",
+            "code_smell": "部分重复可能是有意为之，以保留独立的扩展点。",
+            "maintainability": "该发现基于结构化信号；行动前请结合生产行为确认。",
+            "refactor": "重构应渐进式进行，避免未经中间验证的大范围变更。",
+        }
+
+        display = DisplayFields(
+            en=BilingualTextField(
+                title=title_en,
+                description=description_en,
+                recommendation=recommendation_en,
+                impact=impact_en,
+                first_step=first_step_en,
+                validation_tests=validation_tests_en,
+                confidence_rationale=confidence_rationale_en,
+                caveat=caveat_en,
+            ),
+            zh=BilingualTextField(
+                title=zh_title_map.get(category, "仓库问题需要关注"),
+                description="引用的证据表明该区域存在结构性问题，在修改入口点、核心模块、共享依赖或重构边界前应优先审查。",
+                recommendation=zh_recommendation_map.get(category, "修改代码前先审查引用的证据，确认影响范围。"),
+                impact=zh_impact_map.get(category),
+                first_step=zh_first_step_map.get(category),
+                validation_tests=zh_validation_map.get(category, ["运行测试套件，确认没有新增警告或失败。"]),
+                confidence_rationale="基于提示上下文中提供的证据记录。",
+                caveat=zh_caveat_map.get(category),
+            ),
+        )
+
         return [
             RawLLMFinding(
-                title=title_by_category.get(category, "Evidence-grounded repository finding"),
-                description=(
-                    "The selected evidence highlights a repository concern that should be reviewed "
-                    "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
-                ),
+                title=title_en,
+                description=description_en,
                 category=category,
                 severity="medium",
                 confidence=0.72,
-                recommendation=recommendation_by_category.get(
-                    category,
-                    "Review the cited evidence before changing code.",
-                ),
+                recommendation=recommendation_en,
                 evidence_ids=evidence_ids[:3],
-                impact=impact_by_category.get(category),
-                first_step=first_step_by_category.get(category),
-                validation_tests=validation_by_category.get(category, []),
-                confidence_rationale="Based on evidence records provided in the prompt context.",
-                caveat=caveat_by_category.get(category),
+                impact=impact_en,
+                first_step=first_step_en,
+                validation_tests=validation_tests_en,
+                confidence_rationale=confidence_rationale_en,
+                caveat=caveat_en,
+                display=display,
             )
         ]
 

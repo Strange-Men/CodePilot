@@ -41,7 +41,15 @@ class Settings(BaseSettings):
     llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
 
     # Agent concurrency
+    # 1 = safest serial fallback
+    # 2 = conservative default
+    # 4 = fastest mode for providers that allow concurrent requests
     review_agent_concurrency: int = Field(default=2, alias="REVIEW_AGENT_CONCURRENCY")
+
+    # Speed mode: 'balanced' (default) or 'fast'
+    # balanced: full evidence counts, full output depth
+    # fast: same agents/evidence/report sections, stricter output budget
+    review_speed_mode: str = Field(default="balanced", alias="REVIEW_SPEED_MODE")
 
     # Localization / translation provider settings
     enable_llm_translation: bool = Field(default=False, alias="ENABLE_LLM_TRANSLATION")

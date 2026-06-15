@@ -24,6 +24,26 @@ from backend.services.localization_service import LocalizationService
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import PLANNED_AGENTS, ReviewTaskRunner
 
+
+def _has_bilingual_display(finding_row: dict) -> bool:
+    """Check if a finding row has bilingual display data for the requested language."""
+    display = finding_row.get("display")
+    if not display or not isinstance(display, dict):
+        return False
+    zh = display.get("zh")
+    if not zh or not isinstance(zh, dict):
+        return False
+    # Check if zh has any non-null prose field
+    prose_fields = ("title", "description", "recommendation", "impact", "first_step", "confidence_rationale", "caveat")
+    return any(zh.get(f) for f in prose_fields)
+
+
+def _all_findings_bilingual(findings: list[dict]) -> bool:
+    """Check if all findings have bilingual display data."""
+    if not findings:
+        return False
+    return all(_has_bilingual_display(f) for f in findings)
+
 SEVERITY_KEYS = ("critical", "high", "medium", "low")
 PLANNED_AGENT_DETAILS = {
     agent_id: (order, label)
@@ -56,9 +76,43 @@ def build_reviews_router(
 
         report_markdown = row["report_markdown"]
         if normalized_lang == "zh" and report_markdown:
-            if localization_service is not None:
+            raw_findings = store.get_structured_findings(task_id)
+            if _all_findings_bilingual(raw_findings):
+                # New bilingual reviews: render zh report from stored display fields
+                from backend.models.structured_review import DisplayFields, ReviewFinding
+
+                findings_with_display = []
+                for f in raw_findings:
+                    display_data = f.get("display")
+                    display = DisplayFields.model_validate(display_data) if display_data else None
+                    finding = ReviewFinding(
+                        section=f["section"],
+                        description=f["description"],
+                        title=f.get("title"),
+                        severity=f.get("severity", "informational"),
+                        category=f.get("category"),
+                        confidence=f.get("confidence"),
+                        files=f.get("files", []),
+                        recommendation=f.get("recommendation"),
+                        evidence_ids=f.get("evidence_ids", []),
+                        evidence=f.get("evidence", []),
+                        impact=f.get("impact"),
+                        first_step=f.get("first_step"),
+                        validation_tests=f.get("validation_tests", []),
+                        confidence_rationale=f.get("confidence_rationale"),
+                        caveat=f.get("caveat"),
+                        display=display,
+                    )
+                    findings_with_display.append(finding)
+                from backend.models.structured_review import StructuredReviewDraft
+
+                draft = StructuredReviewDraft(findings=findings_with_display)
+                report_markdown = render_localized_report(report_markdown, normalized_lang)
+                # Replace English finding prose with zh display fields in the report
+                report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
+            elif localization_service is not None:
+                # Legacy reviews: use localization service as fallback
                 source_updated_at = row.get("updated_at", "")
-                raw_findings = store.get_structured_findings(task_id)
                 report_markdown = localization_service.get_localized_report(
                     task_id, normalized_lang, source_updated_at, report_markdown, raw_findings,
                 )
@@ -77,11 +131,18 @@ def build_reviews_router(
         }
         raw_findings = store.get_structured_findings(task_id)
 
-        if normalized_lang == "zh" and localization_service is not None:
-            source_updated_at = review_row.get("updated_at", "")
-            localized_findings = localization_service.get_localized_findings(
-                task_id, normalized_lang, source_updated_at, raw_findings,
-            )
+        if normalized_lang == "zh":
+            if _all_findings_bilingual(raw_findings):
+                # New bilingual reviews: use stored display.zh fields directly
+                localized_findings = raw_findings
+            elif localization_service is not None:
+                # Legacy reviews: use localization service as fallback
+                source_updated_at = review_row.get("updated_at", "")
+                localized_findings = localization_service.get_localized_findings(
+                    task_id, normalized_lang, source_updated_at, raw_findings,
+                )
+            else:
+                localized_findings = raw_findings
         else:
             localized_findings = raw_findings
 
@@ -130,14 +191,47 @@ def build_reviews_router(
                 "The review must complete before its Markdown report can be exported.",
             )
         content = row["report_markdown"]
-        if normalized_lang == "zh" and localization_service is not None:
-            source_updated_at = row.get("updated_at", "")
+        if normalized_lang == "zh":
             raw_findings = store.get_structured_findings(task_id)
-            content = localization_service.get_localized_report(
-                task_id, normalized_lang, source_updated_at, content, raw_findings,
-            )
-        else:
-            content = render_localized_report(content, normalized_lang)
+            if _all_findings_bilingual(raw_findings):
+                # New bilingual reviews: render from stored display fields
+                from backend.models.structured_review import DisplayFields, ReviewFinding
+
+                findings_with_display = []
+                for f in raw_findings:
+                    display_data = f.get("display")
+                    display = DisplayFields.model_validate(display_data) if display_data else None
+                    finding = ReviewFinding(
+                        section=f["section"],
+                        description=f["description"],
+                        title=f.get("title"),
+                        severity=f.get("severity", "informational"),
+                        category=f.get("category"),
+                        confidence=f.get("confidence"),
+                        files=f.get("files", []),
+                        recommendation=f.get("recommendation"),
+                        evidence_ids=f.get("evidence_ids", []),
+                        evidence=f.get("evidence", []),
+                        impact=f.get("impact"),
+                        first_step=f.get("first_step"),
+                        validation_tests=f.get("validation_tests", []),
+                        confidence_rationale=f.get("confidence_rationale"),
+                        caveat=f.get("caveat"),
+                        display=display,
+                    )
+                    findings_with_display.append(finding)
+                from backend.models.structured_review import StructuredReviewDraft
+
+                draft = StructuredReviewDraft(findings=findings_with_display)
+                content = render_localized_report(content, normalized_lang)
+                content = _render_bilingual_report(content, draft, normalized_lang)
+            elif localization_service is not None:
+                source_updated_at = row.get("updated_at", "")
+                content = localization_service.get_localized_report(
+                    task_id, normalized_lang, source_updated_at, content, raw_findings,
+                )
+            else:
+                content = render_localized_report(content, normalized_lang)
         suffix = "-zh" if normalized_lang == "zh" else ""
         filename = f"codepilot-review-{task_id}{suffix}.md"
         return Response(
@@ -208,7 +302,24 @@ def _finding_response(
     caveat = row.get("caveat")
     confidence_rationale = row.get("confidence_rationale")
     validation_tests = row.get("validation_tests") or []
-    if lang == "zh":
+
+    # Check for bilingual display fields (new reviews)
+    display = row.get("display")
+    if lang == "zh" and display and isinstance(display, dict):
+        zh = display.get("zh")
+        if zh and isinstance(zh, dict):
+            title = zh.get("title") or title
+            description = zh.get("description") or description
+            recommendation = zh.get("recommendation") or recommendation
+            impact = zh.get("impact") or impact
+            first_step = zh.get("first_step") or first_step
+            caveat = zh.get("caveat") or caveat
+            confidence_rationale = zh.get("confidence_rationale") or confidence_rationale
+            zh_tests = zh.get("validation_tests")
+            if isinstance(zh_tests, list) and zh_tests:
+                validation_tests = zh_tests
+    elif lang == "zh":
+        # Legacy fallback: use *_zh keys from localization service
         title = row.get("title_zh") or render_localized_finding_text(title, lang) or title
         description = row.get("description_zh") or render_localized_finding_text(description, lang) or description
         recommendation = row.get("recommendation_zh") or render_localized_finding_text(recommendation, lang)
@@ -219,6 +330,7 @@ def _finding_response(
         zh_tests = row.get("validation_tests_zh")
         if isinstance(zh_tests, list) and len(zh_tests) == len(validation_tests):
             validation_tests = zh_tests
+
     return ReviewFindingResponse(
         finding_id=str(row["id"]),
         finding_index=row["finding_index"],
@@ -302,3 +414,48 @@ def _review_response(
         export_path=row["export_path"],
         progress=progress,
     )
+
+
+def _render_bilingual_report(
+    report_markdown: str,
+    draft: object,
+    lang: str,
+) -> str:
+    """Replace English finding prose in the report with bilingual display fields.
+
+    Uses longest-first replacement to avoid partial matches.
+    Only replaces prose content; structural elements (headings, tables, evidence IDs)
+    are already translated by render_localized_report.
+    """
+    replacements: dict[str, str] = {}
+    for finding in draft.findings:
+        # Build replacement pairs for each prose field
+        fields = [
+            ("title", finding.title),
+            ("description", finding.description),
+            ("recommendation", finding.recommendation),
+            ("impact", finding.impact),
+            ("first_step", finding.first_step),
+            ("confidence_rationale", finding.confidence_rationale),
+            ("caveat", finding.caveat),
+        ]
+        for field_name, en_value in fields:
+            if not en_value:
+                continue
+            zh_value = finding._display_field(field_name, lang)
+            if zh_value and zh_value != en_value:
+                replacements[en_value] = zh_value
+
+        # Handle validation_tests
+        en_tests = finding.validation_tests
+        zh_tests = finding._display_validation_tests(lang)
+        if en_tests and zh_tests and len(en_tests) == len(zh_tests):
+            for en_test, zh_test in zip(en_tests, zh_tests, strict=False):
+                if en_test and zh_test and en_test != zh_test:
+                    replacements[en_test] = zh_test
+
+    # Apply replacements longest-first to avoid partial matches
+    for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):
+        report_markdown = report_markdown.replace(en, zh)
+
+    return report_markdown

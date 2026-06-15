@@ -221,10 +221,17 @@ class ReviewPipeline:
         self.store.update_status(task_id, ReviewStatus.reviewing)
         self._notify_progress("evidence_retrieval")
         logger.info("event=review_started task_id=%s", task_id)
+
+        # Adjust token budget for fast mode
+        token_budget = self.settings.final_prompt_token_budget
+        speed_mode = getattr(self.settings, "review_speed_mode", "balanced")
+        if speed_mode == "fast":
+            token_budget = max(1000, token_budget // 2)
+
         report_generator = self.report_generator_factory(
             self.llm_client,
             self.settings.reports_path,
-            self.settings.final_prompt_token_budget,
+            token_budget,
             token_model=self.settings.openai_model,
             agent_concurrency=self.settings.review_agent_concurrency,
         )

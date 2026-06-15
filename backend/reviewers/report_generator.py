@@ -121,11 +121,14 @@ class ReportGenerator:
         draft: StructuredReviewDraft | None = None
         agent_states: list[AgentExecutionState] = []
         review_state: ReviewState | None = None
+
+        per_agent_budget = max(1000, self.prompt_renderer.token_budgeter.budget // 4)
+
         try:
             result = AgentOrchestrator(
                 self.llm_client,
                 model=self.token_model,
-                per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
+                per_agent_token_budget=per_agent_budget,
                 candidate_paths=self._candidate_paths(review_context),
                 progress_callback=self.progress_callback,
                 concurrency=self.agent_concurrency,

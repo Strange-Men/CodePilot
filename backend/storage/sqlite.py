@@ -141,6 +141,7 @@ class ReviewStore:
             self._add_column_if_missing(conn, "review_findings", "validation_tests_json", "TEXT NOT NULL DEFAULT '[]'")
             self._add_column_if_missing(conn, "review_findings", "confidence_rationale", "TEXT")
             self._add_column_if_missing(conn, "review_findings", "caveat", "TEXT")
+            self._add_column_if_missing(conn, "review_findings", "display_json", "TEXT")
             existing = conn.execute(
                 "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
             ).fetchone()
@@ -299,15 +300,21 @@ class ReviewStore:
             conn.execute("DELETE FROM review_findings WHERE task_id = ?", (task_id,))
             conn.execute("DELETE FROM review_evidence_refs WHERE task_id = ?", (task_id,))
             for index, finding in enumerate(findings):
+                display_json = (
+                    self._json(finding.display.model_dump(mode="json"))
+                    if finding.display is not None
+                    else None
+                )
                 conn.execute(
                     """
                     INSERT INTO review_findings (
                         task_id, finding_index, section, title, description, severity, category,
                         confidence, recommendation, files_json, evidence_ids_json, evidence_json,
                         validation_status, created_at,
-                        impact, first_step, validation_tests_json, confidence_rationale, caveat
+                        impact, first_step, validation_tests_json, confidence_rationale, caveat,
+                        display_json
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task_id,
@@ -329,6 +336,7 @@ class ReviewStore:
                         self._json(finding.validation_tests),
                         finding.confidence_rationale,
                         finding.caveat,
+                        display_json,
                     ),
                 )
 
@@ -522,5 +530,6 @@ class ReviewStore:
         decoded = dict(row)
         for key in list(decoded):
             if key.endswith("_json"):
-                decoded[key.removesuffix("_json")] = json.loads(decoded.pop(key))
+                value = decoded.pop(key)
+                decoded[key.removesuffix("_json")] = json.loads(value) if value is not None else None
         return decoded
