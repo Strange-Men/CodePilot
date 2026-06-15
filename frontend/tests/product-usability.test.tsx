@@ -23,7 +23,7 @@ import {
   getReviewFindings,
   listReviews
 } from "../lib/api";
-import { t, getLocalizedStatusLabels } from "../lib/i18n";
+import { t, getLocalizedStatusLabels, getLocalizedSeverity, getLocalizedCategory } from "../lib/i18n";
 import type {
   ReviewAgentStateItem,
   ReviewFindingItem,
@@ -189,7 +189,7 @@ test("Chinese labels appear when language is zh", () => {
   );
 
   assert.match(html, /影响/);
-  assert.match(html, /安全第一步/);
+  assert.match(html, /第一步建议/);
   assert.match(html, /验证方式/);
   assert.match(html, /注意事项/);
   assert.match(html, /结构化审查数据/);
@@ -250,7 +250,7 @@ test("FindingsPanel translates labels in Chinese", () => {
   assert.match(html, /问题发现/);
   assert.match(html, /建议/);
   assert.match(html, /影响/);
-  assert.match(html, /安全第一步/);
+  assert.match(html, /第一步建议/);
   assert.match(html, /验证方式/);
   assert.match(html, /注意事项/);
   assert.match(html, /证据/);
@@ -291,8 +291,9 @@ test("EvidencePanel renders Chinese labels", () => {
 
   assert.match(html, /已验证引用/);
   assert.match(html, /条引用/);
-  assert.match(html, /符号：/);
-  assert.match(html, /支持/);
+  assert.match(html, /代码位置/);
+  assert.match(html, /证据链/);
+  assert.match(html, /支撑证据/);
 });
 
 test("MetricsPanel renders Chinese labels", () => {
@@ -811,7 +812,7 @@ test("t() returns Chinese values for all tab keys", () => {
 
 test("t() returns Chinese values for findings field labels", () => {
   assert.equal(t("zh", "findings.impact"), "影响");
-  assert.equal(t("zh", "findings.firstSafeStep"), "安全第一步");
+  assert.equal(t("zh", "findings.firstSafeStep"), "第一步建议");
   assert.equal(t("zh", "findings.validationTests"), "验证方式");
   assert.equal(t("zh", "findings.caveat"), "注意事项");
   assert.equal(t("zh", "findings.confidence"), "置信度");
@@ -1071,4 +1072,143 @@ test("Chinese findings panel uses polished labels", () => {
   assert.equal(t("zh", "report.outline"), "报告目录");
   assert.equal(t("zh", "report.legacyAppendices"), "附录与仓库诊断");
   assert.equal(t("zh", "header.workspace"), "代码审查工作台");
+});
+
+// --- V3.5.6 Chinese localization closure tests ---
+
+test("severity localization returns Chinese values in zh mode", () => {
+  assert.equal(getLocalizedSeverity("zh", "critical"), "严重");
+  assert.equal(getLocalizedSeverity("zh", "high"), "高");
+  assert.equal(getLocalizedSeverity("zh", "medium"), "中");
+  assert.equal(getLocalizedSeverity("zh", "low"), "低");
+  assert.equal(getLocalizedSeverity("zh", "informational"), "信息");
+});
+
+test("severity localization returns English values in en mode", () => {
+  assert.equal(getLocalizedSeverity("en", "critical"), "Critical");
+  assert.equal(getLocalizedSeverity("en", "high"), "High");
+  assert.equal(getLocalizedSeverity("en", "medium"), "Medium");
+  assert.equal(getLocalizedSeverity("en", "low"), "Low");
+});
+
+test("category localization returns Chinese values in zh mode", () => {
+  assert.equal(getLocalizedCategory("zh", "architecture"), "架构");
+  assert.equal(getLocalizedCategory("zh", "code_smell"), "代码质量");
+  assert.equal(getLocalizedCategory("zh", "maintainability"), "可维护性");
+  assert.equal(getLocalizedCategory("zh", "refactor"), "重构");
+});
+
+test("zh FindingsPanel never shows raw English severity", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Should not show raw English severity
+  assert.doesNotMatch(html, />High</);
+  assert.doesNotMatch(html, />Medium</);
+  assert.doesNotMatch(html, />Low</);
+  assert.doesNotMatch(html, />Critical</);
+  // Should show localized severity
+  assert.match(html, /高/);
+});
+
+test("zh FindingsPanel never shows [zh] prefix", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={zhFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.doesNotMatch(html, /\[zh\]/);
+});
+
+test("zh EvidencePanel groups evidence by finding", () => {
+  const html = renderToStaticMarkup(
+    <EvidencePanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Should show evidence chain title
+  assert.match(html, /证据链/);
+  // Should show supporting evidence count
+  assert.match(html, /支撑证据/);
+  // Should show code location
+  assert.match(html, /代码位置/);
+  // Evidence ID should still be present but not as main title
+  assert.match(html, /E123/);
+  // Finding title should be visible in the group
+  assert.match(html, /Boundary risk/);
+});
+
+test("zh AgentStateCards shows localized severity", () => {
+  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="zh" />);
+
+  // Should not show raw English severity abbreviations like "H1", "M1"
+  // Should show localized severity
+  assert.match(html, /严重程度/);
+  // Should not show "none" for agents with findings
+  assert.doesNotMatch(html, />none</);
+});
+
+test("zh dictionary has all required severity keys", () => {
+  assert.equal(t("zh", "severity.critical"), "严重");
+  assert.equal(t("zh", "severity.high"), "高");
+  assert.equal(t("zh", "severity.medium"), "中");
+  assert.equal(t("zh", "severity.low"), "低");
+});
+
+test("zh dictionary has all required category keys", () => {
+  assert.equal(t("zh", "category.architecture"), "架构");
+  assert.equal(t("zh", "category.code_smell"), "代码质量");
+  assert.equal(t("zh", "category.maintainability"), "可维护性");
+  assert.equal(t("zh", "category.refactor"), "重构");
+});
+
+test("zh dictionary has evidence chain keys", () => {
+  assert.equal(t("zh", "evidence.chainTitle"), "证据链");
+  assert.equal(t("zh", "evidence.supports"), "支撑问题");
+  assert.equal(t("zh", "evidence.codeLocation"), "代码位置");
+  assert.equal(t("zh", "evidence.relatedSymbol"), "相关符号");
+  assert.equal(t("zh", "evidence.evidenceId"), "证据 ID");
+  assert.equal(t("zh", "evidence.supportingEvidence"), "支撑证据");
+  assert.equal(t("zh", "evidence.unlinkedEvidence"), "未关联问题的证据");
+});
+
+test("en dictionary has evidence chain keys", () => {
+  assert.equal(t("en", "evidence.chainTitle"), "Evidence Chain");
+  assert.equal(t("en", "evidence.supports"), "Supports");
+  assert.equal(t("en", "evidence.codeLocation"), "Code location");
+  assert.equal(t("en", "evidence.evidenceId"), "Evidence ID");
+});
+
+test("English EvidencePanel still works normally", () => {
+  const html = renderToStaticMarkup(
+    <EvidencePanel
+      error={null}
+      findings={structuredFindings}
+      language="en"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(html, /Evidence/);
+  assert.match(html, /E123/);
+  assert.match(html, /src\/app\.py/);
+  assert.match(html, /build_app/);
 });

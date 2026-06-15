@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from backend.reviewers.localization import (
     Language,
+    translate_enum_values,
     translate_finding_labels,
     translate_report_headings,
     translate_report_labels,
@@ -44,6 +45,9 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
 
     # Step 4: Translate agent display names in headings and table cells
     translated = _translate_agent_names(translated, lang)
+
+    # Step 5: Translate enum values (severity, status, category)
+    translated = translate_enum_values(translated, lang)
 
     return translated
 
@@ -82,6 +86,9 @@ def render_localized_report_with_prose(
 
     # Step 3: Translate agent display names
     translated = _translate_agent_names(translated, lang)
+
+    # Step 3.5: Translate enum values (severity, status, category)
+    translated = translate_enum_values(translated, lang)
 
     # Step 4: Build replacement map from localized findings
     replacements: dict[str, str] = {}

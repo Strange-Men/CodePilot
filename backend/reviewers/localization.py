@@ -41,14 +41,14 @@ LABEL_TRANSLATIONS: dict[str, str] = {
     "**Why it matters:**": "**为什么重要：**",
     "**Where:**": "**位置：**",
     "**Likely responsibility area:**": "**可能的责任区域：**",
-    "**First step:**": "**第一步：**",
+    "**First step:**": "**第一步建议：**",
     "**Change risk:**": "**变更风险：**",
     "**Evidence:**": "**证据：**",
     "**Validation tests:**": "**验证方式：**",
     "**Caveat:**": "**注意事项：**",
     "**Recommendation:**": "**建议：**",
     "**Impact:**": "**影响：**",
-    "**First safe step:**": "**安全第一步：**",
+    "**First safe step:**": "**第一步建议：**",
     "**Category:**": "**类型：**",
     "**Grounding:**": "**证据定位：**",
     "**Status:**": "**状态：**",
@@ -138,6 +138,8 @@ PROSE_REPLACEMENTS: dict[str, str] = {
     "No validated evidence was cited": "未引用已验证的证据",
     "No validated evidence reference.": "无已验证的证据引用。",
     "Error:": "错误：",
+    # Confidence display patterns
+    "confidence=": "置信度=",
     # Repository identity
     "no dominant directory boundary detected": "未检测到明显的目录边界",
     "No repository summary was available.": "暂无仓库摘要。",
@@ -146,6 +148,34 @@ PROSE_REPLACEMENTS: dict[str, str] = {
 }
 
 # Agent display names for zh mode
+# Severity value translations (used in report prose and tables)
+SEVERITY_TRANSLATIONS: dict[str, str] = {
+    "critical": "严重",
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "informational": "信息",
+}
+
+# Status value translations (used in agent summary tables)
+STATUS_VALUE_TRANSLATIONS: dict[str, str] = {
+    "completed": "已完成",
+    "validated": "已验证",
+    "failed": "失败",
+    "skipped": "已跳过",
+    "pending": "等待中",
+    "running": "运行中",
+    "not_applicable": "不适用",
+}
+
+# Category value translations
+CATEGORY_TRANSLATIONS: dict[str, str] = {
+    "architecture": "架构",
+    "code_smell": "代码质量",
+    "maintainability": "可维护性",
+    "refactor": "重构",
+}
+
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "ArchitectureAgent": "架构分析 Agent",
     "CodeSmellAgent": "代码质量 Agent",
@@ -246,3 +276,45 @@ def translate_agent_name(agent_id: str, lang: Language) -> str:
     if lang != "zh":
         return agent_id
     return AGENT_DISPLAY_NAMES.get(agent_id, agent_id)
+
+
+def translate_enum_values(report_markdown: str, lang: Language) -> str:
+    """Translate raw enum values (severity, status, category) in report text.
+
+    Handles values that appear in table cells and inline prose.
+    Uses word-boundary-aware replacement to avoid partial matches.
+    """
+    if lang != "zh":
+        return report_markdown
+    result = report_markdown
+
+    # Translate status values in table cells (| completed |, | validated |, etc.)
+    for en, zh in STATUS_VALUE_TRANSLATIONS.items():
+        result = result.replace(f"| {en} |", f"| {zh} |")
+        result = result.replace(f"| {en}|", f"| {zh}|")
+
+    # Translate severity values in table cells
+    for en, zh in SEVERITY_TRANSLATIONS.items():
+        result = result.replace(f"| {en} |", f"| {zh} |")
+        result = result.replace(f"| {en}|", f"| {zh}|")
+
+    # Translate category values in bold labels (**Category:** architecture)
+    for en, zh in CATEGORY_TRANSLATIONS.items():
+        result = result.replace(f"**类型：** {en}", f"**类型：** {zh}")
+
+    # Translate status in bold labels (**Status:** completed)
+    for en, zh in STATUS_VALUE_TRANSLATIONS.items():
+        result = result.replace(f"**状态：** {en}", f"**状态：** {zh}")
+
+    # Translate severity mix patterns like "H1 M2 L0" in agent summary
+    severity_abbrev = {"C": "严重", "H": "高", "M": "中", "L": "低"}
+    for abbrev, zh_name in severity_abbrev.items():
+        # Match patterns like "H1" or "M2" (single uppercase letter + digits)
+        pattern = rf'\b{abbrev}(\d+)\b'
+        result = re.sub(pattern, rf'{zh_name}\1', result)
+
+    # Translate "medium=N, low=N" severity count patterns
+    for en, zh in SEVERITY_TRANSLATIONS.items():
+        result = result.replace(f"{en}=", f"{zh}=")
+
+    return result

@@ -48,7 +48,10 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    translator = MockTranslator() if settings.use_mock_llm else LLMTranslator(settings)
+    if settings.enable_llm_translation:
+        translator = LLMTranslator(settings)
+    else:
+        translator = MockTranslator()
     localization_service = LocalizationService(store, translator)
     application.include_router(build_reviews_router(store, runner, localization_service))
 

@@ -6,12 +6,16 @@ from pathlib import Path
 
 import pytest
 
+from backend.core.config import Settings
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
 from backend.models.structured_review import ReviewFinding
 from backend.services.localization_service import (
+    LOCALIZATION_SCHEMA_VERSION,
     LocalizationService,
     MockTranslator,
+    _resolve_translation_provider,
+    _versioned_source_key,
     build_zh_finding_title,
 )
 from backend.storage.sqlite import ReviewStore
@@ -19,6 +23,67 @@ from backend.storage.sqlite import ReviewStore
 # ---------------------------------------------------------------------------
 # MockTranslator tests
 # ---------------------------------------------------------------------------
+
+
+class TestTranslationProviderResolution:
+    def test_auto_prefers_mimo_when_key_available(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            MIMO_API_KEY="mimo-key",
+            MIMO_BASE_URL="https://mimo.example.com/v1",
+            MIMO_MODEL_NAME="mimo-model",
+            OPENAI_API_KEY="openai-key",
+            LOCALIZATION_PROVIDER="auto",
+        )
+        api_key, base_url, model = _resolve_translation_provider(settings)
+        assert api_key == "mimo-key"
+        assert "mimo" in base_url
+        assert model == "mimo-model"
+
+    def test_auto_falls_back_to_openai(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            OPENAI_API_KEY="openai-key",
+            OPENAI_BASE_URL="https://openai.example.com/v1",
+            OPENAI_MODEL="gpt-4o",
+            LOCALIZATION_PROVIDER="auto",
+        )
+        api_key, base_url, model = _resolve_translation_provider(settings)
+        assert api_key == "openai-key"
+        assert model == "gpt-4o"
+
+    def test_explicit_mimo_provider(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            MIMO_API_KEY="mimo-key",
+            MIMO_BASE_URL="https://mimo.example.com/v1",
+            MIMO_MODEL_NAME="mimo-model",
+            OPENAI_API_KEY="openai-key",
+            LOCALIZATION_PROVIDER="mimo",
+        )
+        api_key, base_url, model = _resolve_translation_provider(settings)
+        assert api_key == "mimo-key"
+
+    def test_explicit_openai_provider(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            MIMO_API_KEY="mimo-key",
+            OPENAI_API_KEY="openai-key",
+            LOCALIZATION_PROVIDER="openai",
+        )
+        api_key, _, _ = _resolve_translation_provider(settings)
+        assert api_key == "openai-key"
+
+    def test_model_override(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            MIMO_API_KEY="mimo-key",
+            MIMO_MODEL_NAME="mimo-model",
+            LOCALIZATION_PROVIDER="mimo",
+            LOCALIZATION_MODEL="custom-model",
+        )
+        _, _, model = _resolve_translation_provider(settings)
+        assert model == "custom-model"
 
 
 class TestMockTranslator:
@@ -80,13 +145,13 @@ class TestMockTranslator:
         result = translator.translate_finding_prose(finding)
         assert "公共 API" in result["caveat_zh"]
 
-    def test_unknown_text_gets_zh_prefix(self) -> None:
+    def test_unknown_text_returns_plain_english(self) -> None:
         translator = MockTranslator()
         finding = {"title": "Some unknown finding title"}
         result = translator.translate_finding_prose(finding)
         # build_zh_finding_title returns None for unknown category,
-        # so title_zh falls back to [zh] prefix from the generic translation
-        assert result["title_zh"] is None or "[zh]" in str(result["title_zh"])
+        # so title_zh falls back to plain English (no [zh] prefix)
+        assert result["title_zh"] is None or "[zh]" not in str(result["title_zh"])
 
     def test_none_field_stays_none(self) -> None:
         translator = MockTranslator()
@@ -110,11 +175,12 @@ class TestMockTranslator:
         result = translator.translate_finding_prose(finding)
         assert "测试套件" in result["validation_tests_zh"][0]
 
-    def test_unknown_validation_test_gets_zh_prefix(self) -> None:
+    def test_unknown_validation_test_returns_plain_english(self) -> None:
         translator = MockTranslator()
         finding = {"validation_tests": ["Some unknown test instruction."]}
         result = translator.translate_finding_prose(finding)
-        assert result["validation_tests_zh"][0] == "[zh]Some unknown test instruction."
+        assert result["validation_tests_zh"][0] == "Some unknown test instruction."
+        assert "[zh]" not in result["validation_tests_zh"][0]
 
     def test_empty_validation_tests(self) -> None:
         translator = MockTranslator()
@@ -144,6 +210,28 @@ class TestMockTranslator:
                 for item in value:
                     if isinstance(item, str):
                         assert "代码坏味道" not in item, f"Bad term in {key}: {item}"
+
+    def test_never_produces_zh_prefix(self) -> None:
+        """MockTranslator must never produce '[zh]' prefix in any output."""
+        translator = MockTranslator()
+        finding = {
+            "title": "Some completely unknown title that has no translation",
+            "description": "Unknown description text",
+            "recommendation": "Unknown recommendation",
+            "impact": "Unknown impact",
+            "first_step": "Unknown first step",
+            "caveat": "Unknown caveat",
+            "confidence_rationale": "Unknown rationale",
+            "validation_tests": ["Unknown validation test instruction."],
+        }
+        result = translator.translate_finding_prose(finding)
+        for key, value in result.items():
+            if isinstance(value, str):
+                assert "[zh]" not in value, f"[zh] prefix in {key}: {value}"
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        assert "[zh]" not in item, f"[zh] prefix in {key}: {item}"
 
 
 class TestBuildZhFindingTitle:
@@ -281,10 +369,11 @@ class TestLocalizationServiceCache:
         assert "结构性问题" in result[0]["description_zh"]
         # No bad terms
         assert "代码坏味道" not in result[0].get("title_zh", "")
-        # Verify cache was written
+        # Verify cache was written with versioned key
         cached = store.get_localization("task-1", "zh")
         assert cached is not None
-        assert cached["source_updated_at"] == "2024-01-01"
+        assert "2024-01-01" in cached["source_updated_at"]
+        assert LOCALIZATION_SCHEMA_VERSION in cached["source_updated_at"]
 
     def test_cache_hit_returns_cached_result(self, store: ReviewStore) -> None:
         _create_review_with_findings(store)
@@ -379,6 +468,43 @@ class TestLocalizationServiceCache:
 
         assert result[0]["evidence_ids"] == ["ev_abc123"]
         assert result[0]["files"] == ["backend/api/reviews.py"]
+
+    def test_old_cache_without_version_is_ignored(self, store: ReviewStore) -> None:
+        """Old v3.5.5 cached zh payloads must not be reused."""
+        _create_review_with_findings(store)
+        service = LocalizationService(store, MockTranslator())
+        raw = store.get_structured_findings("task-1")
+
+        # Simulate old cache entry (without version in source_updated_at)
+        store.set_localization(
+            task_id="task-1",
+            language="zh",
+            source_updated_at="2024-01-01",  # no version suffix
+            payload_json='[{"title_zh":"[zh]old cached title"}]',
+        )
+
+        # Should miss cache and retranslate
+        result = service.get_localized_findings("task-1", "zh", "2024-01-01", raw)
+
+        assert "[zh]" not in str(result[0].get("title_zh", ""))
+
+    def test_new_versioned_cache_is_hit(self, store: ReviewStore) -> None:
+        """New cache with correct version is reused."""
+        _create_review_with_findings(store)
+        service = LocalizationService(store, MockTranslator())
+        raw = store.get_structured_findings("task-1")
+
+        # First call — populates cache
+        result1 = service.get_localized_findings("task-1", "zh", "2024-01-01", raw)
+        # Second call — should hit cache
+        result2 = service.get_localized_findings("task-1", "zh", "2024-01-01", raw)
+
+        assert result1[0].get("title_zh") == result2[0].get("title_zh")
+
+    def test_versioned_source_key_contains_version(self) -> None:
+        key = _versioned_source_key("2024-01-01")
+        assert LOCALIZATION_SCHEMA_VERSION in key
+        assert "2024-01-01" in key
 
     def test_no_real_llm_import(self) -> None:
         """Verify this test module does not import httpx for translation."""

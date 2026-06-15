@@ -107,5 +107,12 @@ export function ReportPanel({ isRunning, language, reportMarkdown }: ReportPanel
 }
 
 function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  // Support both ASCII and non-ASCII (Chinese) characters in slugs
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9一-鿿-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    || "section";
 }

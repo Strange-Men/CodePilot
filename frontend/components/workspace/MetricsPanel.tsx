@@ -3,7 +3,7 @@ import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
+import { getLocalizedSeverity, t } from "@/lib/i18n";
 import type { ReviewAgentStateItem, ReviewFindingItem } from "@/lib/types";
 
 type MetricsPanelProps = {
@@ -59,7 +59,7 @@ export function MetricsPanel({ agents, findings, language }: MetricsPanelProps) 
             {Object.entries(severity).map(([label, count]) => (
               <div key={label}>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="capitalize text-muted-foreground">{label}</span>
+                  <span className="text-muted-foreground">{getLocalizedSeverity(language, label)}</span>
                   <span className="font-mono font-semibold">{count}</span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">

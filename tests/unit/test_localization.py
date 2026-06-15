@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from backend.reviewers.localization import (
+    CATEGORY_TRANSLATIONS,
     CHINESE_TO_ENGLISH_HEADINGS,
     LABEL_TRANSLATIONS,
     PROSE_REPLACEMENTS,
     REPORT_HEADING_TRANSLATIONS,
+    SEVERITY_TRANSLATIONS,
+    STATUS_VALUE_TRANSLATIONS,
     normalize_language,
+    translate_enum_values,
     translate_finding_labels,
     translate_report_headings,
     translate_report_labels,
@@ -103,7 +107,7 @@ class TestTranslateFindingLabels:
     def test_zh_translates_first_step(self) -> None:
         text = "**First step:** Add tests before refactoring."
         result = translate_finding_labels(text, "zh")
-        assert result == "**第一步：** Add tests before refactoring."
+        assert result == "**第一步建议：** Add tests before refactoring."
 
     def test_zh_translates_caveat(self) -> None:
         text = "**Caveat:** This is a public API."
@@ -119,7 +123,7 @@ class TestTranslateFindingLabels:
         text = "**Why it matters:** Important.\n**First step:** Do something."
         result = translate_finding_labels(text, "zh")
         assert "**为什么重要：**" in result
-        assert "**第一步：**" in result
+        assert "**第一步建议：**" in result
 
 
 class TestTranslateReportLabels:
@@ -241,3 +245,109 @@ class TestTranslateReportProse:
         result = translate_report_prose(report, "zh")
         assert "| 区域 |" in result
         assert "| 重要性 |" in result
+
+
+class TestTranslateEnumValues:
+    def test_en_returns_unchanged(self) -> None:
+        report = "| completed | validated |"
+        assert translate_enum_values(report, "en") == report
+
+    def test_zh_translates_status_in_table_cells(self) -> None:
+        report = "| ArchitectureAgent | completed | 1 | H1 M0 L0 | 0.92 | 2 |"
+        result = translate_enum_values(report, "zh")
+        assert "已完成" in result
+        assert "completed" not in result
+
+    def test_zh_translates_severity_in_table_cells(self) -> None:
+        report = "| high | Finding title | 0.85 | a.py | ev_1 |"
+        result = translate_enum_values(report, "zh")
+        assert "| 高 |" in result
+
+    def test_zh_translates_severity_mix_abbreviations(self) -> None:
+        report = "H1 M2 L0"
+        result = translate_enum_values(report, "zh")
+        assert "高1" in result
+        assert "中2" in result
+        assert "低0" in result
+
+    def test_zh_translates_severity_count_patterns(self) -> None:
+        report = "medium=1, low=2"
+        result = translate_enum_values(report, "zh")
+        assert "中=1" in result
+        assert "低=2" in result
+
+    def test_zh_translates_category_in_labels(self) -> None:
+        report = "**类型：** architecture"
+        result = translate_enum_values(report, "zh")
+        assert "**类型：** 架构" in result
+
+    def test_zh_translates_status_in_labels(self) -> None:
+        report = "**状态：** completed"
+        result = translate_enum_values(report, "zh")
+        assert "**状态：** 已完成" in result
+
+    def test_zh_preserves_code_symbols(self) -> None:
+        report = "The `completed` function in high.py"
+        result = translate_enum_values(report, "zh")
+        # Should not translate inline code references
+        assert "`completed`" in result
+
+    def test_severity_translations_complete(self) -> None:
+        assert SEVERITY_TRANSLATIONS["critical"] == "严重"
+        assert SEVERITY_TRANSLATIONS["high"] == "高"
+        assert SEVERITY_TRANSLATIONS["medium"] == "中"
+        assert SEVERITY_TRANSLATIONS["low"] == "低"
+
+    def test_status_translations_complete(self) -> None:
+        assert STATUS_VALUE_TRANSLATIONS["completed"] == "已完成"
+        assert STATUS_VALUE_TRANSLATIONS["validated"] == "已验证"
+        assert STATUS_VALUE_TRANSLATIONS["failed"] == "失败"
+        assert STATUS_VALUE_TRANSLATIONS["skipped"] == "已跳过"
+        assert STATUS_VALUE_TRANSLATIONS["pending"] == "等待中"
+        assert STATUS_VALUE_TRANSLATIONS["running"] == "运行中"
+
+    def test_category_translations_complete(self) -> None:
+        assert CATEGORY_TRANSLATIONS["architecture"] == "架构"
+        assert CATEGORY_TRANSLATIONS["code_smell"] == "代码质量"
+        assert CATEGORY_TRANSLATIONS["maintainability"] == "可维护性"
+        assert CATEGORY_TRANSLATIONS["refactor"] == "重构"
+
+
+class TestReportBannedStrings:
+    """Verify that zh reports never contain banned English strings."""
+
+    BANNED_STRINGS = [
+        "[zh]",
+        "Recommendation:",
+        "Impact:",
+        "First step:",
+        "Validation tests:",
+        "Caveat:",
+        "Grounding:",
+        "Category:",
+        "confidence=",
+    ]
+
+    def test_label_translations_cover_banned_labels(self) -> None:
+        """All banned bold labels should have Chinese translations."""
+        for banned in ["**Recommendation:**", "**Impact:**", "**First step:**",
+                        "**Validation tests:**", "**Caveat:**", "**Grounding:**",
+                        "**Category:**"]:
+            assert banned in LABEL_TRANSLATIONS, f"Missing translation for: {banned}"
+
+    def test_first_step_uses_polished_term(self) -> None:
+        """First step label should use 第一步建议, not 安全第一步."""
+        assert LABEL_TRANSLATIONS["**First step:**"] == "**第一步建议：**"
+        assert LABEL_TRANSLATIONS["**First safe step:**"] == "**第一步建议：**"
+
+    def test_confidence_pattern_translated(self) -> None:
+        assert "confidence=" in PROSE_REPLACEMENTS
+        assert PROSE_REPLACEMENTS["confidence="] == "置信度="
+
+    def test_no_bad_terms_in_severity_translations(self) -> None:
+        for zh in SEVERITY_TRANSLATIONS.values():
+            assert "代码坏味道" not in zh
+
+    def test_no_bad_terms_in_status_translations(self) -> None:
+        for zh in STATUS_VALUE_TRANSLATIONS.values():
+            assert "代码坏味道" not in zh

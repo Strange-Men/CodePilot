@@ -3,7 +3,7 @@ import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
+import { getLocalizedSeverity, t } from "@/lib/i18n";
 import type { ReviewAgentStateItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +57,7 @@ export function AgentStateCards({ agents, language }: { agents: ReviewAgentState
             />
             <Metric
               label={t(language, "agentCards.severity")}
-              value={severitySummary(agent)}
+              value={severitySummary(agent, language)}
             />
           </dl>
           {agent.error ? (
@@ -82,7 +82,10 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function severitySummary(agent: ReviewAgentStateItem): string {
+function severitySummary(agent: ReviewAgentStateItem, language: Language): string {
   const entries = Object.entries(agent.severity_mix).filter(([, count]) => count > 0);
-  return entries.length ? entries.map(([severity, count]) => `${severity[0].toUpperCase()}${count}`).join(" ") : "none";
+  if (!entries.length) return language === "zh" ? "无" : "none";
+  return entries
+    .map(([severity, count]) => `${getLocalizedSeverity(language, severity)}${count}`)
+    .join(" ");
 }

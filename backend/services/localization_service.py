@@ -20,6 +20,22 @@ from backend.storage.sqlite import ReviewStore
 logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
+# Localization schema version — bump to invalidate stale caches
+# ---------------------------------------------------------------------------
+
+LOCALIZATION_SCHEMA_VERSION = "v3.5.6"
+
+
+def _versioned_source_key(source_updated_at: str) -> str:
+    """Combine source timestamp with schema version for cache validation.
+
+    This ensures old cached payloads (e.g. from v3.5.5 with [zh] prefixes)
+    are never reused after a version bump.
+    """
+    return f"{source_updated_at}@{LOCALIZATION_SCHEMA_VERSION}"
+
+
+# ---------------------------------------------------------------------------
 # Translator protocol
 # ---------------------------------------------------------------------------
 
@@ -149,7 +165,7 @@ class MockTranslator:
             if value is None:
                 result[zh_key] = None
             elif isinstance(value, str):
-                result[zh_key] = _MOCK_TRANSLATIONS.get(value, f"[zh]{value}")
+                result[zh_key] = _MOCK_TRANSLATIONS.get(value, value)
             else:
                 result[zh_key] = value
 
@@ -161,7 +177,7 @@ class MockTranslator:
         # Handle validation_tests (list of strings)
         tests = finding.get("validation_tests") or []
         result["validation_tests_zh"] = [
-            _MOCK_VALIDATION_TRANSLATIONS.get(t, f"[zh]{t}") for t in tests
+            _MOCK_VALIDATION_TRANSLATIONS.get(t, t) for t in tests
         ]
 
         return result
@@ -299,17 +315,64 @@ _RETRYABLE_TIMEOUT_CLASSES = (
 )
 
 
+def _resolve_translation_provider(settings: Settings) -> tuple[str, str, str]:
+    """Resolve (api_key, base_url, model) for translation.
+
+    Uses ``settings.localization_provider`` to pick the upstream:
+    - ``"mimo"``: MiMo settings
+    - ``"openai"``: OpenAI-compatible settings
+    - ``"auto"`` (default): MiMo if key available, else OpenAI
+    """
+    provider = (settings.localization_provider or "auto").strip().lower()
+
+    if provider == "mimo":
+        api_key = settings.mimo_api_key or ""
+        base_url = settings.mimo_base_url
+        model = settings.localization_model or settings.mimo_model_name
+        return api_key, base_url, model
+
+    if provider == "openai":
+        api_key = settings.openai_api_key or ""
+        base_url = settings.openai_base_url
+        model = settings.localization_model or settings.openai_model
+        return api_key, base_url, model
+
+    # auto: prefer MiMo, fall back to OpenAI
+    if settings.mimo_api_key:
+        api_key = settings.mimo_api_key
+        base_url = settings.mimo_base_url
+        model = settings.localization_model or settings.mimo_model_name
+        return api_key, base_url, model
+
+    api_key = settings.openai_api_key or ""
+    base_url = settings.openai_base_url
+    model = settings.localization_model or settings.openai_model
+    return api_key, base_url, model
+
+
 class LLMTranslator:
-    """Production translator using an OpenAI-compatible API."""
+    """Production translator using an OpenAI-compatible API.
+
+    Provider selection (``localization_provider`` setting):
+    - ``"auto"`` (default): prefer MiMo if ``mimo_api_key`` is set,
+      otherwise fall back to OpenAI-compatible settings.
+    - ``"mimo"``: use MiMo settings exclusively.
+    - ``"openai"``: use OpenAI-compatible settings exclusively.
+
+    The ``localization_model`` setting overrides the model chosen by
+    provider auto-detection.  If ``None``, the provider's default model
+    is used.
+    """
 
     def __init__(
         self,
         settings: Settings,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._api_key = settings.openai_api_key or ""
-        self._base_url = settings.openai_base_url.rstrip("/")
-        self._model = settings.openai_model
+        api_key, base_url, model = _resolve_translation_provider(settings)
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._model = model
         self._timeout = httpx.Timeout(
             connect=settings.llm_connect_timeout,
             read=settings.llm_read_timeout,
@@ -435,8 +498,9 @@ class LocalizationService:
         if lang != "zh":
             return raw_findings
 
+        versioned_key = _versioned_source_key(source_updated_at)
         cached = self._store.get_localization(task_id, "zh")
-        if cached and cached.get("source_updated_at") == source_updated_at:
+        if cached and cached.get("source_updated_at") == versioned_key:
             return self._merge_cached(raw_findings, cached["payload_json"])
 
         # Cache miss — translate each finding
@@ -459,7 +523,7 @@ class LocalizationService:
             self._store.set_localization(
                 task_id=task_id,
                 language="zh",
-                source_updated_at=source_updated_at,
+                source_updated_at=versioned_key,
                 payload_json=json.dumps(zh_findings, ensure_ascii=False, sort_keys=True),
             )
         except Exception:
@@ -484,9 +548,10 @@ class LocalizationService:
             return report_markdown
 
         # Check cache for full Chinese report
+        versioned_key = _versioned_source_key(source_updated_at)
         cached = self._store.get_localization(task_id, "zh")
         if cached and cached.get("report_markdown"):
-            if cached.get("source_updated_at") == source_updated_at:
+            if cached.get("source_updated_at") == versioned_key:
                 return cached["report_markdown"]
 
         if raw_findings is None:
@@ -513,7 +578,7 @@ class LocalizationService:
             self._store.set_localization(
                 task_id=task_id,
                 language="zh",
-                source_updated_at=source_updated_at,
+                source_updated_at=versioned_key,
                 payload_json=payload_json,
                 report_markdown=zh_report,
             )

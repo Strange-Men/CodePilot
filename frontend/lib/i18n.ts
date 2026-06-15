@@ -116,9 +116,20 @@ const dictionaries: Record<Language, Record<string, string>> = {
     // Evidence panel
     "evidence.validatedRefs": "Validated references",
     "evidence.heading": "Evidence",
+    "evidence.chainTitle": "Evidence Chain",
     "evidence.references": "references",
     "evidence.symbol": "Symbol:",
     "evidence.supports": "Supports",
+    "evidence.supportingFinding": "This evidence supports the location and conclusion of this finding.",
+    "evidence.codeLocation": "Code location",
+    "evidence.relatedSymbol": "Related symbol",
+    "evidence.evidenceType": "Evidence type",
+    "evidence.evidenceId": "Evidence ID",
+    "evidence.showSnippet": "Show code snippet",
+    "evidence.hideSnippet": "Hide code snippet",
+    "evidence.snippetNotAvailable": "Only code location info is shown; source snippet is not expanded.",
+    "evidence.unlinkedEvidence": "Unlinked evidence",
+    "evidence.supportingEvidence": "Supporting evidence",
     "evidence.locationUnavailable": "Location unavailable",
     "evidence.noStructured": "No structured evidence",
     "evidence.noStructuredDesc": "No structured evidence references were persisted for this review. The Markdown report may contain a legacy appendix.",
@@ -165,7 +176,25 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.retry": "Retry",
 
     // Loading page
-    "loading.workspace": "Loading CodePilot workspace"
+    "loading.workspace": "Loading CodePilot workspace",
+
+    // Severity
+    "severity.critical": "Critical",
+    "severity.high": "High",
+    "severity.medium": "Medium",
+    "severity.low": "Low",
+    "severity.informational": "Informational",
+
+    // Category
+    "category.architecture": "Architecture",
+    "category.code_smell": "Code Smell",
+    "category.maintainability": "Maintainability",
+    "category.refactor": "Refactor",
+
+    // Validation status
+    "validation.validated": "Validated",
+    "validation.failed": "Failed",
+    "validation.not_applicable": "N/A"
   },
 
   zh: {
@@ -269,7 +298,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "findings.total": "共",
     "findings.recommendedAction": "建议",
     "findings.impact": "影响",
-    "findings.firstSafeStep": "安全第一步",
+    "findings.firstSafeStep": "第一步建议",
     "findings.validationTests": "验证方式",
     "findings.caveat": "注意事项",
     "findings.evidence": "证据",
@@ -283,9 +312,20 @@ const dictionaries: Record<Language, Record<string, string>> = {
     // Evidence panel
     "evidence.validatedRefs": "已验证引用",
     "evidence.heading": "证据",
+    "evidence.chainTitle": "证据链",
     "evidence.references": "条引用",
     "evidence.symbol": "符号：",
-    "evidence.supports": "支持",
+    "evidence.supports": "支撑问题",
+    "evidence.supportingFinding": "该证据用于支撑此问题的定位和结论。",
+    "evidence.codeLocation": "代码位置",
+    "evidence.relatedSymbol": "相关符号",
+    "evidence.evidenceType": "证据类型",
+    "evidence.evidenceId": "证据 ID",
+    "evidence.showSnippet": "查看代码片段",
+    "evidence.hideSnippet": "收起代码片段",
+    "evidence.snippetNotAvailable": "当前仅展示代码定位信息，未展开源码片段。",
+    "evidence.unlinkedEvidence": "未关联问题的证据",
+    "evidence.supportingEvidence": "支撑证据",
     "evidence.locationUnavailable": "位置不可用",
     "evidence.noStructured": "暂无结构化证据",
     "evidence.noStructuredDesc": "此审查未持久化结构化证据引用。Markdown 报告可能包含旧版附录。",
@@ -332,7 +372,25 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.retry": "重试",
 
     // Loading page
-    "loading.workspace": "加载 CodePilot 工作台"
+    "loading.workspace": "加载 CodePilot 工作台",
+
+    // Severity
+    "severity.critical": "严重",
+    "severity.high": "高",
+    "severity.medium": "中",
+    "severity.low": "低",
+    "severity.informational": "信息",
+
+    // Category
+    "category.architecture": "架构",
+    "category.code_smell": "代码质量",
+    "category.maintainability": "可维护性",
+    "category.refactor": "重构",
+
+    // Validation status
+    "validation.validated": "已验证",
+    "validation.failed": "未通过验证",
+    "validation.not_applicable": "不适用"
   }
 };
 
@@ -358,4 +416,52 @@ export function getLocalizedStatusLabels(language: Language): Record<string, str
     result[status] = t(language, key);
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Severity localization
+// ---------------------------------------------------------------------------
+
+const SEVERITY_KEYS: Record<string, string> = {
+  critical: "severity.critical",
+  high: "severity.high",
+  medium: "severity.medium",
+  low: "severity.low",
+  informational: "severity.informational",
+};
+
+export function getLocalizedSeverity(language: Language, severity: string): string {
+  const key = SEVERITY_KEYS[severity.toLowerCase()];
+  return key ? t(language, key) : severity;
+}
+
+// ---------------------------------------------------------------------------
+// Category localization
+// ---------------------------------------------------------------------------
+
+const CATEGORY_KEYS: Record<string, string> = {
+  architecture: "category.architecture",
+  code_smell: "category.code_smell",
+  maintainability: "category.maintainability",
+  refactor: "category.refactor",
+};
+
+export function getLocalizedCategory(language: Language, category: string): string {
+  const key = CATEGORY_KEYS[category.toLowerCase()];
+  return key ? t(language, key) : category;
+}
+
+// ---------------------------------------------------------------------------
+// Validation status localization
+// ---------------------------------------------------------------------------
+
+const VALIDATION_STATUS_KEYS: Record<string, string> = {
+  validated: "validation.validated",
+  failed: "validation.failed",
+  not_applicable: "validation.not_applicable",
+};
+
+export function getLocalizedValidationStatus(language: Language, status: string): string {
+  const key = VALIDATION_STATUS_KEYS[status.toLowerCase()];
+  return key ? t(language, key) : status;
 }

@@ -4,7 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
+import { getLocalizedSeverity, t } from "@/lib/i18n";
 import type { ReviewFindingItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +60,7 @@ export function FindingsPanel({ error, findings, language, loading, onRetry }: F
           key={finding.finding_id}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <SeverityBadge severity={finding.severity} />
+            <SeverityBadge language={language} severity={finding.severity} />
             <span className="text-xs text-muted-foreground">{finding.section}</span>
             <span className="ml-auto font-mono text-xs text-muted-foreground">
               {t(language, "findings.confidence")} {Math.round(finding.confidence * 100)}%
@@ -107,16 +107,17 @@ export function FindingsPanel({ error, findings, language, loading, onRetry }: F
           {finding.validation_tests.length ? (
             <div className="mt-3 pl-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(language, "findings.validationTests")}</p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
+              <ul className="mt-1 list-disc space-y-1 pl-4">
                 {finding.validation_tests.map((test) => (
-                  <code
-                    className="rounded-md border border-border bg-panel px-2 py-0.5 font-mono text-xs"
-                    key={test}
-                  >
-                    {test}
-                  </code>
+                  <li className="text-sm leading-5" key={test}>
+                    {isCommandOrPath(test) ? (
+                      <code className="rounded-md border border-border bg-panel px-1.5 py-0.5 font-mono text-xs">{test}</code>
+                    ) : (
+                      test
+                    )}
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           ) : null}
           {finding.caveat ? (
@@ -144,7 +145,7 @@ export function FindingsPanel({ error, findings, language, loading, onRetry }: F
   );
 }
 
-export function SeverityBadge({ severity }: { severity: string }) {
+export function SeverityBadge({ language, severity }: { language: Language; severity: string }) {
   const normalized = severity.toLowerCase();
   return (
     <span
@@ -154,9 +155,21 @@ export function SeverityBadge({ severity }: { severity: string }) {
       )}
       data-severity={normalized}
     >
-      {severity}
+      {getLocalizedSeverity(language, severity)}
     </span>
   );
+}
+
+/** Check if text looks like a command or file path (should stay code-styled). */
+function isCommandOrPath(text: string): boolean {
+  const trimmed = text.trim();
+  // Starts with a command-like prefix
+  if (/^(python|npm|pip|pytest|git|cd|ls|cat|grep|make|cargo|go|java|node)\b/i.test(trimmed)) return true;
+  // Contains file path patterns
+  if (/[\\/][\w.-]+\.\w+/.test(trimmed)) return true;
+  // Looks like a shell command
+  if (/^\$|^>\s/.test(trimmed)) return true;
+  return false;
 }
 
 const severityStyles: Record<string, string> = {

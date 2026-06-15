@@ -199,6 +199,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `LLM_WRITE_TIMEOUT_SECONDS` | `30` | HTTP write timeout for LLM calls. |
 | `LLM_POOL_TIMEOUT_SECONDS` | `10` | HTTP pool timeout for LLM calls. |
 | `LLM_MAX_RETRIES` | `2` | Max retries for transient LLM errors (timeout, 429, 5xx). |
+| `ENABLE_LLM_TRANSLATION` | `false` | Opt-in to use real LLM for Chinese translation instead of MockTranslator. |
+| `LOCALIZATION_PROVIDER` | `auto` | Translation provider: `auto` (prefer MiMo), `mimo`, or `openai`. |
+| `LOCALIZATION_MODEL` | empty | Override model for translation; defaults to provider's model. |
 | `NEXT_PUBLIC_API_BASE` | `http://localhost:8000` | Frontend API base URL. |
 
 ## Known Constraints
