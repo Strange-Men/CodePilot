@@ -47,94 +47,94 @@ class TranslatorProtocol(Protocol):
 # ---------------------------------------------------------------------------
 
 _MOCK_TRANSLATIONS: dict[str, str] = {
-    # Titles
-    "Evidence-grounded architecture boundary": "基于证据的架构边界问题",
-    "Evidence-grounded code smell": "基于证据的代码坏味道",
-    "Evidence-grounded maintainability risk": "基于证据的可维护性风险",
-    "Evidence-grounded refactoring candidate": "基于证据的重构候选",
-    "Evidence-grounded repository finding": "基于证据的仓库发现",
+    # Titles — these are generic fallbacks; build_zh_finding_title() is preferred
+    "Evidence-grounded architecture boundary": "架构边界需要审查",
+    "Evidence-grounded code smell": "代码质量问题需要关注",
+    "Evidence-grounded maintainability risk": "可维护性风险需要改善",
+    "Evidence-grounded refactoring candidate": "重构候选需要评估",
+    "Evidence-grounded repository finding": "仓库问题需要关注",
     # Descriptions
     (
         "The selected evidence highlights a repository concern that should be reviewed "
         "before changing entry points, core modules, shared dependencies, or refactoring boundaries."
-    ): "所选证据指出了一个仓库关注点，在修改入口点、核心模块、共享依赖或重构边界之前应先审查。",
+    ): "引用的证据表明该区域存在结构性问题，在修改入口点、核心模块、共享依赖或重构边界前应优先审查。",
     # Recommendations
-    "Add contract tests around the boundary before refactoring.": "在重构前为边界添加契约测试。",
+    "Add contract tests around the boundary before refactoring.": "在重构前为该边界添加契约测试，确保接口行为不变。",
     "Inspect the cited code path and reduce the highest-complexity responsibility first.": (
-        "检查引用的代码路径，首先降低最高复杂度的职责。"
+        "检查引用的代码路径，优先降低复杂度最高的职责。"
     ),
     "Stabilize the cited dependency boundary and cover it with focused tests.": (
-        "稳定引用的依赖边界，并用聚焦的测试覆盖它。"
+        "稳定引用的依赖边界，并用针对性测试覆盖。"
     ),
-    "Extract the cited responsibility behind a smaller interface.": "将引用的职责提取到更小的接口后面。",
-    "Review the cited evidence before changing code.": "在修改代码前审查引用的证据。",
+    "Extract the cited responsibility behind a smaller interface.": "将引用的职责提取到更小的接口中，降低耦合度。",
+    "Review the cited evidence before changing code.": "修改代码前先审查引用的证据，确认影响范围。",
     # Impacts
     (
         "Changes to this boundary may affect multiple consumers "
         "if the interface contract is not preserved."
-    ): "如果接口契约未被保留，对此边界的更改可能影响多个使用者。",
+    ): "如果接口契约未被保留，该边界的变更可能影响多个依赖方。",
     (
         "The cited responsibility may accumulate unrelated "
         "changes, increasing merge conflict risk."
-    ): "引用的职责可能积累不相关的更改，增加合并冲突风险。",
+    ): "该职责可能积累不相关的变更，增加合并冲突的风险。",
     (
         "Without focused test coverage, future changes to "
         "this area may introduce silent regressions."
-    ): "如果没有聚焦的测试覆盖，对此区域的未来更改可能引入隐蔽的回归。",
+    ): "缺少针对性测试覆盖时，后续变更可能引入隐蔽的回归问题。",
     (
         "Leaving the current structure unaddressed makes "
         "future feature work slower and riskier."
-    ): "不处理当前结构会使未来的功能开发更慢且风险更高。",
+    ): "不改善当前结构会导致后续功能开发更慢、风险更高。",
     # First steps
     (
         "Add characterization tests covering the current "
         "public interface before restructuring."
-    ): "在重构前添加覆盖当前公共接口的表征测试。",
+    ): "在重构前为当前公共接口添加表征测试，锁定现有行为。",
     (
         "Identify the single highest-complexity responsibility "
         "and extract it behind a focused interface."
-    ): "识别单一最高复杂度的职责并将其提取到聚焦的接口后面。",
+    ): "识别复杂度最高的职责，将其提取到独立接口中。",
     (
         "Add targeted tests for the cited boundary, "
         "then review dependency directions."
-    ): "为引用的边界添加有针对性的测试，然后审查依赖方向。",
+    ): "为引用的边界添加针对性测试，然后审查依赖方向是否合理。",
     (
         "Write tests that pin current behavior, "
         "then extract the smallest reusable unit."
-    ): "编写固定当前行为的测试，然后提取最小的可复用单元。",
+    ): "编写测试锁定当前行为，然后提取最小的可复用单元。",
     # Confidence rationale
     "Based on evidence records provided in the prompt context.": "基于提示上下文中提供的证据记录。",
     # Caveats
     (
         "If this boundary is part of a public API, "
         "changing it may break downstream consumers."
-    ): "如果此边界是公共 API 的一部分，更改它可能破坏下游使用者。",
+    ): "如果该边界属于公共 API，变更可能破坏下游使用者。",
     (
         "Some duplication may be intentional to "
         "preserve independent extension points."
-    ): "某些重复可能是有意为之，以保留独立的扩展点。",
+    ): "部分重复可能是有意为之，以保留独立的扩展点。",
     (
         "This finding is based on structural signals; "
         "confirm with production behavior before acting."
-    ): "此发现基于结构化信号；行动前请用生产行为确认。",
+    ): "该发现基于结构化信号；行动前请结合生产行为确认。",
     (
         "Refactoring should be incremental; avoid large-scope "
         "changes without intermediate verification."
-    ): "重构应渐进式进行；避免没有中间验证的大范围更改。",
+    ): "重构应渐进式进行，避免未经中间验证的大范围变更。",
 }
 
 # Validation test translations
 _MOCK_VALIDATION_TRANSLATIONS: dict[str, str] = {
     "Run the full test suite before and after any boundary change.": (
-        "在任何边界更改前后运行完整测试套件。"
+        "在边界变更前后运行完整测试套件，确认无回归。"
     ),
     "Run targeted unit tests for the cited module after each extraction step.": (
-        "在每个提取步骤后为引用的模块运行有针对性的单元测试。"
+        "在每个提取步骤后运行引用模块的单元测试。"
     ),
     "Run the test suite and verify no new warnings or failures appear.": (
-        "运行测试套件并验证没有新的警告或失败出现。"
+        "运行测试套件，确认没有新增警告或失败。"
     ),
-    "Run the test suite after each incremental extraction.": "在每个增量提取后运行测试套件。",
+    "Run the test suite after each incremental extraction.": "每次增量提取后运行测试套件。",
 }
 
 
@@ -153,6 +153,11 @@ class MockTranslator:
             else:
                 result[zh_key] = value
 
+        # Build concrete title from evidence when available
+        concrete_title = build_zh_finding_title(finding)
+        if concrete_title:
+            result["title_zh"] = concrete_title
+
         # Handle validation_tests (list of strings)
         tests = finding.get("validation_tests") or []
         result["validation_tests_zh"] = [
@@ -160,6 +165,110 @@ class MockTranslator:
         ]
 
         return result
+
+
+# ---------------------------------------------------------------------------
+# Deterministic Chinese finding title builder
+# ---------------------------------------------------------------------------
+
+_CATEGORY_ZH_TEMPLATES: dict[str, list[str]] = {
+    "architecture": [
+        "{symbol} 的架构边界需要审查",
+        "{symbol} 相关的模块边界存在风险",
+        "架构边界问题：{symbol}",
+    ],
+    "code_smell": [
+        "{symbol} 的代码质量需要关注",
+        "{symbol} 存在代码质量问题",
+        "代码质量问题：{symbol}",
+    ],
+    "maintainability": [
+        "{symbol} 的可维护性需要改善",
+        "{symbol} 存在可维护性风险",
+        "可维护性风险：{symbol}",
+    ],
+    "refactor": [
+        "{symbol} 适合小步重构",
+        "{symbol} 存在重构机会",
+        "重构候选：{symbol}",
+    ],
+}
+
+_CATEGORY_ZH_FILE_TEMPLATES: dict[str, list[str]] = {
+    "architecture": [
+        "{file} 的模块边界需要审查",
+        "{file} 存在架构边界风险",
+    ],
+    "code_smell": [
+        "{file} 存在代码质量问题",
+        "{file} 的代码质量需要关注",
+    ],
+    "maintainability": [
+        "{file} 的可维护性需要改善",
+        "{file} 存在可维护性风险",
+    ],
+    "refactor": [
+        "{file} 存在重构机会",
+        "{file} 适合小步重构",
+    ],
+}
+
+_CATEGORY_ZH_FALLBACK: dict[str, str] = {
+    "architecture": "架构边界需要审查",
+    "code_smell": "代码质量问题需要关注",
+    "maintainability": "可维护性风险需要改善",
+    "refactor": "重构候选需要评估",
+}
+
+
+def build_zh_finding_title(finding: dict) -> str | None:
+    """Build a concrete Chinese finding title from evidence symbols/files.
+
+    Uses the first available symbol from evidence_ids context or files
+    to produce a specific, human-readable title. Returns None if no
+    concrete title can be built (caller should use translated fallback).
+
+    Rules:
+    - Prefer symbol-based title when symbols are available.
+    - Fall back to file-based title when files are available.
+    - Never invent unsupported behavior.
+    - Preserve file paths and symbols exactly.
+    """
+    category = finding.get("category") or ""
+    # Try to get symbols from the finding's evidence context
+    symbols = _extract_finding_symbols(finding)
+    files = finding.get("files") or []
+
+    if symbols and category in _CATEGORY_ZH_TEMPLATES:
+        template = _CATEGORY_ZH_TEMPLATES[category][0]
+        return template.format(symbol=symbols[0])
+
+    if files and category in _CATEGORY_ZH_FILE_TEMPLATES:
+        # Use the shortest file path for readability
+        shortest = min(files, key=len)
+        template = _CATEGORY_ZH_FILE_TEMPLATES[category][0]
+        return template.format(file=shortest)
+
+    # Fallback to category-level title
+    return _CATEGORY_ZH_FALLBACK.get(category)
+
+
+def _extract_finding_symbols(finding: dict) -> list[str]:
+    """Extract symbol names from a finding's evidence references."""
+    # Check if finding has evidence_refs with symbol names
+    evidence_refs = finding.get("evidence_refs") or []
+    symbols = []
+    for ref in evidence_refs:
+        if isinstance(ref, dict):
+            name = ref.get("symbol_name")
+            if name and name not in symbols:
+                symbols.append(name)
+    # Also check if finding has a direct symbols field
+    direct_symbols = finding.get("symbols") or []
+    for s in direct_symbols:
+        if isinstance(s, str) and s not in symbols:
+            symbols.append(s)
+    return symbols
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +284,9 @@ _TRANSLATION_SYSTEM_PROMPT = (
     "- Preserve evidence IDs exactly (e.g., ev_abc123).\n"
     "- Do not change severity or confidence values.\n"
     "- Keep concise and professional.\n"
-    "- Prefer phrases like: 为什么重要, 建议, 安全第一步, 验证方式, 兼容性注意事项.\n"
+    "- Use these terms: 代码质量问题 (not 代码坏味道), 可维护性, 重构建议, 架构分析.\n"
+    "- Prefer phrases like: 为什么重要, 建议, 安全第一步, 验证方式, 注意事项.\n"
+    "- Title should be specific to the symbol or file, not generic like '基于证据的...'.\n"
     "Return only valid JSON with *_zh keys."
 )
 

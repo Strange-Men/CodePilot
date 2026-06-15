@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from backend.reviewers.localization import (
     CHINESE_TO_ENGLISH_HEADINGS,
+    LABEL_TRANSLATIONS,
+    PROSE_REPLACEMENTS,
     REPORT_HEADING_TRANSLATIONS,
     normalize_language,
     translate_finding_labels,
     translate_report_headings,
     translate_report_labels,
+    translate_report_prose,
 )
 
 
@@ -165,3 +168,76 @@ class TestCanonicalDataPreservation:
         text = "in `backend/api/reviews.py`"
         result = translate_finding_labels(text, "zh")
         assert "`backend/api/reviews.py`" in result
+
+
+class TestTerminologyV355:
+    """Verify V3.5.5 terminology changes."""
+
+    def test_code_smells_heading_uses_new_term(self) -> None:
+        assert REPORT_HEADING_TRANSLATIONS["Code Smells"] == "代码质量问题"
+
+    def test_old_code_smell_term_not_in_headings(self) -> None:
+        for zh in REPORT_HEADING_TRANSLATIONS.values():
+            assert "代码坏味道" not in zh, f"Old term found in: {zh}"
+
+    def test_architecture_summary_uses_new_term(self) -> None:
+        assert REPORT_HEADING_TRANSLATIONS["Architecture Summary"] == "架构分析"
+
+    def test_validation_tests_label_uses_new_term(self) -> None:
+        assert LABEL_TRANSLATIONS["**Validation tests:**"] == "**验证方式：**"
+
+    def test_no_bad_terms_in_label_translations(self) -> None:
+        for zh in LABEL_TRANSLATIONS.values():
+            assert "代码坏味道" not in zh
+
+    def test_no_bad_terms_in_prose_replacements(self) -> None:
+        for zh in PROSE_REPLACEMENTS.values():
+            assert "代码坏味道" not in zh
+
+    def test_prose_replacements_cover_key_sentences(self) -> None:
+        # Check that key English prose sentences have Chinese replacements
+        keys = list(PROSE_REPLACEMENTS.keys())
+        assert any("This description is based on paths" in k for k in keys)
+        assert any("Source snippets are intentionally omitted" in k for k in keys)
+        assert any("Trace startup and top-level composition here" in k for k in keys)
+        assert any("Changes can affect several internal consumers" in k for k in keys)
+        assert any("Findings are grouped by the agent" in k for k in keys)
+        assert any("Supported source files:" in k for k in keys)
+        assert any("Average complexity estimate:" in k for k in keys)
+
+
+class TestTranslateReportProse:
+    def test_en_returns_unchanged(self) -> None:
+        report = "Execution begins around `src/app.py`."
+        assert translate_report_prose(report, "en") == report
+
+    def test_zh_replaces_known_prose(self) -> None:
+        report = (
+            "- This description is based on paths, symbols, routes, "
+            "and resolved internal dependencies."
+        )
+        result = translate_report_prose(report, "zh")
+        assert "以上描述基于" in result
+        assert "This description is based on" not in result
+
+    def test_zh_replaces_source_snippets(self) -> None:
+        report = "Source snippets are intentionally omitted."
+        result = translate_report_prose(report, "zh")
+        assert "不展开源码片段" in result
+
+    def test_zh_replaces_metrics_labels(self) -> None:
+        report = "- Supported source files: 42\n- Average complexity estimate: 3.14"
+        result = translate_report_prose(report, "zh")
+        assert "支持的源文件数：" in result
+        assert "平均复杂度估计：" in result
+
+    def test_zh_preserves_code_symbols(self) -> None:
+        report = "Execution begins around `src/flask/app.py`."
+        result = translate_report_prose(report, "zh")
+        assert "`src/flask/app.py`" in result
+
+    def test_zh_replaces_table_headers(self) -> None:
+        report = "| Area | Files | Why It Matters |"
+        result = translate_report_prose(report, "zh")
+        assert "| 区域 |" in result
+        assert "| 重要性 |" in result

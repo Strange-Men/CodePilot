@@ -27,7 +27,7 @@ type AgentTimelineProps = {
 
 const agentDescKeys: Record<string, string> = {
   ArchitectureAgent: "架构分析",
-  CodeSmellAgent: "代码坏味道",
+  CodeSmellAgent: "代码质量",
   MaintainabilityAgent: "可维护性",
   RefactorAgent: "重构建议"
 };

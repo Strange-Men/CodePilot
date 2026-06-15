@@ -170,7 +170,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
 
   zh: {
     // Header
-    "header.workspace": "审查工作台",
+    "header.workspace": "代码审查工作台",
     "header.tagline": "基于证据的仓库分析",
     "header.queued": "排队中",
     "header.idle": "空闲",
@@ -236,7 +236,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "overview.currentReview": "当前审查",
     "overview.agentsComplete": "Agent 已完成",
     "overview.findings": "问题发现",
-    "overview.highRiskItems": "高风险项",
+    "overview.highRiskItems": "高风险问题",
     "overview.evidenceRefs": "证据引用",
     "overview.reviewComplete": "审查完成。结构化 Agent、问题发现、证据和指标数据已在工作台各标签中就绪。",
     "overview.reviewFailed": "最近一次执行未完成。持久化的进度仍可用于诊断。",
@@ -261,16 +261,16 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "agentCards.findings": "问题发现",
     "agentCards.evidence": "证据",
     "agentCards.avgConfidence": "平均置信度",
-    "agentCards.severity": "严重性",
+    "agentCards.severity": "严重程度",
 
     // Findings panel
     "findings.structuredData": "结构化审查数据",
     "findings.heading": "问题发现",
     "findings.total": "共",
-    "findings.recommendedAction": "建议措施",
+    "findings.recommendedAction": "建议",
     "findings.impact": "影响",
     "findings.firstSafeStep": "安全第一步",
-    "findings.validationTests": "验证测试",
+    "findings.validationTests": "验证方式",
     "findings.caveat": "注意事项",
     "findings.evidence": "证据",
     "findings.confidence": "置信度",
@@ -300,16 +300,16 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "metrics.evidenceRefs": "证据引用",
     "metrics.agentRecords": "Agent 记录",
     "metrics.avgConfidence": "平均置信度",
-    "metrics.severityDist": "严重性分布",
+    "metrics.severityDist": "严重程度分布",
     "metrics.riskSignal": "风险信号",
     "metrics.riskSignalDesc": "应在常规清理前优先处理的严重或高危问题发现。",
     "metrics.notRecorded": "暂无指标记录",
     "metrics.notRecordedDesc": "此旧版审查无结构化指标。请使用「报告」标签查看原始分析。",
 
     // Report panel
-    "report.outline": "报告大纲",
+    "report.outline": "报告目录",
     "report.section": "报告章节",
-    "report.legacyAppendices": "旧版附录与仓库诊断",
+    "report.legacyAppendices": "附录与仓库诊断",
     "report.inProgress": "报告生成中",
     "report.noReport": "未选择报告",
     "report.inProgressDesc": "报告将在审查 Agent 完成后组装。运行时进度仍可在总览和 Agent 中查看。",

@@ -190,7 +190,7 @@ test("Chinese labels appear when language is zh", () => {
 
   assert.match(html, /影响/);
   assert.match(html, /安全第一步/);
-  assert.match(html, /验证测试/);
+  assert.match(html, /验证方式/);
   assert.match(html, /注意事项/);
   assert.match(html, /结构化审查数据/);
 });
@@ -248,10 +248,10 @@ test("FindingsPanel translates labels in Chinese", () => {
   // Chinese section labels
   assert.match(html, /结构化审查数据/);
   assert.match(html, /问题发现/);
-  assert.match(html, /建议措施/);
+  assert.match(html, /建议/);
   assert.match(html, /影响/);
   assert.match(html, /安全第一步/);
-  assert.match(html, /验证测试/);
+  assert.match(html, /验证方式/);
   assert.match(html, /注意事项/);
   assert.match(html, /证据/);
   assert.match(html, /置信度/);
@@ -266,7 +266,7 @@ test("AgentTimeline shows Chinese agent descriptions", () => {
   assert.match(html, /审查 Agent/);
   assert.match(html, /已完成/);
   assert.match(html, /架构分析/);
-  assert.match(html, /代码坏味道/);
+  assert.match(html, /代码质量/);
 });
 
 test("AgentStateCards renders Chinese labels", () => {
@@ -275,7 +275,7 @@ test("AgentStateCards renders Chinese labels", () => {
   assert.match(html, /问题发现/);
   assert.match(html, /证据/);
   assert.match(html, /平均置信度/);
-  assert.match(html, /严重性/);
+  assert.match(html, /严重程度/);
 });
 
 test("EvidencePanel renders Chinese labels", () => {
@@ -812,17 +812,17 @@ test("t() returns Chinese values for all tab keys", () => {
 test("t() returns Chinese values for findings field labels", () => {
   assert.equal(t("zh", "findings.impact"), "影响");
   assert.equal(t("zh", "findings.firstSafeStep"), "安全第一步");
-  assert.equal(t("zh", "findings.validationTests"), "验证测试");
+  assert.equal(t("zh", "findings.validationTests"), "验证方式");
   assert.equal(t("zh", "findings.caveat"), "注意事项");
   assert.equal(t("zh", "findings.confidence"), "置信度");
-  assert.equal(t("zh", "findings.recommendedAction"), "建议措施");
+  assert.equal(t("zh", "findings.recommendedAction"), "建议");
 });
 
 test("t() returns Chinese values for overview labels", () => {
   assert.equal(t("zh", "overview.currentReview"), "当前审查");
   assert.equal(t("zh", "overview.agentsComplete"), "Agent 已完成");
   assert.equal(t("zh", "overview.findings"), "问题发现");
-  assert.equal(t("zh", "overview.highRiskItems"), "高风险项");
+  assert.equal(t("zh", "overview.highRiskItems"), "高风险问题");
   assert.equal(t("zh", "overview.evidenceRefs"), "证据引用");
 });
 
@@ -846,12 +846,12 @@ const zhFindings: ReviewFindingItem[] = [
     finding_id: "finding-zh",
     finding_index: 0,
     section: "Architecture Summary",
-    title: "基于证据的架构边界问题",
-    description: "所选证据指出了一个仓库关注点，在修改入口点、核心模块、共享依赖或重构边界之前应先审查。",
+    title: "build_reviews_router 的架构边界需要审查",
+    description: "引用的证据表明该区域存在结构性问题，在修改入口点、核心模块、共享依赖或重构边界前应优先审查。",
     severity: "high",
     category: "architecture",
     confidence: 0.85,
-    recommendation: "在重构前为边界添加契约测试。",
+    recommendation: "在重构前为该边界添加契约测试，确保接口行为不变。",
     files: ["backend/api/reviews.py"],
     evidence_ids: ["ev_abc123"],
     evidence_refs: [
@@ -864,11 +864,11 @@ const zhFindings: ReviewFindingItem[] = [
       }
     ],
     validation_status: "validated",
-    impact: "如果接口契约未被保留，对此边界的更改可能影响多个使用者。",
-    first_step: "在重构前添加覆盖当前公共接口的表征测试。",
-    validation_tests: ["在任何边界更改前后运行完整测试套件。"],
+    impact: "如果接口契约未被保留，该边界的变更可能影响多个依赖方。",
+    first_step: "在重构前为当前公共接口添加表征测试，锁定现有行为。",
+    validation_tests: ["在边界变更前后运行完整测试套件，确认无回归。"],
     confidence_rationale: "基于提示上下文中提供的证据记录。",
-    caveat: "如果此边界是公共 API 的一部分，更改它可能破坏下游使用者。"
+    caveat: "如果该边界属于公共 API，变更可能破坏下游使用者。"
   }
 ];
 
@@ -884,12 +884,12 @@ test("Chinese findings render localized prose when API returns it", () => {
   );
 
   // Chinese prose rendered
-  assert.match(html, /基于证据的架构边界问题/);
-  assert.match(html, /所选证据/);
-  assert.match(html, /在重构前为边界添加契约测试/);
-  assert.match(html, /如果接口契约未被保留/);
-  assert.match(html, /在重构前添加覆盖当前公共接口的表征测试/);
-  assert.match(html, /如果此边界是公共 API 的一部分/);
+  assert.match(html, /架构边界需要审查/);
+  assert.match(html, /引用的证据/);
+  assert.match(html, /契约测试/);
+  assert.match(html, /依赖方/);
+  assert.match(html, /表征测试/);
+  assert.match(html, /公共 API/);
   // Evidence IDs preserved
   assert.match(html, /ev_abc123/);
   // Files preserved
@@ -1025,4 +1025,50 @@ test("getReviewFindings has no lang param for en", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+// --- V3.5.5 terminology tests ---
+
+test("Chinese UI dictionary does not contain 代码坏味道", () => {
+  // Check all zh dictionary values for the banned term
+  const zhDict = (t as (lang: string, key: string) => string).toString();
+  // Direct check: iterate known zh keys
+  const zhKeys = [
+    "header.workspace", "header.tagline", "sidebar.controlPanel",
+    "sidebar.repositoryReview", "findings.heading", "findings.structuredData",
+    "overview.findings", "overview.highRiskItems", "tabs.findings",
+    "agentCards.findings", "metrics.findings", "report.outline",
+    "report.legacyAppendices", "findings.noStructured",
+    "evidence.noStructured", "metrics.notRecorded",
+    "findings.recommendedAction", "findings.validationTests",
+    "agentCards.severity", "metrics.severityDist",
+  ];
+  for (const key of zhKeys) {
+    const value = t("zh", key);
+    assert.ok(
+      !value.includes("代码坏味道"),
+      `Key "${key}" contains banned term "代码坏味道": "${value}"`
+    );
+  }
+});
+
+test("Chinese findings use 代码质量 not 代码坏味道", () => {
+  // The findings panel should use the new term
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={[]} language="zh" progress={runningProgress} />
+  );
+
+  assert.match(html, /代码质量/);
+  assert.doesNotMatch(html, /代码坏味道/);
+});
+
+test("Chinese findings panel uses polished labels", () => {
+  assert.equal(t("zh", "findings.validationTests"), "验证方式");
+  assert.equal(t("zh", "findings.recommendedAction"), "建议");
+  assert.equal(t("zh", "agentCards.severity"), "严重程度");
+  assert.equal(t("zh", "metrics.severityDist"), "严重程度分布");
+  assert.equal(t("zh", "overview.highRiskItems"), "高风险问题");
+  assert.equal(t("zh", "report.outline"), "报告目录");
+  assert.equal(t("zh", "report.legacyAppendices"), "附录与仓库诊断");
+  assert.equal(t("zh", "header.workspace"), "代码审查工作台");
 });

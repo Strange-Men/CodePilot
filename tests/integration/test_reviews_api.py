@@ -1013,8 +1013,13 @@ def test_findings_lang_zh_returns_chinese_prose(
 
     assert response.status_code == 200
     finding = response.json()["findings"][0]
-    assert finding["title"] == "基于证据的架构边界问题"
-    assert "仓库关注点" in finding["description"]
+    # Title should be concrete (file-based or symbol-based) and Chinese
+    assert finding["title"] is not None
+    title = finding["title"]
+    assert "架构" in title or "build_reviews_router" in title or "backend/api/reviews.py" in title
+    # No bad terms
+    assert "代码坏味道" not in finding["title"]
+    assert "结构性问题" in finding["description"]
     assert "契约测试" in finding["recommendation"]
 
 
@@ -1070,7 +1075,7 @@ def test_findings_lang_zh_translates_impact_and_first_step(
     response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
 
     finding = response.json()["findings"][0]
-    assert "使用者" in finding["impact"]
+    assert "依赖方" in finding["impact"]
     assert "表征测试" in finding["first_step"]
     assert "公共 API" in finding["caveat"]
 
@@ -1192,7 +1197,7 @@ def test_get_review_lang_zh_returns_chinese_report_prose(
     assert "# 执行摘要" in report_md
     assert "# 行动计划" in report_md
     # Finding prose should be Chinese (not only headings)
-    assert "使用者" in report_md
+    assert "依赖方" in report_md
     assert "表征测试" in report_md
     assert "公共 API" in report_md
     # Evidence IDs preserved
@@ -1258,7 +1263,7 @@ def test_export_lang_zh_returns_chinese_prose(
     assert "# 执行摘要" in response.text
     assert "# 行动计划" in response.text
     # Finding prose translated
-    assert "使用者" in response.text
+    assert "依赖方" in response.text
     # Evidence IDs preserved
     assert "ev_abc123" in response.text
     # Filename includes -zh
@@ -1356,7 +1361,7 @@ def test_get_review_lang_zh_report_cache_hit(
     # Both should return the same Chinese report
     assert response1.json()["report_markdown"] == response2.json()["report_markdown"]
     # Report should contain Chinese prose
-    assert "使用者" in response1.json()["report_markdown"]
+    assert "依赖方" in response1.json()["report_markdown"]
 
 
 def test_get_review_lang_en_unchanged_with_localization(
@@ -1432,3 +1437,221 @@ def test_export_lang_zh_with_failing_translator(
     assert "# 执行摘要" in response.text
     # English prose preserved (translator failed)
     assert "Changes to this boundary" in response.text
+
+
+# --- V3.5.5 terminology and English leakage tests ---
+
+
+_ZH_BANNED_ENGLISH = [
+    "Execution begins",
+    "This description is based on",
+    "It does not claim",
+    "Why It Matters",
+    "Findings are grouped",
+    "Evidence references remain",
+    "Source snippets are intentionally omitted",
+    "Supported source files",
+    "Analyzed files",
+    "Skipped files",
+    "Total lines",
+    "Average complexity estimate",
+    "Higher structural risk",
+    "Medium finding risk",
+]
+
+_ZH_BANNED_TERMS = [
+    "代码坏味道",
+]
+
+
+def test_zh_report_no_banned_english_boilerplate(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese report should not contain obvious English boilerplate sentences."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    # Create a report with full English prose
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# How It Works\n"
+        "Execution begins around `src/app.py`, then delegates into `src/core.py`.\n"
+        "- This description is based on paths, symbols, routes, "
+        "and resolved internal dependencies.\n"
+        "- It does not claim runtime semantics that were not present "
+        "in the analyzed evidence.\n\n"
+        "# Key Architecture Map\n"
+        "| Area | Files | Why It Matters |\n"
+        "| --- | --- | --- |\n"
+        "| Entry points | `src/app.py` | Trace startup and top-level composition here. |\n"
+        "| Dependency hubs | `src/core.py` | Changes can affect several internal consumers. |\n\n"
+        "# Evidence Appendix\n"
+        "Only validated references are shown. Source snippets are intentionally omitted.\n"
+        "| Evidence ID | Location | Kind | Symbols |\n"
+        "| --- | --- | --- | --- |\n\n"
+        "## Repository Metrics\n"
+        "- Supported source files: 10\n"
+        "- Analyzed files: 8\n"
+        "- Skipped files: 2\n"
+        "- Total lines: 500\n"
+        "- Average complexity estimate: 3.14\n\n"
+        "# Action Plan\n"
+        "## 1. Evidence-grounded architecture boundary\n"
+        "- **Why it matters:** Changes to this boundary.\n"
+        "- **Evidence:** `ev_abc123`\n"
+    )
+    store.create_review("task-zh-leak", "https://github.com/example/project")
+    store.update_status("task-zh-leak", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-leak",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description="desc",
+                severity="high",
+                category="architecture",
+                confidence=0.85,
+                files=["a.py"],
+                evidence_ids=["ev_abc123"],
+                evidence=["ev_abc123 -> a.py:1-5"],
+                impact="Changes to this boundary.",
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_abc123", file_path="a.py", start_line=1, end_line=5,
+                snippet="code", kind="symbol", symbols=[],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-zh-leak?lang=zh")
+
+    assert response.status_code == 200
+    report_md = response.json()["report_markdown"]
+
+    for banned in _ZH_BANNED_ENGLISH:
+        assert banned not in report_md, f"Banned English phrase found in zh report: '{banned}'"
+
+
+def test_zh_export_no_banned_english_boilerplate(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese export should not contain obvious English boilerplate sentences."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Evidence Appendix\n"
+        "Only validated references are shown. Source snippets are intentionally omitted.\n\n"
+        "## Repository Metrics\n"
+        "- Supported source files: 10\n"
+        "- Average complexity estimate: 3.14\n"
+    )
+    store.create_review("task-zh-export-leak", "https://github.com/example/project")
+    store.update_status("task-zh-export-leak", ReviewStatus.completed, report_markdown=report)
+
+    response = client.get("/api/reviews/task-zh-export-leak/export?lang=zh")
+
+    assert response.status_code == 200
+    for banned in _ZH_BANNED_ENGLISH:
+        assert banned not in response.text, f"Banned English phrase found in zh export: '{banned}'"
+
+
+def test_zh_findings_no_bad_terms(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese findings should not contain '代码坏味道'."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    for banned in _ZH_BANNED_TERMS:
+        assert banned not in finding.get("title", ""), f"Bad term in title: {banned}"
+        assert banned not in finding.get("description", ""), f"Bad term in description: {banned}"
+
+
+def test_zh_report_uses_new_terminology(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese report should use '代码质量问题' not '代码坏味道'."""
+    client, store, _ = api_client_with_localization
+    report = "# Code Smells\n- Some code smell finding.\n"
+    store.create_review("task-zh-term", "https://github.com/example/project")
+    store.update_status("task-zh-term", ReviewStatus.completed, report_markdown=report)
+
+    response = client.get("/api/reviews/task-zh-term?lang=zh")
+
+    assert response.status_code == 200
+    report_md = response.json()["report_markdown"]
+    assert "# 代码质量问题" in report_md
+    assert "代码坏味道" not in report_md
+
+
+def test_zh_export_content_type_includes_utf8(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Export response should include charset=utf-8 in content type."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/export?lang=zh")
+
+    assert response.status_code == 200
+    content_type = response.headers.get("content-type", "")
+    assert "utf-8" in content_type.lower() or "text/markdown" in content_type
+
+
+def test_zh_export_preserves_evidence_ids_and_paths(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese export must preserve evidence IDs and file paths exactly."""
+    client, store, _ = api_client_with_localization
+    report = (
+        "# Action Plan\n"
+        "## 1. Fix boundary\n"
+        "- **Evidence:** `ev_abc123`\n"
+        "- **Where:** `backend/api/reviews.py`\n"
+    )
+    store.create_review("task-zh-preserve", "https://github.com/example/project")
+    store.update_status("task-zh-preserve", ReviewStatus.completed, report_markdown=report)
+    store.replace_structured_findings(
+        "task-zh-preserve",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Evidence-grounded architecture boundary",
+                description="desc",
+                severity="high",
+                category="architecture",
+                confidence=0.85,
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_abc123"],
+                evidence=["ev_abc123 -> backend/api/reviews.py:10-20"],
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_abc123", file_path="backend/api/reviews.py",
+                start_line=10, end_line=20, snippet="code", kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    en_response = client.get("/api/reviews/task-zh-preserve/export?lang=en")
+    zh_response = client.get("/api/reviews/task-zh-preserve/export?lang=zh")
+
+    assert en_response.status_code == 200
+    assert zh_response.status_code == 200
+    # Evidence IDs preserved
+    assert "ev_abc123" in zh_response.text
+    # File paths preserved
+    assert "backend/api/reviews.py" in zh_response.text

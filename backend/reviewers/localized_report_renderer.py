@@ -1,8 +1,8 @@
 """Localized report rendering for CodePilot.
 
 Takes a canonical English report and re-renders it for the target language
-by translating headings, labels, and finding prose. Agent analysis content
-is preserved unchanged — only display prose is localized.
+by translating headings, labels, prose sentences, and finding prose.
+Agent analysis content is preserved unchanged — only display prose is localized.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from backend.reviewers.localization import (
     translate_finding_labels,
     translate_report_headings,
     translate_report_labels,
+    translate_report_prose,
 )
 
 
@@ -19,8 +20,8 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
     """Render a localized version of the report markdown.
 
     For English, returns the original report unchanged.
-    For Chinese, translates headings and bold labels while preserving
-    all finding content, evidence IDs, file paths, and data fields.
+    For Chinese, translates headings, bold labels, and known prose sentences
+    while preserving all finding content, evidence IDs, file paths, and data fields.
 
     Args:
         report_markdown: The canonical English report markdown.
@@ -38,6 +39,12 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
     # Step 2: Translate bold labels within body text
     translated = translate_report_labels(translated, lang)
 
+    # Step 3: Replace known English prose sentences with Chinese equivalents
+    translated = translate_report_prose(translated, lang)
+
+    # Step 4: Translate agent display names in headings and table cells
+    translated = _translate_agent_names(translated, lang)
+
     return translated
 
 
@@ -48,9 +55,9 @@ def render_localized_report_with_prose(
 ) -> str:
     """Render a localized report with natural Chinese finding prose.
 
-    Translates headings and labels, then replaces English finding prose
-    (title, description, recommendation, impact, etc.) with localized
-    versions from the localized findings data.
+    Translates headings, labels, and known prose sentences, then replaces
+    English finding prose (title, description, recommendation, impact, etc.)
+    with localized versions from the localized findings data.
 
     Code identifiers, file paths, evidence IDs, severity, and confidence
     are preserved unchanged.
@@ -70,7 +77,13 @@ def render_localized_report_with_prose(
     translated = translate_report_headings(report_markdown, lang)
     translated = translate_report_labels(translated, lang)
 
-    # Step 2: Build replacement map from localized findings
+    # Step 2: Replace known English prose sentences
+    translated = translate_report_prose(translated, lang)
+
+    # Step 3: Translate agent display names
+    translated = _translate_agent_names(translated, lang)
+
+    # Step 4: Build replacement map from localized findings
     replacements: dict[str, str] = {}
     for finding in localized_findings:
         for key, value in finding.items():
@@ -101,7 +114,7 @@ def render_localized_report_with_prose(
                 ):
                     replacements[en_test] = zh_test
 
-    # Step 3: Apply replacements (longest first to avoid partial matches)
+    # Step 5: Apply replacements (longest first to avoid partial matches)
     for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):
         translated = translated.replace(en, zh)
 
@@ -115,3 +128,29 @@ def render_localized_finding_text(text: str | None, lang: Language) -> str | Non
     Returns None if input is None.
     """
     return translate_finding_labels(text, lang)
+
+
+def _translate_agent_names(report_markdown: str, lang: Language) -> str:
+    """Replace agent IDs with localized display names in report text.
+
+    Only replaces standalone occurrences (as headings or table cells),
+    not partial matches inside other words.
+    """
+    if lang != "zh":
+        return report_markdown
+    result = report_markdown
+    for agent_id, display_name in _AGENT_DISPLAY_NAMES.items():
+        # Replace in headings: "## ArchitectureAgent" -> "## 架构分析 Agent"
+        result = result.replace(f"## {agent_id}", f"## {display_name}")
+        # Replace in table cells: "| ArchitectureAgent |" -> "| 架构分析 Agent |"
+        result = result.replace(f"| {agent_id} ", f"| {display_name} ")
+        result = result.replace(f"| {agent_id}|", f"| {display_name}|")
+    return result
+
+
+_AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "ArchitectureAgent": "架构分析 Agent",
+    "CodeSmellAgent": "代码质量 Agent",
+    "MaintainabilityAgent": "可维护性 Agent",
+    "RefactorAgent": "重构建议 Agent",
+}

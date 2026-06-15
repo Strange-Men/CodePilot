@@ -139,10 +139,14 @@ def build_reviews_router(
         else:
             content = render_localized_report(content, normalized_lang)
         suffix = "-zh" if normalized_lang == "zh" else ""
+        filename = f"codepilot-review-{task_id}{suffix}.md"
         return Response(
             content=content,
-            media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="codepilot-review-{task_id}{suffix}.md"'},
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "text/markdown; charset=utf-8",
+            },
         )
 
     @router.delete("/{task_id}", status_code=204)
