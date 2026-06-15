@@ -125,7 +125,7 @@ export function ControlSidebar({
 
       {review?.status === "completed" ? (
         <Button asChild className="mt-4 w-full" variant="outline">
-          <a href={getReviewExportUrl(review.task_id)}>
+          <a href={getReviewExportUrl(review.task_id, { lang: language })}>
             <Download className="h-4 w-4" />
             {t(language, "sidebar.exportMarkdown")}
             <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />

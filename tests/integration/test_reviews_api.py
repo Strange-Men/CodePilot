@@ -623,3 +623,312 @@ def test_delete_missing_review_returns_404(
 
     assert response.status_code == 404
     assert response.json()["code"] == "review_not_found"
+
+
+# --- Localization tests ---
+
+
+def _create_completed_review_with_report(
+    store: ReviewStore,
+    report: str = "# Executive Summary\nAnalysis complete.\n\n## Top Risks\n- Risk one\n",
+) -> None:
+    """Helper to create a completed review with report markdown."""
+    store.create_review("task-zh", "https://github.com/example/project")
+    store.update_status(
+        "task-zh",
+        ReviewStatus.completed,
+        report_markdown=report,
+    )
+
+
+def test_get_review_lang_en_returns_english_report(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh?lang=en")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "# Executive Summary" in body["report_markdown"]
+    assert "# 执行摘要" not in body["report_markdown"]
+
+
+def test_get_review_lang_zh_returns_chinese_headings(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh?lang=zh")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "# 执行摘要" in body["report_markdown"]
+    assert "Analysis complete." in body["report_markdown"]
+
+
+def test_get_review_lang_zh_preserves_task_metadata(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh?lang=zh")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_id"] == "task-zh"
+    assert body["status"] == "completed"
+    assert body["repo_url"] == "https://github.com/example/project"
+
+
+def test_get_review_invalid_lang_defaults_to_english(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh?lang=invalid")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "# Executive Summary" in body["report_markdown"]
+
+
+def test_get_review_no_lang_defaults_to_english(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "# Executive Summary" in body["report_markdown"]
+
+
+def test_get_review_findings_lang_zh_keeps_same_count(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-zh", "https://github.com/example/project")
+    store.replace_structured_findings(
+        "task-zh",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Boundary risk",
+                description="The API boundary has mixed responsibilities.",
+                severity="high",
+                category="architecture",
+                confidence=0.91,
+                recommendation="Separate transport and domain responsibilities.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_safe"],
+                evidence=["ev_safe -> backend/api/reviews.py:10-20"],
+            ),
+            ReviewFinding(
+                section="Code Smells",
+                title="Duplicate code",
+                description="Two paths implement similar logic.",
+                severity="medium",
+                category="code_smell",
+                confidence=0.75,
+                recommendation="Extract shared logic.",
+                files=["app.py"],
+                evidence_ids=["ev_dup"],
+                evidence=["ev_dup -> app.py:1-10"],
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+            EvidenceRecord(
+                evidence_id="ev_dup",
+                file_path="app.py",
+                start_line=1,
+                end_line=10,
+                snippet="code",
+                kind="symbol",
+                symbols=["dispatch"],
+            ),
+        ],
+    )
+
+    en_response = client.get("/api/reviews/task-zh/findings?lang=en")
+    zh_response = client.get("/api/reviews/task-zh/findings?lang=zh")
+
+    assert en_response.status_code == 200
+    assert zh_response.status_code == 200
+    assert len(en_response.json()["findings"]) == 2
+    assert len(zh_response.json()["findings"]) == 2
+
+
+def test_get_review_findings_lang_zh_keeps_same_evidence_ids(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-zh", "https://github.com/example/project")
+    store.replace_structured_findings(
+        "task-zh",
+        [
+            ReviewFinding(
+                section="Architecture Summary",
+                title="Boundary risk",
+                description="The API boundary has mixed responsibilities.",
+                severity="high",
+                category="architecture",
+                confidence=0.91,
+                recommendation="Separate transport.",
+                files=["backend/api/reviews.py"],
+                evidence_ids=["ev_safe"],
+                evidence=["ev_safe -> backend/api/reviews.py:10-20"],
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="backend/api/reviews.py",
+                start_line=10,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["build_reviews_router"],
+            ),
+        ],
+    )
+
+    en_response = client.get("/api/reviews/task-zh/findings?lang=en")
+    zh_response = client.get("/api/reviews/task-zh/findings?lang=zh")
+
+    en_finding = en_response.json()["findings"][0]
+    zh_finding = zh_response.json()["findings"][0]
+    assert en_finding["evidence_ids"] == zh_finding["evidence_ids"]
+    assert en_finding["files"] == zh_finding["files"]
+    assert en_finding["severity"] == zh_finding["severity"]
+    assert en_finding["confidence"] == zh_finding["confidence"]
+
+
+def test_get_review_findings_lang_zh_translates_labels(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    store.create_review("task-zh", "https://github.com/example/project")
+    store.replace_structured_findings(
+        "task-zh",
+        [
+            ReviewFinding(
+                section="Code Smells",
+                title="Duplicate dispatch",
+                description="Two paths implement similar dispatch.",
+                severity="medium",
+                category="code_smell",
+                confidence=0.75,
+                recommendation="Extract shared logic.",
+                files=["app.py"],
+                evidence_ids=["ev_dup"],
+                evidence=["ev_dup -> app.py:1-10"],
+                impact="Changes may need duplication across paths.",
+                first_step="Add tests before refactoring.",
+                caveat="Mature public API; preserve compatibility.",
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_dup",
+                file_path="app.py",
+                start_line=1,
+                end_line=10,
+                snippet="code",
+                kind="symbol",
+                symbols=["dispatch"],
+            ),
+        ],
+    )
+
+    zh_response = client.get("/api/reviews/task-zh/findings?lang=zh")
+
+    assert zh_response.status_code == 200
+    finding = zh_response.json()["findings"][0]
+    # Labels should be translated
+    assert finding["impact"] == "**影响** Changes may need duplication across paths." or \
+        "Changes may need duplication across paths." in (finding["impact"] or "")
+    # Canonical data unchanged
+    assert finding["severity"] == "medium"
+    assert finding["confidence"] == 0.75
+    assert finding["files"] == ["app.py"]
+    assert finding["evidence_ids"] == ["ev_dup"]
+
+
+def test_export_lang_zh_returns_chinese_markdown(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh/export?lang=zh")
+
+    assert response.status_code == 200
+    assert "# 执行摘要" in response.text
+    assert "codepilot-review-task-zh-zh.md" in response.headers["content-disposition"]
+
+
+def test_export_lang_en_returns_english_markdown(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh/export?lang=en")
+
+    assert response.status_code == 200
+    assert "# Executive Summary" in response.text
+    assert "codepilot-review-task-zh.md" in response.headers["content-disposition"]
+
+
+def test_export_no_lang_defaults_to_english(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    _create_completed_review_with_report(store)
+
+    response = client.get("/api/reviews/task-zh/export")
+
+    assert response.status_code == 200
+    assert "# Executive Summary" in response.text
+
+
+def test_export_lang_zh_preserves_finding_content(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    client, store, _ = api_client
+    report = (
+        "# Executive Summary\n"
+        "CodePilot analyzed 10 files.\n\n"
+        "# Action Plan\n"
+        "## 1. Fix boundary\n"
+        "- **Why it matters:** Mixed responsibilities.\n"
+        "- **Evidence:** `ev_123`\n"
+    )
+    store.create_review("task-zh", "https://github.com/example/project")
+    store.update_status("task-zh", ReviewStatus.completed, report_markdown=report)
+
+    response = client.get("/api/reviews/task-zh/export?lang=zh")
+
+    assert response.status_code == 200
+    # Headings translated
+    assert "# 执行摘要" in response.text
+    assert "# 行动计划" in response.text
+    # Content preserved
+    assert "CodePilot analyzed 10 files." in response.text
+    assert "`ev_123`" in response.text

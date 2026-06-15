@@ -18,15 +18,17 @@ export async function createReview(repoUrl: string, llmMode: string = "mock"): P
   return (await response.json()) as { task_id: string; llm_mode: string };
 }
 
-export async function getReview(taskId: string): Promise<ReviewResponse> {
-  const response = await fetch(`${API_BASE}/api/reviews/${taskId}`);
+export async function getReview(taskId: string, opts?: { lang?: string }): Promise<ReviewResponse> {
+  const langParam = opts?.lang && opts.lang !== "en" ? `?lang=${encodeURIComponent(opts.lang)}` : "";
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}${langParam}`);
 
   if (!response.ok) throw await createApiError(response);
   return (await response.json()) as ReviewResponse;
 }
 
-export async function getReviewFindings(taskId: string): Promise<ReviewFindingsResponse> {
-  const response = await fetch(`${API_BASE}/api/reviews/${taskId}/findings`);
+export async function getReviewFindings(taskId: string, opts?: { lang?: string }): Promise<ReviewFindingsResponse> {
+  const langParam = opts?.lang && opts.lang !== "en" ? `?lang=${encodeURIComponent(opts.lang)}` : "";
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}/findings${langParam}`);
 
   if (!response.ok) throw await createApiError(response);
   return (await response.json()) as ReviewFindingsResponse;
@@ -54,8 +56,9 @@ export async function listReviews(limit = 50): Promise<ReviewResponse[]> {
   return (await response.json()) as ReviewResponse[];
 }
 
-export function getReviewExportUrl(taskId: string): string {
-  return `${API_BASE}/api/reviews/${taskId}/export`;
+export function getReviewExportUrl(taskId: string, opts?: { lang?: string }): string {
+  const langParam = opts?.lang && opts.lang !== "en" ? `?lang=${encodeURIComponent(opts.lang)}` : "";
+  return `${API_BASE}/api/reviews/${taskId}/export${langParam}`;
 }
 
 export class CodePilotApiError extends Error {

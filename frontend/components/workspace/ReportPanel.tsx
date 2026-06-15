@@ -6,8 +6,7 @@ import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import {
-  architectureGraphSection,
-  legacyReportAppendixSections,
+  isDeEmphasizedSection,
   parseReport
 } from "@/lib/report";
 
@@ -16,12 +15,6 @@ type ReportPanelProps = {
   language: Language;
   reportMarkdown: string | null | undefined;
 };
-
-const deEmphasizedSections = new Set([
-  ...legacyReportAppendixSections,
-  "Evidence Appendix",
-  architectureGraphSection
-]);
 
 export function ReportPanel({ isRunning, language, reportMarkdown }: ReportPanelProps) {
   if (!reportMarkdown) {
@@ -40,10 +33,10 @@ export function ReportPanel({ isRunning, language, reportMarkdown }: ReportPanel
 
   const parsed = parseReport(reportMarkdown);
   const sections = Object.entries(parsed).filter(
-    ([title, content]) => content.trim() && !deEmphasizedSections.has(title)
+    ([title, content]) => content.trim() && !isDeEmphasizedSection(title)
   );
   const appendices = Object.entries(parsed).filter(
-    ([title, content]) => content.trim() && deEmphasizedSections.has(title)
+    ([title, content]) => content.trim() && isDeEmphasizedSection(title)
   );
 
   if (!sections.length) {

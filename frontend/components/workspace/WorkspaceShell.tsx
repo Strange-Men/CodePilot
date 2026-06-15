@@ -14,6 +14,7 @@ import { useReviewPolling } from "@/hooks/useReviewPolling";
 import {
   createReview,
   deleteReview,
+  getReview,
   getReviewAgentStates,
   getReviewFindings,
   listReviews
@@ -87,7 +88,7 @@ export function WorkspaceShell() {
     setStructuredLoading(true);
     setStructuredError(null);
     Promise.all([
-      getReviewFindings(review.task_id),
+      getReviewFindings(review.task_id, { lang: language }),
       getReviewAgentStates(review.task_id)
     ])
       .then(([findingData, agentData]) => {
@@ -107,7 +108,30 @@ export function WorkspaceShell() {
     return () => {
       cancelled = true;
     };
-  }, [review?.task_id, review?.status, structuredReloadKey]);
+  }, [review?.task_id, review?.status, structuredReloadKey, language]);
+
+  // Re-fetch localized report when language changes for completed reviews
+  useEffect(() => {
+    if (!review || !terminalStatuses.includes(review.status)) return;
+
+    let cancelled = false;
+    getReview(review.task_id, { lang: language })
+      .then((localizedReview) => {
+        if (!cancelled && localizedReview.report_markdown) {
+          setReview((prev) =>
+            prev && prev.task_id === localizedReview.task_id
+              ? { ...prev, report_markdown: localizedReview.report_markdown }
+              : prev
+          );
+        }
+      })
+      .catch(() => {
+        // Silent fallback — the existing report remains visible
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [language, review?.task_id, review?.status]);
 
   async function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
