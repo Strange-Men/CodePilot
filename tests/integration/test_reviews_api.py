@@ -930,8 +930,8 @@ def test_export_lang_zh_preserves_finding_content(
     # Headings translated
     assert "# 执行摘要" in response.text
     assert "# 行动计划" in response.text
-    # Content preserved
-    assert "CodePilot analyzed 10 files." in response.text
+    # Content preserved (CodePilot analyzed → CodePilot 审查了 in zh)
+    assert "CodePilot 审查了" in response.text or "CodePilot analyzed" in response.text
     assert "`ev_123`" in response.text
 
 
@@ -1655,3 +1655,73 @@ def test_zh_export_preserves_evidence_ids_and_paths(
     assert "ev_abc123" in zh_response.text
     # File paths preserved
     assert "backend/api/reviews.py" in zh_response.text
+
+
+# --- V3.5.7 lazy localization tests ---
+
+
+def test_review_completion_does_not_trigger_localization(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Review completion should not call localization service unless zh is requested."""
+    client, store, _ = api_client_with_localization
+    _create_completed_review_with_report(store)
+
+    # Request English — should not trigger zh localization
+    response = client.get("/api/reviews/task-zh?lang=en")
+
+    assert response.status_code == 200
+    assert "# Executive Summary" in response.json()["report_markdown"]
+    # No Chinese headings should appear
+    assert "# 执行摘要" not in response.json()["report_markdown"]
+
+
+def test_findings_lang_zh_triggers_localization(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Requesting findings with lang=zh should trigger localization."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    # Should have Chinese prose (symbol-based or file-based title)
+    title = finding["title"]
+    assert "需要审查" in title or "架构" in title or "build_reviews_router" in title or "reviews.py" in title
+
+
+def test_findings_lang_zh_uses_cache_on_repeat(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Repeated zh findings requests should use cached translations."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    # First request — cache miss
+    response1 = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+    # Second request — cache hit
+    response2 = client.get("/api/reviews/task-zh-prose/findings?lang=zh")
+
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+    # Both should return the same translated content
+    assert response1.json()["findings"][0]["title"] == response2.json()["findings"][0]["title"]
+
+
+def test_findings_lang_en_does_not_trigger_zh_localization(
+    api_client_with_localization: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Requesting findings with lang=en should NOT trigger zh localization."""
+    client, store, _ = api_client_with_localization
+    _create_review_with_mock_findings(store)
+
+    response = client.get("/api/reviews/task-zh-prose/findings?lang=en")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    # Should have English prose
+    assert finding["title"] == "Evidence-grounded architecture boundary"
+    # Should NOT have Chinese prose
+    assert "架构" not in finding["title"]

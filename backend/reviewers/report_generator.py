@@ -23,6 +23,8 @@ class ReportGenerator:
         reports_path: Path,
         prompt_token_budget: int,
         token_model: str = "gpt-4o-mini",
+        *,
+        agent_concurrency: int = 1,
     ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
@@ -33,6 +35,7 @@ class ReportGenerator:
         self.token_model = token_model
         self.review_scope: ReviewScope | None = None
         self.progress_callback: AgentProgressCallback | None = None
+        self.agent_concurrency = agent_concurrency
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
@@ -125,6 +128,7 @@ class ReportGenerator:
                 per_agent_token_budget=max(1000, self.prompt_renderer.token_budgeter.budget // 4),
                 candidate_paths=self._candidate_paths(review_context),
                 progress_callback=self.progress_callback,
+                concurrency=self.agent_concurrency,
             ).review(review_context, task_id=task_id)
             draft = result.draft
             agent_states = result.agent_states

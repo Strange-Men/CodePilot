@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 # Localization schema version — bump to invalidate stale caches
 # ---------------------------------------------------------------------------
 
-LOCALIZATION_SCHEMA_VERSION = "v3.5.6"
+LOCALIZATION_SCHEMA_VERSION = "v3.5.7"
 
 
 def _versioned_source_key(source_updated_at: str) -> str:
@@ -196,17 +196,17 @@ _CATEGORY_ZH_TEMPLATES: dict[str, list[str]] = {
     "code_smell": [
         "{symbol} 的代码质量需要关注",
         "{symbol} 存在代码质量问题",
-        "代码质量问题：{symbol}",
+        "{symbol} 的复杂度较高",
     ],
     "maintainability": [
         "{symbol} 的可维护性需要改善",
         "{symbol} 存在可维护性风险",
-        "可维护性风险：{symbol}",
+        "{symbol} 的职责划分可以优化",
     ],
     "refactor": [
         "{symbol} 适合小步重构",
         "{symbol} 存在重构机会",
-        "重构候选：{symbol}",
+        "{symbol} 的结构可以简化",
     ],
 }
 
@@ -225,7 +225,7 @@ _CATEGORY_ZH_FILE_TEMPLATES: dict[str, list[str]] = {
     ],
     "refactor": [
         "{file} 存在重构机会",
-        "{file} 适合小步重构",
+        "{file} 的结构可以简化",
     ],
 }
 

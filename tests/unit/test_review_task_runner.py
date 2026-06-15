@@ -82,6 +82,7 @@ class FakeReportGenerator:
         reports_path: Path,
         prompt_token_budget: int,
         token_model: str = "gpt-4o-mini",
+        **kwargs,
     ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
@@ -578,7 +579,7 @@ class FailingCloneAfterAgentStates:
 class AgentStatesThenExplodeReportGenerator:
     """Report generator that returns agent states but the pipeline fails after."""
 
-    def __init__(self, llm_client, reports_path, prompt_token_budget, token_model="gpt-4o-mini"):
+    def __init__(self, llm_client, reports_path, prompt_token_budget, token_model="gpt-4o-mini", **kwargs):
         self.reports_path = reports_path
         self.review_engine = "v2"
         self.store_ref = None

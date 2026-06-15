@@ -7,6 +7,8 @@ Agent analysis content is preserved unchanged — only display prose is localize
 
 from __future__ import annotations
 
+import re
+
 from backend.reviewers.localization import (
     Language,
     translate_enum_values,
@@ -48,6 +50,9 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
 
     # Step 5: Translate enum values (severity, status, category)
     translated = translate_enum_values(translated, lang)
+
+    # Step 6: Strip backticks from Chinese natural language text
+    translated = _fix_chinese_validation_backticks(translated)
 
     return translated
 
@@ -125,6 +130,9 @@ def render_localized_report_with_prose(
     for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):
         translated = translated.replace(en, zh)
 
+    # Step 6: Strip backticks from Chinese natural language validation text
+    translated = _fix_chinese_validation_backticks(translated)
+
     return translated
 
 
@@ -161,3 +169,23 @@ _AGENT_DISPLAY_NAMES: dict[str, str] = {
     "MaintainabilityAgent": "可维护性 Agent",
     "RefactorAgent": "重构建议 Agent",
 }
+
+# Chinese characters that indicate natural language (not code/commands)
+_ZH_CHAR_PATTERN = re.compile(r'[一-鿿]')
+
+
+def _fix_chinese_validation_backticks(text: str) -> str:
+    """Strip backticks from Chinese natural language validation text.
+
+    Commands and file paths keep their backticks.
+    Chinese text wrapped in backticks gets backticks removed.
+    """
+    def _replace_if_chinese(match: re.Match[str]) -> str:
+        content = match.group(1)
+        # If the backticked content contains Chinese characters, it's natural language
+        if _ZH_CHAR_PATTERN.search(content):
+            return content
+        return match.group(0)
+
+    # Match backticked text (non-greedy)
+    return re.sub(r'`([^`]+)`', _replace_if_chinese, text)

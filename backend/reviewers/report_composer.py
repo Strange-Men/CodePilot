@@ -280,7 +280,9 @@ class HumanReadableReportComposer:
             why_it_matters = finding.impact.strip() if finding.impact else finding.description.strip()
             first_step = finding.first_step.strip() if finding.first_step else self._first_step(finding, symbols)
             if finding.validation_tests:
-                validation = ", ".join(f"`{test}`" for test in finding.validation_tests)
+                validation = ", ".join(
+                    self._format_validation_test(test) for test in finding.validation_tests
+                )
             else:
                 validation = self._validation_hint(context, finding.files, symbols)
             lines.extend(
@@ -480,6 +482,24 @@ class HumanReadableReportComposer:
     @staticmethod
     def _code_list(values: list[str], limit: int) -> str:
         return ", ".join(f"`{value}`" for value in values[:limit])
+
+    @staticmethod
+    def _format_validation_test(test: str) -> str:
+        """Format a validation test string for display.
+
+        Commands and file paths remain code-styled (backticks).
+        Natural language descriptions are rendered as plain text.
+        """
+        stripped = test.strip()
+        # Heuristic: if it looks like a command (starts with run, pytest, npm, etc.)
+        # or a file path (contains / or \), use code styling
+        command_prefixes = ("run ", "pytest", "npm ", "python ", "make ", "cargo ", "go ")
+        lower = stripped.lower()
+        is_command = any(lower.startswith(prefix) for prefix in command_prefixes)
+        is_path = "/" in stripped or "\\" in stripped or stripped.endswith((".py", ".js", ".ts", ".sh"))
+        if is_command or is_path:
+            return f"`{stripped}`"
+        return stripped
 
     @staticmethod
     def _name_tokens(value: str) -> set[str]:

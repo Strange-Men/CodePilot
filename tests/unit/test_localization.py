@@ -17,6 +17,7 @@ from backend.reviewers.localization import (
     translate_report_labels,
     translate_report_prose,
 )
+from backend.reviewers.localized_report_renderer import _fix_chinese_validation_backticks
 
 
 class TestNormalizeLanguage:
@@ -351,3 +352,97 @@ class TestReportBannedStrings:
     def test_no_bad_terms_in_status_translations(self) -> None:
         for zh in STATUS_VALUE_TRANSLATIONS.values():
             assert "代码坏味道" not in zh
+
+
+class TestV357InlinePatterns:
+    """Verify V3.5.7 inline severity+confidence pattern translations."""
+
+    def test_severity_confidence_parenthetical_translated(self) -> None:
+        report = "- **title** (medium, confidence 0.90) in `file.py`; evidence: ev_1."
+        result = translate_enum_values(report, "zh")
+        assert "严重程度：中" in result
+        assert "置信度：0.90" in result
+        assert "(medium, confidence 0.90)" not in result
+
+    def test_all_severity_confidence_patterns_translated(self) -> None:
+        for en_sev, zh_sev in SEVERITY_TRANSLATIONS.items():
+            report = f"({en_sev}, confidence 0.50)"
+            result = translate_enum_values(report, "zh")
+            assert f"严重程度：{zh_sev}" in result, f"Failed for {en_sev}"
+
+    def test_standalone_severity_parenthetical_translated(self) -> None:
+        report = "Finding (medium) needs attention."
+        result = translate_enum_values(report, "zh")
+        assert "（中）" in result
+        assert "(medium)" not in result
+
+    def test_evidence_semicolon_translated(self) -> None:
+        report = "in `file.py`; evidence: ev_1."
+        result = translate_report_prose(report, "zh")
+        # The "; evidence:" pattern should be translated
+        assert "; evidence:" not in result or "；证据引用：" in result
+
+
+class TestV357ProseReplacements:
+    """Verify V3.5.7 new prose replacements."""
+
+    def test_codepilot_analyzed_translated(self) -> None:
+        report = "CodePilot analyzed 10 files."
+        result = translate_report_prose(report, "zh")
+        assert "CodePilot 审查了" in result
+        assert "CodePilot analyzed" not in result
+
+    def test_and_produced_translated(self) -> None:
+        report = "analyzed 10 files and produced 5 findings."
+        result = translate_report_prose(report, "zh")
+        assert "并产出了" in result
+
+    def test_no_validated_risks_translated(self) -> None:
+        report = "no validated risks"
+        result = translate_report_prose(report, "zh")
+        assert "暂无已验证的风险" in result
+
+    def test_evidence_grounded_findings_translated(self) -> None:
+        report = "5 evidence-grounded findings"
+        result = translate_report_prose(report, "zh")
+        assert "基于证据的问题发现" in result
+
+    def test_fallback_report_translated(self) -> None:
+        report = "The full report could not be composed due to an LLM error during report generation."
+        result = translate_report_prose(report, "zh")
+        assert "由于 LLM" in result
+        assert "无法组装完整报告" in result
+
+
+class TestV357ValidationBackticks:
+    """Verify V3.5.7 strips backticks from Chinese natural language validation text."""
+
+    def test_chinese_text_backticks_stripped(self) -> None:
+        text = "在边界变更前后运行完整测试套件，确认无回归。"
+        result = _fix_chinese_validation_backticks(f"`{text}`")
+        assert result == text
+        assert "`" not in result
+
+    def test_command_backticks_preserved(self) -> None:
+        text = "Run `pytest tests/` before and after."
+        result = _fix_chinese_validation_backticks(text)
+        assert "`pytest tests/`" in result
+
+    def test_file_path_backticks_preserved(self) -> None:
+        text = "Check `backend/api/reviews.py` for issues."
+        result = _fix_chinese_validation_backticks(text)
+        assert "`backend/api/reviews.py`" in result
+
+    def test_mixed_content(self) -> None:
+        text = "运行 `pytest` 确认无回归。"
+        result = _fix_chinese_validation_backticks(text)
+        # "pytest" should keep backticks (no Chinese chars)
+        assert "`pytest`" in result
+        # Chinese text around it should be fine
+        assert "运行" in result
+        assert "确认无回归" in result
+
+    def test_no_chinese_text_unchanged(self) -> None:
+        text = "Run `pytest` and `npm test`."
+        result = _fix_chinese_validation_backticks(text)
+        assert result == text

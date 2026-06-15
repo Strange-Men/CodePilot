@@ -6,15 +6,15 @@
 
 ## Current Test Inventory
 
-`pytest` collected 512 tests: 511 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 537 tests: 536 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 415 | 38 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, and finding title generation. |
-| Integration | 72 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, and V3.5.5 terminology verification. |
+| Unit | 440 | 39 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, finding title generation, V3.5.7 inline patterns, prose replacements, validation backticks, and orchestrator concurrency. |
+| Integration | 76 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, and V3.5.7 lazy localization behavior. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 62 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, bilingual UI, Chinese prose rendering, agent timeline loading states, and V3.5.5 terminology verification. |
+| Frontend | 81 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, and V3.5.7 Chinese UX closure. |
 
 ## Unit Tests
 

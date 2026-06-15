@@ -1212,3 +1212,128 @@ test("English EvidencePanel still works normally", () => {
   assert.match(html, /src\/app\.py/);
   assert.match(html, /build_app/);
 });
+
+// --- V3.5.7 Chinese report closure tests ---
+
+test("zh FindingsPanel contains no English severity labels", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Should not show raw English severity in badges
+  assert.doesNotMatch(html, />High</);
+  assert.doesNotMatch(html, />Medium</);
+  assert.doesNotMatch(html, />Low</);
+  assert.doesNotMatch(html, />Critical</);
+  assert.doesNotMatch(html, />Informational</);
+  // Should show localized severity
+  assert.match(html, /高/);
+});
+
+test("zh FindingsPanel contains no [zh] prefix", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={zhFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.doesNotMatch(html, /\[zh\]/);
+});
+
+test("zh AgentStateCards shows localized severity summary", () => {
+  const html = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="zh" />);
+
+  // Should show Chinese severity labels
+  assert.match(html, /严重程度/);
+  // Should not show raw English severity abbreviations
+  assert.doesNotMatch(html, /\bHigh\b/);
+  assert.doesNotMatch(html, /\bMedium\b/);
+  assert.doesNotMatch(html, /\bLow\b/);
+});
+
+test("zh EvidencePanel shows chain title and Chinese labels", () => {
+  const html = renderToStaticMarkup(
+    <EvidencePanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Evidence chain title
+  assert.match(html, /证据链/);
+  // Chinese labels
+  assert.match(html, /代码位置/);
+  assert.match(html, /相关符号/);
+  assert.match(html, /支撑证据/);
+  // Evidence IDs preserved
+  assert.match(html, /E123/);
+  assert.match(html, /E124/);
+  // Finding title visible in group
+  assert.match(html, /Boundary risk/);
+});
+
+test("zh MetricsPanel shows localized labels", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // Should show Chinese confidence label
+  assert.match(html, /置信度/);
+  assert.doesNotMatch(html, /\bconfidence\b/);
+});
+
+test("zh AgentTimeline shows Chinese agent descriptions", () => {
+  const html = renderToStaticMarkup(
+    <AgentTimeline agents={structuredAgents} language="zh" progress={null} />
+  );
+
+  // Chinese agent descriptions
+  assert.match(html, /架构分析/);
+  assert.match(html, /代码质量/);
+  assert.match(html, /可维护性/);
+  assert.match(html, /重构建议/);
+  // Chinese status labels
+  assert.match(html, /已完成/);
+  assert.match(html, /失败/);
+});
+
+test("English mode remains unchanged after zh fixes", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={structuredFindings}
+      language="en"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  // English labels should still be present
+  assert.match(html, /Findings/);
+  assert.match(html, /Recommended action/);
+  assert.match(html, /Impact/);
+  assert.match(html, /First safe step/);
+  assert.match(html, /Validation tests/);
+  assert.match(html, /Caveat/);
+  assert.match(html, /Evidence/);
+  assert.match(html, /confidence/);
+});

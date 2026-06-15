@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     llm_pool_timeout: float = Field(default=10.0, alias="LLM_POOL_TIMEOUT_SECONDS")
     llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
 
+    # Agent concurrency
+    review_agent_concurrency: int = Field(default=2, alias="REVIEW_AGENT_CONCURRENCY")
+
     # Localization / translation provider settings
     enable_llm_translation: bool = Field(default=False, alias="ENABLE_LLM_TRANSLATION")
     localization_provider: str = Field(default="auto", alias="LOCALIZATION_PROVIDER")

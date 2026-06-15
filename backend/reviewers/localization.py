@@ -140,11 +140,33 @@ PROSE_REPLACEMENTS: dict[str, str] = {
     "Error:": "错误：",
     # Confidence display patterns
     "confidence=": "置信度=",
+    "confidence ": "置信度 ",
     # Repository identity
     "no dominant directory boundary detected": "未检测到明显的目录边界",
     "No repository summary was available.": "暂无仓库摘要。",
     # Cycle groups heading (may appear as ## in report)
     "## Cycle Groups": "## 循环依赖组",
+    # Executive Summary dynamic patterns
+    "CodePilot analyzed": "CodePilot 审查了",
+    "and produced": "并产出了",
+    "evidence-grounded findings": "基于证据的问题发现",
+    "no validated risks": "暂无已验证的风险",
+    # Top risk line patterns
+    "; evidence:": "；证据引用：",
+    # Action Plan patterns
+    "No evidence-grounded action is recommended yet.": "暂无基于证据的行动建议。",
+    "Gather targeted evidence before changing boundaries.": "请在修改代码边界前收集针对性证据。",
+    # Fallback report patterns
+    "The full report could not be composed due to an LLM error during report generation.": (
+        "由于 LLM 报告生成过程中出现错误，无法组装完整报告。"
+    ),
+    "Agent pipeline completed": "Agent 流水线已完成",
+    "agents;": "个 Agent；",
+    "failed.": "个失败。",
+    # No related test file
+    "No related test file was identified by name.": "未通过名称匹配到相关测试文件。",
+    "Add a focused characterization test for": "为以下目标添加针对性的表征测试：",
+    "then run the repository test suite.": "然后运行仓库测试套件。",
 }
 
 # Agent display names for zh mode
@@ -316,5 +338,25 @@ def translate_enum_values(report_markdown: str, lang: Language) -> str:
     # Translate "medium=N, low=N" severity count patterns
     for en, zh in SEVERITY_TRANSLATIONS.items():
         result = result.replace(f"{en}=", f"{zh}=")
+
+    # Translate inline severity+confidence patterns in top-risk lines
+    # Pattern: "(medium, confidence 0.90)" → "（严重程度：中，置信度：0.90）"
+    for en_sev, zh_sev in SEVERITY_TRANSLATIONS.items():
+        pattern = rf'\({en_sev}, confidence (\d+\.\d+)\)'
+        replacement = f"（严重程度：{zh_sev}，置信度：\\1）"
+        result = re.sub(pattern, replacement, result)
+
+    # Translate standalone severity labels in parenthetical patterns
+    # Pattern: "(medium)" → "（中）" when not already translated
+    for en_sev, zh_sev in SEVERITY_TRANSLATIONS.items():
+        result = result.replace(f"({en_sev})", f"（{zh_sev}）")
+
+    # Translate "in `file`" pattern after confidence parenthetical
+    # Pattern: "）in `path`" → "）\n  - 涉及文件：`path`"
+    result = re.sub(
+        r'）\s*in `([^`]+)`',
+        lambda m: f"）\n  - 涉及文件：`{m.group(1)}`",
+        result,
+    )
 
     return result
