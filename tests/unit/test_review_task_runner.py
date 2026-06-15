@@ -558,3 +558,103 @@ def test_v2_engine_does_not_persist_agent_states(
     assert row["status"] == ReviewStatus.completed.value
     agent_states = store.get_agent_states("task-v2")
     assert len(agent_states) == 0
+
+
+class FailingCloneAfterAgentStates:
+    """Clone service that succeeds first, then fails on second call to simulate post-agent failure."""
+
+    def __init__(self, workspace_path: Path) -> None:
+        self.workspace_path = workspace_path
+
+    def clone(self, repo_url: str, task_id: str) -> Path:
+        repo_dir = self.workspace_path / task_id / "repo"
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        return repo_dir
+
+    def cleanup(self, task_id: str) -> None:
+        return None
+
+
+class AgentStatesThenExplodeReportGenerator:
+    """Report generator that returns agent states but the pipeline fails after."""
+
+    def __init__(self, llm_client, reports_path, prompt_token_budget, token_model="gpt-4o-mini"):
+        self.reports_path = reports_path
+        self.review_engine = "v2"
+        self.store_ref = None
+
+    def configure_engine(self, review_engine: str) -> None:
+        self.review_engine = review_engine
+
+    def generate(self, task_id: str, context):
+        from backend.models.report_result import ReportResult
+
+        if self.review_engine == "v3_multi_agent":
+            agent_states = [
+                AgentExecutionState(
+                    agent_id="ArchitectureAgent", status="completed", validation_status="validated",
+                ),
+                AgentExecutionState(
+                    agent_id="CodeSmellAgent", status="failed", error="LLM read timeout", validation_status="failed",
+                ),
+            ]
+            export_path = self.reports_path / f"{task_id}.md"
+            export_path.write_text("# Fallback\n", encoding="utf-8")
+            return ReportResult(
+                report="# Fallback\nAgent pipeline completed.\n",
+                export_path=export_path,
+                agent_states=agent_states,
+            )
+        export_path = self.reports_path / f"{task_id}.md"
+        export_path.write_text("# Done\n", encoding="utf-8")
+        return ReportResult(report="# Done\n", export_path=export_path)
+
+
+def test_pipeline_persists_agent_states_on_failure(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    monkeypatch.setattr(pipeline_module, "ReportGenerator", AgentStatesThenExplodeReportGenerator)
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-fail", "https://github.com/pallets/flask")
+
+    runner._run("task-fail", "https://github.com/pallets/flask", "mock")
+
+    row = store.get_review("task-fail")
+    assert row["status"] == ReviewStatus.completed.value
+    agent_states = store.get_agent_states("task-fail")
+    assert len(agent_states) == 2
+    assert agent_states[0]["agent_id"] == "ArchitectureAgent"
+    assert agent_states[0]["status"] == "completed"
+    assert agent_states[1]["agent_id"] == "CodeSmellAgent"
+    assert agent_states[1]["status"] == "failed"
+
+
+def test_pipeline_persists_agent_states_when_post_generate_step_fails(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify that agent states are persisted even when a step after generate() fails."""
+    settings, store = runner_dependencies
+    settings.review_engine = "v3_multi_agent"
+    monkeypatch.setattr(pipeline_module, "ReportGenerator", AgentStatesThenExplodeReportGenerator)
+
+    def failing_complete(self, task_id, report, export_path):
+        raise RuntimeError("post-generate failure")
+
+    monkeypatch.setattr(pipeline_module.ReviewPipeline, "_complete_review", failing_complete)
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-post-fail", "https://github.com/pallets/flask")
+
+    runner._run("task-post-fail", "https://github.com/pallets/flask", "mock")
+
+    row = store.get_review("task-post-fail")
+    assert row["status"] == ReviewStatus.failed.value
+    agent_states = store.get_agent_states("task-post-fail")
+    assert len(agent_states) == 2
+    assert agent_states[0]["agent_id"] == "ArchitectureAgent"
+    assert agent_states[0]["status"] == "completed"
+    assert agent_states[1]["agent_id"] == "CodeSmellAgent"
+    assert agent_states[1]["status"] == "failed"

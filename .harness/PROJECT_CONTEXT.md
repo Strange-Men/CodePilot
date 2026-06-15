@@ -194,6 +194,11 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `MAX_FILE_SIZE_BYTES` | `204800` | Per-file size limit. |
 | `LARGE_REPO_THRESHOLD` | `300` | Enables V3.2 large repo retrieval tiering when supported source files exceed this count. |
 | `FINAL_PROMPT_TOKEN_BUDGET` | `5000` | Approximate prompt token budget. |
+| `LLM_CONNECT_TIMEOUT_SECONDS` | `10` | HTTP connect timeout for LLM calls. |
+| `LLM_READ_TIMEOUT_SECONDS` | `180` | HTTP read timeout for LLM calls. |
+| `LLM_WRITE_TIMEOUT_SECONDS` | `30` | HTTP write timeout for LLM calls. |
+| `LLM_POOL_TIMEOUT_SECONDS` | `10` | HTTP pool timeout for LLM calls. |
+| `LLM_MAX_RETRIES` | `2` | Max retries for transient LLM errors (timeout, 429, 5xx). |
 | `NEXT_PUBLIC_API_BASE` | `http://localhost:8000` | Frontend API base URL. |
 
 ## Known Constraints

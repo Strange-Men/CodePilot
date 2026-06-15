@@ -9,12 +9,21 @@ from typing import Protocol
 import httpx
 
 from backend.core.config import Settings
+from backend.core.logging import get_logger
 from backend.core.report_contract import REPORT_SECTIONS, report_section_heading_list
 from backend.models.structured_review import RawLLMFinding
+
+logger = get_logger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY_SECONDS = 1.0
 RETRYABLE_STATUS_CODES = {408, 409, 429}
+RETRYABLE_TIMEOUT_CLASSES = (
+    httpx.ReadTimeout,
+    httpx.ConnectTimeout,
+    httpx.WriteTimeout,
+    httpx.PoolTimeout,
+)
 
 
 class LLMClient(Protocol):
@@ -141,6 +150,13 @@ class OpenAICompatibleClient:
     ) -> None:
         self.settings = settings
         self.sleep = sleep
+        self._timeout = httpx.Timeout(
+            connect=settings.llm_connect_timeout,
+            read=settings.llm_read_timeout,
+            write=settings.llm_write_timeout,
+            pool=settings.llm_pool_timeout,
+        )
+        self._max_retries = settings.llm_max_retries
 
     def generate_review(self, prompt: str) -> str:
         api_key = self.settings.openai_api_key or os.getenv("OPENAI_API_KEY")
@@ -169,8 +185,9 @@ class OpenAICompatibleClient:
             ],
             "temperature": 0.2,
         }
-        with httpx.Client(timeout=60) as client:
-            for retry_index in range(MAX_RETRIES + 1):
+        provider = self._provider_label()
+        with httpx.Client(timeout=self._timeout) as client:
+            for retry_index in range(self._max_retries + 1):
                 try:
                     response = client.post(
                         url,
@@ -181,13 +198,40 @@ class OpenAICompatibleClient:
                         response.raise_for_status()
                         data = response.json()
                         return data["choices"][0]["message"]["content"]
-                    if retry_index == MAX_RETRIES:
+                    if retry_index == self._max_retries:
                         response.raise_for_status()
-                except httpx.RequestError:
-                    if retry_index == MAX_RETRIES:
+                except httpx.TimeoutException as exc:
+                    timeout_type = type(exc).__name__
+                    logger.warning(
+                        "event=llm_timeout provider=%s model=%s timeout_type=%s attempt=%d max_retries=%d",
+                        provider,
+                        self.settings.openai_model,
+                        timeout_type,
+                        retry_index + 1,
+                        self._max_retries,
+                    )
+                    if retry_index == self._max_retries:
+                        raise
+                except httpx.RequestError as exc:
+                    logger.warning(
+                        "event=llm_request_error provider=%s model=%s error_type=%s attempt=%d",
+                        provider,
+                        self.settings.openai_model,
+                        type(exc).__name__,
+                        retry_index + 1,
+                    )
+                    if retry_index == self._max_retries:
                         raise
                 self.sleep(RETRY_BASE_DELAY_SECONDS * (2**retry_index))
         raise RuntimeError("LLM request failed without a response.")
+
+    def _provider_label(self) -> str:
+        base_url = self.settings.openai_base_url
+        if "openai.com" in base_url:
+            return "openai"
+        if "mimo" in base_url.lower() or "xiaomi" in base_url.lower():
+            return "mimo"
+        return base_url.split("//")[-1].split("/")[0]
 
     @staticmethod
     def _is_retryable_status(status_code: int) -> bool:

@@ -415,6 +415,71 @@ test("completed v3 review renders four real agent states, not pending placeholde
   assert.match(html, /RefactorAgent/);
 });
 
+const failedAgentStates: ReviewAgentStateItem[] = [
+  {
+    order: 1,
+    agent_id: "ArchitectureAgent",
+    label: "A1 ArchitectureAgent",
+    status: "completed",
+    findings_count: 1,
+    evidence_count: 2,
+    severity_mix: { critical: 0, high: 1, medium: 0, low: 0 },
+    average_confidence: 0.92,
+    error: null
+  },
+  {
+    order: 2,
+    agent_id: "CodeSmellAgent",
+    label: "A2 CodeSmellAgent",
+    status: "failed",
+    findings_count: 0,
+    evidence_count: 0,
+    severity_mix: { critical: 0, high: 0, medium: 0, low: 0 },
+    average_confidence: null,
+    error: "LLM read timeout after 180s"
+  },
+  {
+    order: 3,
+    agent_id: "MaintainabilityAgent",
+    label: "A3 MaintainabilityAgent",
+    status: "skipped",
+    findings_count: 0,
+    evidence_count: 0,
+    severity_mix: { critical: 0, high: 0, medium: 0, low: 0 },
+    average_confidence: null,
+    error: null
+  },
+  {
+    order: 4,
+    agent_id: "RefactorAgent",
+    label: "A4 RefactorAgent",
+    status: "skipped",
+    findings_count: 0,
+    evidence_count: 0,
+    severity_mix: { critical: 0, high: 0, medium: 0, low: 0 },
+    average_confidence: null,
+    error: null
+  }
+];
+
+test("failed review shows completed and failed agents, not all pending", () => {
+  const html = renderToStaticMarkup(<AgentTimeline agents={failedAgentStates} progress={null} />);
+
+  assert.equal((html.match(/data-agent-step=/g) || []).length, 4);
+  assert.match(html, /data-status="completed"/);
+  assert.match(html, /data-status="failed"/);
+  assert.match(html, /data-status="skipped"/);
+  assert.doesNotMatch(html, /data-status="pending"/);
+});
+
+test("failed review agent cards show error detail", () => {
+  const html = renderToStaticMarkup(<AgentStateCards agents={failedAgentStates} />);
+
+  assert.match(html, /data-agent-card="CodeSmellAgent"/);
+  assert.match(html, /LLM read timeout/);
+  assert.match(html, /data-agent-card="ArchitectureAgent"/);
+});
+
 test("light and dark theme helpers toggle the root class and persist preference", () => {
   let dark = false;
   let persisted = "";

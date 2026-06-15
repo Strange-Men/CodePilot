@@ -66,6 +66,7 @@ class ReviewPipeline:
     def run(self, task_id: str, repo_url: str) -> ReviewPipelineResult:
         clone_service = self.clone_service_factory(self.settings.workspace_path)
         result = ReviewPipelineResult()
+        report_result = None
         try:
             logger.info("event=task_started task_id=%s repo_url=%s", task_id, repo_url)
 
@@ -79,11 +80,11 @@ class ReviewPipeline:
                 skipped_files=context.skipped_files,
             )
             self._record_summarized(task_id, context)
-            report, export_path = self._generate_report(task_id, context)
-            self._complete_review(task_id, report, export_path)
+            report_result = self._generate_report(task_id, context)
+            self._complete_review(task_id, report_result.report, report_result.export_path)
             self._notify_progress("done")
         except Exception as exc:
-            self._fail_review(task_id, repo_url, exc)
+            self._fail_review(task_id, repo_url, exc, report_result=report_result)
             self._notify_progress("task_failed")
         finally:
             self._cleanup_workspace(clone_service, task_id)
@@ -199,7 +200,7 @@ class ReviewPipeline:
         logger.info("event=summarize_completed task_id=%s file_summaries=%s", task_id, len(context.file_summaries))
         # Summaries are deterministic and generated during indexing for the MVP.
 
-    def _generate_report(self, task_id: str, context: ReviewContext) -> tuple[str, Path]:
+    def _generate_report(self, task_id: str, context: ReviewContext):
         self.store.update_status(task_id, ReviewStatus.reviewing)
         self._notify_progress("evidence_retrieval")
         logger.info("event=review_started task_id=%s", task_id)
@@ -228,7 +229,7 @@ class ReviewPipeline:
             self.store.replace_review_state(task_id, result.review_state.safe_snapshot())
         logger.info("event=export_completed task_id=%s export_path=%s", task_id, result.export_path)
         logger.info("event=review_completed task_id=%s report_chars=%s", task_id, len(result.report))
-        return result.report, result.export_path
+        return result
 
     def _complete_review(self, task_id: str, report: str, export_path: Path) -> None:
         self.store.update_status(
@@ -239,9 +240,34 @@ class ReviewPipeline:
         )
         logger.info("event=task_completed task_id=%s", task_id)
 
-    def _fail_review(self, task_id: str, repo_url: str, exc: Exception) -> None:
+    def _fail_review(
+        self,
+        task_id: str,
+        repo_url: str,
+        exc: Exception,
+        *,
+        report_result: object | None = None,
+    ) -> None:
         logger.exception("event=task_failed task_id=%s repo_url=%s", task_id, repo_url)
-        self.store.update_status(task_id, ReviewStatus.failed, error=str(exc))
+        if report_result is not None:
+            agent_states = getattr(report_result, "agent_states", None)
+            if agent_states:
+                try:
+                    self.store.replace_agent_states(task_id, agent_states)
+                    logger.info("event=failed_agent_states_persisted task_id=%s count=%d", task_id, len(agent_states))
+                except Exception:
+                    logger.warning("event=failed_agent_states_persist_failed task_id=%s", task_id, exc_info=True)
+            report_markdown = getattr(report_result, "report", None)
+            export_path = getattr(report_result, "export_path", None)
+            self.store.update_status(
+                task_id,
+                ReviewStatus.failed,
+                error=str(exc),
+                report_markdown=report_markdown,
+                export_path=str(export_path) if export_path else None,
+            )
+        else:
+            self.store.update_status(task_id, ReviewStatus.failed, error=str(exc))
 
     @staticmethod
     def _cleanup_workspace(clone_service: CloneService, task_id: str) -> None:

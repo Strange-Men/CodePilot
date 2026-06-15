@@ -134,8 +134,34 @@ class ReportGenerator:
 
         if self.progress_callback is not None:
             self.progress_callback("report_composer", None, None)
-        report = self.report_composer.compose(review_context, draft, agent_states)
+        try:
+            report = self.report_composer.compose(review_context, draft, agent_states)
+        except Exception:
+            report = self._fallback_report(review_context, agent_states)
         return report, draft, agent_states, review_state
+
+    @staticmethod
+    def _fallback_report(
+        context: ReviewContext | RepositoryContext,
+        agent_states: list[AgentExecutionState],
+    ) -> str:
+        completed = sum(1 for s in agent_states if s.status == "completed")
+        failed = sum(1 for s in agent_states if s.status == "failed")
+        total = len(agent_states)
+        lines = [
+            "# Executive Summary",
+            f"CodePilot analyzed {getattr(context, 'analyzed_files', '?')} source files.",
+            f"Agent pipeline completed {completed}/{total} agents; {failed} failed.",
+            "",
+            "# Agent Summary",
+        ]
+        for state in agent_states:
+            lines.append(f"- {state.agent_id}: {state.status}")
+            if state.error:
+                lines.append(f"  Error: {state.error}")
+        lines.append("")
+        lines.append("The full report could not be composed due to an LLM error during report generation.")
+        return "\n".join(lines) + "\n"
 
     def _build_prompt(self, context: ReviewContext | RepositoryContext) -> str:
         return self.prompt_renderer.render(context)

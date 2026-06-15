@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     max_file_size_bytes: int = 200 * 1024
     large_repo_threshold: int = Field(default=300, alias="LARGE_REPO_THRESHOLD")
     final_prompt_token_budget: int = 8000
+    llm_connect_timeout: float = Field(default=10.0, alias="LLM_CONNECT_TIMEOUT_SECONDS")
+    llm_read_timeout: float = Field(default=180.0, alias="LLM_READ_TIMEOUT_SECONDS")
+    llm_write_timeout: float = Field(default=30.0, alias="LLM_WRITE_TIMEOUT_SECONDS")
+    llm_pool_timeout: float = Field(default=10.0, alias="LLM_POOL_TIMEOUT_SECONDS")
+    llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
 
     @property
     def cors_origins(self) -> list[str]:
