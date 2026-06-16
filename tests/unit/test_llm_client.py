@@ -132,9 +132,10 @@ def test_openai_compatible_client_does_not_retry_non_transient_4xx(
 
 def test_openai_compatible_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("MIMO_API_KEY", raising=False)
 
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY is missing"):
-        OpenAICompatibleClient(settings(OPENAI_API_KEY=None)).generate_review("prompt")
+        OpenAICompatibleClient(settings(OPENAI_API_KEY=None, MIMO_API_KEY=None)).generate_review("prompt")
 
 
 def test_openai_compatible_client_requests_json_for_structured_agent_prompts(

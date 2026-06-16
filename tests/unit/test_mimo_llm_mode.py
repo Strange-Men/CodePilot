@@ -60,7 +60,7 @@ def test_build_llm_client_for_mode_mock(settings_no_mimo_key: Settings) -> None:
 
 
 def test_build_llm_client_for_mode_mimo_missing_key(settings_no_mimo_key: Settings) -> None:
-    with pytest.raises(RuntimeError, match="MiMo API key is not configured"):
+    with pytest.raises(RuntimeError, match="MIMO_API_KEY is missing"):
         build_llm_client_for_mode(settings_no_mimo_key, "mimo")
 
 
@@ -71,11 +71,12 @@ def test_build_llm_client_for_mode_mimo_with_key(settings_with_mimo_key: Setting
 
 def test_build_llm_client_for_mode_mimo_uses_correct_settings(settings_with_mimo_key: Settings) -> None:
     client = build_llm_client_for_mode(settings_with_mimo_key, "mimo")
-    assert client.settings.openai_api_key == "test-mimo-key"
-    assert client.settings.openai_base_url == "https://token-plan-cn.xiaomimimo.com/v1"
-    assert client.settings.openai_model == "mimo-v2.5-pro"
-    assert client.settings.use_mock_llm is False
-    assert client.settings.enable_real_llm is True
+    assert isinstance(client, OpenAICompatibleClient)
+    assert client.resolved.provider == "mimo"
+    assert client.resolved.api_key == "test-mimo-key"
+    assert client.resolved.base_url == "https://token-plan-cn.xiaomimimo.com/v1"
+    assert client.resolved.model == "mimo-v2.5-pro"
+    assert client.resolved.api_key_env_name == "MIMO_API_KEY"
 
 
 def test_build_llm_client_for_mode_unknown_raises() -> None:
@@ -87,8 +88,10 @@ def test_build_llm_client_for_mode_unknown_raises() -> None:
 def test_build_llm_client_for_mode_does_not_expose_key_in_error(settings_no_mimo_key: Settings) -> None:
     with pytest.raises(RuntimeError) as exc_info:
         build_llm_client_for_mode(settings_no_mimo_key, "mimo")
-    assert "test-mimo-key" not in str(exc_info.value)
-    assert "MIMO_API_KEY" in str(exc_info.value)
+    error_msg = str(exc_info.value)
+    assert "test-mimo-key" not in error_msg
+    assert "MIMO_API_KEY" in error_msg
+    assert "OPENAI_API_KEY" not in error_msg
 
 
 def test_api_default_review_uses_mock(tmp_path) -> None:
@@ -156,8 +159,8 @@ def test_api_llm_mode_mimo_without_key_returns_error(tmp_path) -> None:
     assert response.status_code == 400
     body = response.json()
     assert body["code"] == "llm_config_error"
-    assert "MiMo API key is not configured" in body["detail"]
-    assert "MIMO_API_KEY" in body["detail"]
+    assert "MIMO_API_KEY is missing" in body["detail"]
+    assert "OPENAI_API_KEY" not in body["detail"]
 
 
 def test_api_llm_mode_mimo_error_does_not_expose_secret(tmp_path) -> None:

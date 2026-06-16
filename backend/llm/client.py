@@ -4,6 +4,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
@@ -14,6 +15,42 @@ from backend.core.report_contract import REPORT_SECTIONS, report_section_heading
 from backend.models.structured_review import BilingualTextField, DisplayFields, RawLLMFinding
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class ResolvedLLMConfig:
+    """Resolved LLM provider configuration used by OpenAICompatibleClient."""
+
+    provider: str
+    model: str
+    base_url: str
+    api_key: str
+    api_key_env_name: str
+
+
+def resolve_llm_config(settings: Settings) -> ResolvedLLMConfig:
+    """Resolve the active LLM provider from application settings.
+
+    Priority: MiMo (when MIMO_API_KEY is set) > OpenAI.
+    Returns a config with empty api_key if neither key is available.
+    """
+    if settings.mimo_api_key:
+        return ResolvedLLMConfig(
+            provider="mimo",
+            model=settings.mimo_model_name,
+            base_url=settings.mimo_base_url,
+            api_key=settings.mimo_api_key,
+            api_key_env_name="MIMO_API_KEY",
+        )
+    openai_key = settings.openai_api_key or os.getenv("OPENAI_API_KEY", "")
+    return ResolvedLLMConfig(
+        provider="openai",
+        model=settings.openai_model,
+        base_url=settings.openai_base_url,
+        api_key=openai_key,
+        api_key_env_name="OPENAI_API_KEY",
+    )
+
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY_SECONDS = 1.0
@@ -365,9 +402,12 @@ class OpenAICompatibleClient:
     def __init__(
         self,
         settings: Settings,
+        *,
+        resolved: ResolvedLLMConfig | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.settings = settings
+        self.resolved = resolved or resolve_llm_config(settings)
         self.sleep = sleep
         self._timeout = httpx.Timeout(
             connect=settings.llm_connect_timeout,
@@ -378,11 +418,14 @@ class OpenAICompatibleClient:
         self._max_retries = settings.llm_max_retries
 
     def generate_review(self, prompt: str) -> str:
-        api_key = self.settings.openai_api_key or os.getenv("OPENAI_API_KEY")
+        api_key = self.resolved.api_key
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is missing. Set USE_MOCK_LLM=true to run without an API.")
+            raise RuntimeError(
+                f"{self.resolved.api_key_env_name} is missing. "
+                "Set USE_MOCK_LLM=true to run without a real API."
+            )
 
-        url = self.settings.openai_base_url.rstrip("/") + "/chat/completions"
+        url = self.resolved.base_url.rstrip("/") + "/chat/completions"
         structured_output = "Return only JSON" in prompt
         system_content = (
             "You are CodePilot, an evidence-grounded code review agent. "
@@ -394,7 +437,7 @@ class OpenAICompatibleClient:
             )
         )
         payload = {
-            "model": self.settings.openai_model,
+            "model": self.resolved.model,
             "messages": [
                 {
                     "role": "system",
@@ -404,7 +447,7 @@ class OpenAICompatibleClient:
             ],
             "temperature": 0.2,
         }
-        provider = self._provider_label()
+        provider = self.resolved.provider
         llm_started = time.perf_counter()
         with httpx.Client(timeout=self._timeout) as client:
             for retry_index in range(self._max_retries + 1):
@@ -422,7 +465,7 @@ class OpenAICompatibleClient:
                             "performance_event stage=llm_request duration_ms=%s "
                             "success=true retries=%d provider=%s model=%s",
                             duration_ms, retry_index, provider,
-                            self.settings.openai_model,
+                            self.resolved.model,
                         )
                         return data["choices"][0]["message"]["content"]
                     if retry_index == self._max_retries:
@@ -434,7 +477,7 @@ class OpenAICompatibleClient:
                         "provider=%s model=%s timeout_type=%s "
                         "attempt=%d max_retries=%d",
                         provider,
-                        self.settings.openai_model,
+                        self.resolved.model,
                         timeout_type,
                         retry_index + 1,
                         self._max_retries,
@@ -448,7 +491,7 @@ class OpenAICompatibleClient:
                             "duration_ms=%s success=false retries=%d "
                             "provider=%s model=%s",
                             duration_ms, retry_index, provider,
-                            self.settings.openai_model,
+                            self.resolved.model,
                         )
                         raise
                 except httpx.RequestError as exc:
@@ -456,7 +499,7 @@ class OpenAICompatibleClient:
                         "performance_event stage=llm_request success=false "
                         "provider=%s model=%s error_type=%s attempt=%d",
                         provider,
-                        self.settings.openai_model,
+                        self.resolved.model,
                         type(exc).__name__,
                         retry_index + 1,
                     )
@@ -469,19 +512,14 @@ class OpenAICompatibleClient:
                             "duration_ms=%s success=false retries=%d "
                             "provider=%s model=%s",
                             duration_ms, retry_index, provider,
-                            self.settings.openai_model,
+                            self.resolved.model,
                         )
                         raise
                 self.sleep(RETRY_BASE_DELAY_SECONDS * (2**retry_index))
         raise RuntimeError("LLM request failed without a response.")
 
     def _provider_label(self) -> str:
-        base_url = self.settings.openai_base_url
-        if "openai.com" in base_url:
-            return "openai"
-        if "mimo" in base_url.lower() or "xiaomi" in base_url.lower():
-            return "mimo"
-        return base_url.split("//")[-1].split("/")[0]
+        return self.resolved.provider
 
     @staticmethod
     def _is_retryable_status(status_code: int) -> bool:
@@ -493,7 +531,13 @@ def build_llm_client(settings: Settings) -> LLMClient:
         return MockLLMClient()
     if not settings.enable_real_llm:
         raise RuntimeError("ENABLE_REAL_LLM must be true before a real LLM client can be used.")
-    return OpenAICompatibleClient(settings)
+    resolved = resolve_llm_config(settings)
+    if not resolved.api_key:
+        raise RuntimeError(
+            f"{resolved.api_key_env_name} is missing. "
+            "Set USE_MOCK_LLM=true to run without a real API."
+        )
+    return OpenAICompatibleClient(settings, resolved=resolved)
 
 
 def build_llm_client_for_mode(settings: Settings, llm_mode: str) -> LLMClient:
@@ -502,16 +546,14 @@ def build_llm_client_for_mode(settings: Settings, llm_mode: str) -> LLMClient:
     if llm_mode == "mimo":
         if not settings.mimo_api_key:
             raise RuntimeError(
-                "MiMo API key is not configured. Set MIMO_API_KEY in backend .env."
+                "MIMO_API_KEY is missing. Set USE_MOCK_LLM=true to run without a real API."
             )
-        mimo_settings = settings.model_copy(
-            update={
-                "openai_api_key": settings.mimo_api_key,
-                "openai_base_url": settings.mimo_base_url,
-                "openai_model": settings.mimo_model_name,
-                "use_mock_llm": False,
-                "enable_real_llm": True,
-            }
+        resolved = ResolvedLLMConfig(
+            provider="mimo",
+            model=settings.mimo_model_name,
+            base_url=settings.mimo_base_url,
+            api_key=settings.mimo_api_key,
+            api_key_env_name="MIMO_API_KEY",
         )
-        return OpenAICompatibleClient(mimo_settings)
+        return OpenAICompatibleClient(settings, resolved=resolved)
     raise ValueError(f"Unknown llm_mode: {llm_mode}")
