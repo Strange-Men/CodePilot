@@ -303,7 +303,8 @@ def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[S
 
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
-    assert FakeReportGenerator.llm_clients == [llm_client]
+    # _run always builds client via build_llm_client_for_mode; mock → MockLLMClient
+    assert isinstance(FakeReportGenerator.llm_clients[-1], MockLLMClient)
     expected_model = settings.mimo_model_name if settings.mimo_api_key else settings.openai_model
     assert FakeReportGenerator.token_models == [expected_model]
 
@@ -660,3 +661,128 @@ def test_pipeline_persists_agent_states_when_post_generate_step_fails(
     assert agent_states[0]["status"] == "completed"
     assert agent_states[1]["agent_id"] == "CodeSmellAgent"
     assert agent_states[1]["status"] == "failed"
+
+
+def test_mock_mode_always_uses_mock_llm_client_regardless_of_settings(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When USE_MOCK_LLM=false, mock mode must still use MockLLMClient."""
+    settings, store = runner_dependencies
+    settings.use_mock_llm = False
+    settings.enable_real_llm = True
+    settings.openai_api_key = "sk-test-not-real"
+
+    captured_clients: list[object] = []
+    original_factory = FakeReportGenerator.__init__
+
+    def capturing_factory(self, llm_client, *args, **kwargs):
+        captured_clients.append(llm_client)
+        original_factory(self, llm_client, *args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "CloneService", FakeCloneService)
+    monkeypatch.setattr(pipeline_module, "RepositoryIndexer", FakeRepositoryIndexer)
+    monkeypatch.setattr(pipeline_module, "ReportGenerator", FakeReportGenerator)
+    monkeypatch.setattr(FakeReportGenerator, "__init__", capturing_factory)
+
+    # Inject a FakeLLMClient to prove it is NOT used for mock mode
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-mock", "https://github.com/pallets/flask")
+
+    runner._run("task-mock", "https://github.com/pallets/flask", "mock")
+
+    assert len(captured_clients) == 1
+    assert isinstance(captured_clients[0], MockLLMClient), (
+        "Mock mode must use MockLLMClient even when USE_MOCK_LLM=false"
+    )
+
+
+def test_mimo_mode_uses_mimo_config(
+    runner_dependencies: tuple[Settings, ReviewStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When llm_mode='mimo', the pipeline receives an OpenAICompatibleClient with MiMo config."""
+    from backend.llm.client import OpenAICompatibleClient
+
+    settings, store = runner_dependencies
+    settings.use_mock_llm = False
+    settings.enable_real_llm = True
+    settings.mimo_api_key = "test-mimo-key"
+    settings.openai_api_key = ""
+
+    captured_clients: list[object] = []
+    original_factory = FakeReportGenerator.__init__
+
+    def capturing_factory(self, llm_client, *args, **kwargs):
+        captured_clients.append(llm_client)
+        original_factory(self, llm_client, *args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "CloneService", FakeCloneService)
+    monkeypatch.setattr(pipeline_module, "RepositoryIndexer", FakeRepositoryIndexer)
+    monkeypatch.setattr(pipeline_module, "ReportGenerator", FakeReportGenerator)
+    monkeypatch.setattr(FakeReportGenerator, "__init__", capturing_factory)
+
+    runner = ReviewTaskRunner(settings, store, llm_client=FakeLLMClient())
+    store.create_review("task-mimo", "https://github.com/pallets/flask")
+
+    runner._run("task-mimo", "https://github.com/pallets/flask", "mimo")
+
+    assert len(captured_clients) == 1
+    client = captured_clients[0]
+    assert isinstance(client, OpenAICompatibleClient)
+    assert client.resolved.provider == "mimo"
+    assert client.resolved.api_key == "test-mimo-key"
+
+
+def test_agent_error_appears_in_api_response(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    """Failed agent states should expose sanitized error in the API response."""
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store)
+    store.create_review("task-err", "https://github.com/pallets/flask")
+    store.replace_agent_states("task-err", [
+        AgentExecutionState(
+            agent_id="ArchitectureAgent",
+            status="failed",
+            error="HTTPStatusError: 401 Unauthorized",
+            validation_status="failed",
+        ),
+    ])
+
+    app = FastAPI()
+    app.include_router(build_reviews_router(store, runner))
+    response = TestClient(app).get("/api/reviews/task-err/agent-states")
+
+    assert response.status_code == 200
+    agent = response.json()["agents"][0]
+    assert agent["status"] == "failed"
+    assert agent["error"] is not None
+    assert "401" in agent["error"]
+    assert agent["error"] != "Agent execution failed."
+
+
+def test_agent_error_redacts_secrets(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    """Agent errors must not expose API keys or tokens."""
+    settings, store = runner_dependencies
+    runner = ReviewTaskRunner(settings, store)
+    store.create_review("task-secret", "https://github.com/pallets/flask")
+    store.replace_agent_states("task-secret", [
+        AgentExecutionState(
+            agent_id="CodeSmellAgent",
+            status="failed",
+            error="RuntimeError: MIMO_API_KEY=tp-cmyoe3wnk2frz5phsftopbg1131vuj6fcjfqzl5h5972ue41 is invalid",
+            validation_status="failed",
+        ),
+    ])
+
+    app = FastAPI()
+    app.include_router(build_reviews_router(store, runner))
+    response = TestClient(app).get("/api/reviews/task-secret/agent-states")
+
+    body = response.json()
+    error_text = body["agents"][0]["error"]
+    assert "tp-cmyoe3wnk2frz5phsftopbg1131vuj6fcjfqzl5h5972ue41" not in error_text
+    assert "REDACTED" in error_text or "invalid" in error_text

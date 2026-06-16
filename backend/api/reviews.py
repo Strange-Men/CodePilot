@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Query, Response
 
 from backend.api.errors import APIError
@@ -43,6 +45,31 @@ def _all_findings_bilingual(findings: list[dict]) -> bool:
     if not findings:
         return False
     return all(_has_bilingual_display(f) for f in findings)
+
+_SECRET_PATTERN = re.compile(
+    r"(?:api[_-]?key|token|secret|password|authorization|bearer)\s*[=:]\s*\S+",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_error(raw: str | None, *, max_len: int = 200) -> str | None:
+    """Return a sanitized error string safe for API responses.
+
+    Strips potential secrets (API keys, tokens, bearer values) and truncates.
+    Returns None if nothing useful remains after sanitization.
+    """
+    if not raw:
+        return None
+    cleaned = _SECRET_PATTERN.sub("[REDACTED]", raw)
+    # Also redact bare long hex/base64 tokens (32+ chars of hex or base64)
+    cleaned = re.sub(r"\b[A-Za-z0-9+/=_-]{32,}\b", "[REDACTED]", cleaned)
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return "Agent execution failed."
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len] + "…"
+    return cleaned
+
 
 SEVERITY_KEYS = ("critical", "high", "medium", "low")
 PLANNED_AGENT_DETAILS = {
@@ -400,7 +427,7 @@ def _agent_state_response(
         evidence_count=len(evidence_ids),
         severity_mix=severity_mix,
         average_confidence=round(sum(confidences) / len(confidences), 2) if confidences else None,
-        error="Agent execution failed." if row.get("error") else None,
+        error=_sanitize_error(row.get("error")),
     )
 
 

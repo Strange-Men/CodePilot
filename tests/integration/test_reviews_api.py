@@ -498,7 +498,7 @@ def test_get_review_agent_states_returns_computed_summary_fields(
                     "low": 0,
                 },
                 "average_confidence": None,
-                "error": "Agent execution failed.",
+                "error": "MIMO_[REDACTED]",
             },
         ],
     }

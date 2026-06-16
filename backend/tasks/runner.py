@@ -71,11 +71,7 @@ class ReviewTaskRunner:
         return task_id
 
     def _run(self, task_id: str, repo_url: str, llm_mode: str = "mock") -> ReviewPipelineResult:
-        llm_client = (
-            self.llm_client
-            if llm_mode == "mock"
-            else build_llm_client_for_mode(self.settings, llm_mode)
-        )
+        llm_client = build_llm_client_for_mode(self.settings, llm_mode)
         pipeline = ReviewPipeline(
             self.settings,
             self.store,
