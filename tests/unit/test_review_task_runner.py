@@ -304,7 +304,8 @@ def test_run_uses_parser_registry_for_python_parser(runner_dependencies: tuple[S
     assert parser_registry.created_languages == ["python"]
     assert FakeRepositoryIndexer.parser_instances == [parser_registry.parser]
     assert FakeReportGenerator.llm_clients == [llm_client]
-    assert FakeReportGenerator.token_models == [settings.openai_model]
+    expected_model = settings.mimo_model_name if settings.mimo_api_key else settings.openai_model
+    assert FakeReportGenerator.token_models == [expected_model]
 
 
 def test_run_selects_javascript_parser_when_js_files_are_detected(

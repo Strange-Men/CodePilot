@@ -29,6 +29,51 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 
+def _preflight_auth_check() -> str | None:
+    """Validate that a real API key is available before running.
+
+    Returns an error message string if validation fails, or None if OK.
+    Never prints the key value, prefix, suffix, or length.
+    """
+    # Known placeholder patterns from .env.example and common templates
+    _placeholder_patterns = {
+        "",
+        "your-key",
+        "your_api_key",
+        "your_mimo_api_key",
+        "your_openai_api_key",
+        "placeholder",
+        "changeme",
+        "replace_me",
+        "xxx",
+    }
+
+    mimo_key = os.environ.get("MIMO_API_KEY", "").strip()
+    openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+
+    # Check if at least one key is configured
+    if not mimo_key and not openai_key:
+        return "No API key found. Set MIMO_API_KEY or OPENAI_API_KEY in local .env."
+
+    # Check MiMo key if present
+    if mimo_key:
+        key_lower = mimo_key.lower()
+        if key_lower in _placeholder_patterns:
+            return "MIMO_API_KEY appears to be a placeholder. Set a valid key in local .env."
+        if mimo_key.startswith("<") and mimo_key.endswith(">"):
+            return "MIMO_API_KEY appears to be a placeholder template. Set a valid key in local .env."
+
+    # Check OpenAI key if present
+    if openai_key:
+        key_lower = openai_key.lower()
+        if key_lower in _placeholder_patterns:
+            return "OPENAI_API_KEY appears to be a placeholder. Set a valid key in local .env."
+        if openai_key.startswith("<") and openai_key.endswith(">"):
+            return "OPENAI_API_KEY appears to be a placeholder template. Set a valid key in local .env."
+
+    return None
+
+
 def extract_performance_events(log_output: str) -> list[dict]:
     """Extract performance_event lines from log output."""
     events = []
@@ -203,6 +248,13 @@ def main() -> int:
 
     # Ensure mock is off
     os.environ["USE_MOCK_LLM"] = "false"
+
+    # Preflight: validate API key before running
+    auth_error = _preflight_auth_check()
+    if auth_error:
+        print(f"ERROR: {auth_error}")
+        print("Set a valid key in local .env, then rerun this script.")
+        return 1
 
     print(f"Benchmarking repo: {args.repo_url}")
     print(f"Concurrency: {os.environ.get('REVIEW_AGENT_CONCURRENCY', '2')}")

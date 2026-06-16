@@ -87,18 +87,24 @@ class ReviewPipeline:
             self._notify_progress("done")
             pipeline_duration_ms = round((time.perf_counter() - pipeline_started) * 1000, 1)
             logger.info(
-                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=true concurrency=%s",
+                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=true "
+                "concurrency=%s provider=%s model=%s",
                 task_id,
                 pipeline_duration_ms,
                 self.settings.review_agent_concurrency,
+                self._resolve_provider_label(),
+                self._resolve_token_model(),
             )
         except Exception as exc:
             pipeline_duration_ms = round((time.perf_counter() - pipeline_started) * 1000, 1)
             logger.info(
-                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=false concurrency=%s",
+                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=false "
+                "concurrency=%s provider=%s model=%s",
                 task_id,
                 pipeline_duration_ms,
                 self.settings.review_agent_concurrency,
+                self._resolve_provider_label(),
+                self._resolve_token_model(),
             )
             self._fail_review(task_id, repo_url, exc, report_result=report_result)
             self._notify_progress("task_failed")
@@ -234,6 +240,22 @@ class ReviewPipeline:
         )
         # Summaries are deterministic and generated during indexing for the MVP.
 
+    def _resolve_token_model(self) -> str:
+        """Return the actual model name based on active provider configuration.
+
+        When MiMo settings are active, returns the MiMo model name.
+        Otherwise returns the OpenAI model name.
+        """
+        if self.settings.mimo_api_key:
+            return self.settings.mimo_model_name
+        return self.settings.openai_model
+
+    def _resolve_provider_label(self) -> str:
+        """Return the active provider label for logging."""
+        if self.settings.mimo_api_key:
+            return "mimo"
+        return "openai"
+
     def _generate_report(self, task_id: str, context: ReviewContext):
         self.store.update_status(task_id, ReviewStatus.reviewing)
         self._notify_progress("evidence_retrieval")
@@ -244,11 +266,12 @@ class ReviewPipeline:
         if speed_mode == "fast":
             token_budget = max(1000, token_budget // 2)
 
+        token_model = self._resolve_token_model()
         report_generator = self.report_generator_factory(
             self.llm_client,
             self.settings.reports_path,
             token_budget,
-            token_model=self.settings.openai_model,
+            token_model=token_model,
             agent_concurrency=self.settings.review_agent_concurrency,
         )
         configure_engine = getattr(report_generator, "configure_engine", None)
