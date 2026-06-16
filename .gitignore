@@ -12,3 +12,4 @@ evaluation/reports/*.json
 evaluation/reports/*.md
 evaluation/runs/
 .eval-work/
+*.db
