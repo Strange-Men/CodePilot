@@ -7,12 +7,15 @@ from dataclasses import dataclass, field
 
 from backend.agents.architecture_agent import ArchitectureAgent
 from backend.agents.evidence_agent import EvidenceGroundedAgent
+from backend.agents.finding_validator import FindingValidator
 from backend.agents.specialized_agents import CodeSmellAgent, MaintainabilityAgent, RefactorAgent
 from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
+from backend.llm.structured import GroupedAgentOutput, StructuredLLMClient
 from backend.models.context import ReviewContext
 from backend.models.review_state import AgentExecutionState, ReviewState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
+from backend.services.evidence import EvidenceRetriever
 
 logger = get_logger(__name__)
 
@@ -29,6 +32,17 @@ AgentProgressCallback = Callable[[str, str | None, AgentExecutionState | None], 
 
 
 class AgentOrchestrator:
+    # Grouped mode group definitions
+    _GROUP_1 = (ArchitectureAgent, MaintainabilityAgent)
+    _GROUP_2 = (CodeSmellAgent, RefactorAgent)
+    # Deterministic agent ordering for grouped mode output
+    _DETERMINISTIC_ORDER = [
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    ]
+
     def __init__(
         self,
         llm_client: LLMClient,
@@ -39,6 +53,7 @@ class AgentOrchestrator:
         candidate_paths: set[str] | None = None,
         progress_callback: AgentProgressCallback | None = None,
         concurrency: int = 1,
+        agent_mode: str = "separate",
     ) -> None:
         self.llm_client = llm_client
         self.model = model
@@ -52,6 +67,14 @@ class AgentOrchestrator:
         self.candidate_paths = candidate_paths
         self.progress_callback = progress_callback
         self.concurrency = max(1, concurrency)
+        mode = agent_mode.strip().lower()
+        if mode not in ("separate", "grouped"):
+            logger.warning(
+                "invalid_agent_mode value=%s falling_back=separate",
+                agent_mode,
+            )
+            mode = "separate"
+        self.agent_mode = mode
 
     def review(self, context: ReviewContext, *, task_id: str | None = None) -> AgentRunResult:
         state = self.run(ReviewState(task_id=task_id, context=context))
@@ -63,6 +86,8 @@ class AgentOrchestrator:
         )
 
     def run(self, state: ReviewState) -> ReviewState:
+        if self.agent_mode == "grouped":
+            return self._run_grouped(state)
         if self.concurrency <= 1:
             return self._run_serial(state)
         return self._run_parallel(state)
@@ -217,6 +242,281 @@ class AgentOrchestrator:
                 findings.extend(draft.findings)
                 agent = indexed_agents[index][1]
                 state.evidence_bundles[agent_state.agent_id] = list(agent.last_evidence_bundle)
+
+        self._finalize_state(state, findings)
+        return state
+
+    def _run_grouped(self, state: ReviewState) -> ReviewState:
+        """Run agents in grouped mode: 2 physical LLM calls, 4 logical agent outputs.
+
+        Group 1: ArchitectureAgent + MaintainabilityAgent
+        Group 2: CodeSmellAgent + RefactorAgent
+        Both groups run concurrently. Each logical agent is validated independently.
+        """
+        groups = [
+            ("group_1", list(self._GROUP_1)),
+            ("group_2", list(self._GROUP_2)),
+        ]
+
+        # Prepare all agent instances and notify running
+        all_agents: dict[str, EvidenceGroundedAgent] = {}
+        for agent_class in self.agent_classes:
+            agent = agent_class(
+                self.llm_client,
+                model=self.model,
+                token_budget=self.per_agent_token_budget,
+            )
+            agent.set_candidate_paths(self.candidate_paths)
+            all_agents[agent.role] = agent
+            logger.info(
+                "performance_event task_id=%s stage=agent_start agent=%s concurrency=%d",
+                state.task_id or "none", agent.role, self.concurrency,
+            )
+            self._notify_progress("agent_running", agent.role)
+
+        # Type alias for per-agent result tuple
+        _AgentResultTuple = tuple[
+            list[ReviewFinding], AgentExecutionState, EvidenceGroundedAgent,
+        ]
+
+        def _run_group(
+            group_id: str,
+            agent_classes: list[type[EvidenceGroundedAgent]],
+        ) -> tuple[str, dict[str, _AgentResultTuple], dict[str, str]]:
+            """Execute one grouped LLM call and return per-agent results."""
+            group_start = time.perf_counter()
+            task_id = state.task_id or "none"
+            agent_roles = [cls.role for cls in agent_classes]
+            logger.info(
+                "performance_event task_id=%s stage=grouped_call_start "
+                "group_id=%s logical_agents=%s concurrency=%d",
+                task_id, group_id, ",".join(agent_roles), self.concurrency,
+            )
+
+            errors: dict[str, str] = {}
+            per_agent_results: dict[str, tuple[list[ReviewFinding], AgentExecutionState, EvidenceGroundedAgent]] = {}
+
+            # Retrieve evidence per agent
+            agents_with_evidence: list[tuple[EvidenceGroundedAgent, list, object]] = []
+            agent_evidence_ids: dict[str, set[str]] = {}
+            for cls in agent_classes:
+                agent = all_agents[cls.role]
+                retrieval_policy = agent._retrieval_policy()
+                retrieval = EvidenceRetriever(state.context).retrieve_with_policy(
+                    retrieval_policy,
+                    candidate_paths=self.candidate_paths,
+                )
+                evidence_bundle = retrieval.records
+                agent.last_evidence_bundle = evidence_bundle
+                agent.last_retrieval_stats = retrieval.stats
+                agent_evidence_ids[cls.role] = {r.evidence_id for r in evidence_bundle}
+                agents_with_evidence.append((agent, evidence_bundle, retrieval_policy))
+
+            # Check if all agents have empty evidence
+            if all(not bundle for _, bundle, _ in agents_with_evidence):
+                for cls in agent_classes:
+                    agent = all_agents[cls.role]
+                    duration = time.perf_counter() - group_start
+                    agent_state = AgentExecutionState(
+                        agent_id=cls.role,
+                        status="completed",
+                        findings=[],
+                        evidence_ids=[],
+                        validation_status="validated",
+                        metadata={
+                            "duration_seconds": round(duration, 6),
+                            "no_findings_reason": "No evidence available.",
+                            "group_id": group_id,
+                            "call_mode": "grouped",
+                        },
+                    )
+                    per_agent_results[cls.role] = ([], agent_state, agent)
+                grouped_duration = time.perf_counter() - group_start
+                logger.info(
+                    "performance_event task_id=%s stage=grouped_call_end "
+                    "group_id=%s duration_ms=%s success=true retries=0 "
+                    "provider=%s model=%s",
+                    task_id, group_id, round(grouped_duration * 1000, 1),
+                    self._provider_label(), self.model,
+                )
+                return group_id, per_agent_results, errors
+
+            # Render grouped prompt and call LLM
+            prompt = EvidenceGroundedAgent.render_grouped_prompt(
+                state.context, agents_with_evidence, self.per_agent_token_budget * len(agent_classes),
+            )
+            structured_client = StructuredLLMClient(
+                self.llm_client, model=self.model,
+            )
+
+            try:
+                result = structured_client.generate_grouped_findings(
+                    prompt, agent_evidence_ids=agent_evidence_ids,
+                )
+            except Exception as exc:
+                grouped_duration = time.perf_counter() - group_start
+                logger.info(
+                    "performance_event task_id=%s stage=grouped_call_end "
+                    "group_id=%s duration_ms=%s success=false retries=0 "
+                    "provider=%s model=%s",
+                    task_id, group_id, round(grouped_duration * 1000, 1),
+                    self._provider_label(), self.model,
+                )
+                # All agents in this group failed
+                for cls in agent_classes:
+                    agent = all_agents[cls.role]
+                    errors[cls.role] = str(exc)
+                    agent_state = AgentExecutionState(
+                        agent_id=cls.role,
+                        status="failed",
+                        error=str(exc),
+                        validation_status="failed",
+                        metadata={
+                            "duration_seconds": round(grouped_duration, 6),
+                            "group_id": group_id,
+                            "call_mode": "grouped",
+                        },
+                    )
+                    per_agent_results[cls.role] = ([], agent_state, agent)
+                return group_id, per_agent_results, errors
+
+            grouped_duration = time.perf_counter() - group_start
+            retries = result.invalid_attempts
+            logger.info(
+                "performance_event task_id=%s stage=grouped_call_end "
+                "group_id=%s duration_ms=%s success=true retries=%d "
+                "provider=%s model=%s",
+                task_id, group_id, round(grouped_duration * 1000, 1),
+                retries, self._provider_label(), self.model,
+            )
+
+            # Parse and validate per logical agent
+            validator = FindingValidator(state.context)
+            for cls in agent_classes:
+                agent = all_agents[cls.role]
+                agent_output: GroupedAgentOutput | None = result.agent_outputs.get(cls.role)
+
+                if agent_output is None:
+                    logger.info(
+                        "performance_event task_id=%s stage=logical_agent_parse "
+                        "agent=%s raw_finding_count=0 parse_success=false error=missing_output",
+                        task_id, cls.role,
+                    )
+                    agent_state = AgentExecutionState(
+                        agent_id=cls.role,
+                        status="failed",
+                        error=f"Agent '{cls.role}' missing from grouped response.",
+                        validation_status="failed",
+                        metadata={
+                            "duration_seconds": round(time.perf_counter() - group_start, 6),
+                            "group_id": group_id,
+                            "call_mode": "grouped",
+                        },
+                    )
+                    per_agent_results[cls.role] = ([], agent_state, agent)
+                    errors[cls.role] = f"Agent '{cls.role}' missing from grouped response."
+                    continue
+
+                if agent_output.parse_error:
+                    logger.info(
+                        "performance_event task_id=%s stage=logical_agent_parse "
+                        "agent=%s raw_finding_count=%d parse_success=false error=%s",
+                        task_id, cls.role, len(agent_output.findings),
+                        agent_output.parse_error[:200],
+                    )
+                    agent_state = AgentExecutionState(
+                        agent_id=cls.role,
+                        status="failed",
+                        error=agent_output.parse_error,
+                        validation_status="failed",
+                        metadata={
+                            "duration_seconds": round(time.perf_counter() - group_start, 6),
+                            "group_id": group_id,
+                            "call_mode": "grouped",
+                            "no_findings_reason": agent_output.no_findings_reason,
+                        },
+                    )
+                    per_agent_results[cls.role] = ([], agent_state, agent)
+                    errors[cls.role] = agent_output.parse_error
+                    continue
+
+                raw_count = len(agent_output.findings)
+                logger.info(
+                    "performance_event task_id=%s stage=logical_agent_parse "
+                    "agent=%s raw_finding_count=%d parse_success=true",
+                    task_id, cls.role, raw_count,
+                )
+
+                # Validate findings for this logical agent
+                validated_findings: list[ReviewFinding] = []
+                for raw_finding in agent_output.findings:
+                    validated = validator.validate(raw_finding, section=cls.section)
+                    if validated is not None:
+                        validated_findings.append(validated)
+
+                dropped_count = raw_count - len(validated_findings)
+                logger.info(
+                    "performance_event task_id=%s stage=logical_agent_validation "
+                    "agent=%s validated_count=%d dropped_count=%d no_findings_reason=%s",
+                    task_id, cls.role, len(validated_findings), dropped_count,
+                    agent_output.no_findings_reason or "none",
+                )
+
+                # Build AgentExecutionState for this logical agent
+                cost_tracker = getattr(structured_client, "cost_tracker", None)
+                retrieval_stats = getattr(agent, "last_retrieval_stats", None)
+                metadata: dict[str, str | int | float | bool | None] = (
+                    retrieval_stats.to_metadata() if retrieval_stats is not None else {}
+                )
+                metadata["duration_seconds"] = round(time.perf_counter() - group_start, 6)
+                metadata["group_id"] = group_id
+                metadata["call_mode"] = "grouped"
+                metadata["validated_finding_count"] = len(validated_findings)
+                if agent_output.no_findings_reason:
+                    metadata["no_findings_reason"] = agent_output.no_findings_reason
+
+                agent_state = AgentExecutionState(
+                    agent_id=cls.role,
+                    status="completed",
+                    findings=validated_findings,
+                    evidence_ids=list(agent_evidence_ids[cls.role]),
+                    prompt_tokens=getattr(cost_tracker, "prompt_tokens", None),
+                    completion_tokens=getattr(cost_tracker, "completion_tokens", None),
+                    llm_calls=getattr(cost_tracker, "calls", None),
+                    validation_status="validated",
+                    metadata=metadata,
+                )
+                per_agent_results[cls.role] = (validated_findings, agent_state, agent)
+
+            return group_id, per_agent_results, errors
+
+        # Run both groups concurrently
+        group_errors: dict[str, str] = {}
+        all_per_agent: dict[str, tuple[list[ReviewFinding], AgentExecutionState, EvidenceGroundedAgent]] = {}
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {
+                executor.submit(_run_group, group_id, group_classes): group_id
+                for group_id, group_classes in groups
+            }
+            for future in as_completed(futures):
+                group_id, per_agent_results, errors = future.result()
+                all_per_agent.update(per_agent_results)
+                group_errors.update(errors)
+
+        # Reassemble in deterministic order
+        findings: list[ReviewFinding] = []
+        for agent_role in self._DETERMINISTIC_ORDER:
+            if agent_role in all_per_agent:
+                agent_findings, agent_state, agent = all_per_agent[agent_role]
+                state.agent_results.append(agent_state)
+                findings.extend(agent_findings)
+                state.evidence_bundles[agent_role] = list(agent.last_evidence_bundle)
+                if agent_role in group_errors:
+                    state.errors[agent_role] = group_errors[agent_role]
+                    self._notify_progress("agent_failed", agent_role, agent_state)
+                else:
+                    self._notify_progress("agent_completed", agent_role, agent_state)
 
         self._finalize_state(state, findings)
         return state

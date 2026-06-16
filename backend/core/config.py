@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     llm_pool_timeout: float = Field(default=10.0, alias="LLM_POOL_TIMEOUT_SECONDS")
     llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
 
+    # Agent mode: 'separate' (default) or 'grouped'
+    # separate: 4 independent LLM calls, one per agent (V3.5.9 behavior)
+    # grouped: 2 grouped LLM calls, 4 logical agent outputs (V3.5.10)
+    review_agent_mode: str = Field(default="separate", alias="REVIEW_AGENT_MODE")
+
     # Agent concurrency
     # 1 = safest serial fallback
     # 2 = conservative default

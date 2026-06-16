@@ -199,6 +199,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `LLM_WRITE_TIMEOUT_SECONDS` | `30` | HTTP write timeout for LLM calls. |
 | `LLM_POOL_TIMEOUT_SECONDS` | `10` | HTTP pool timeout for LLM calls. |
 | `LLM_MAX_RETRIES` | `2` | Max retries for transient LLM errors (timeout, 429, 5xx). |
+| `REVIEW_AGENT_MODE` | `separate` | Agent orchestration mode: `separate` (4 LLM calls, V3.5.9) or `grouped` (2 grouped calls, V3.5.10). |
 | `REVIEW_AGENT_CONCURRENCY` | `2` | Number of review agents to run concurrently (1 = serial, 4 = fastest). |
 | `REVIEW_SPEED_MODE` | `balanced` | `balanced` (full depth) or `fast` (stricter token budget, same agents/evidence). |
 | `ENABLE_LLM_TRANSLATION` | `false` | Opt-in to use real LLM for Chinese translation instead of MockTranslator. |

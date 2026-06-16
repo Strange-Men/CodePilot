@@ -28,6 +28,7 @@ class ReportGenerator:
         token_model: str = "gpt-4o-mini",
         *,
         agent_concurrency: int = 1,
+        agent_mode: str = "separate",
     ) -> None:
         self.llm_client = llm_client
         self.reports_path = reports_path
@@ -39,6 +40,7 @@ class ReportGenerator:
         self.review_scope: ReviewScope | None = None
         self.progress_callback: AgentProgressCallback | None = None
         self.agent_concurrency = agent_concurrency
+        self.agent_mode = agent_mode
 
     def configure_engine(self, review_engine: str) -> None:
         self.review_engine = review_engine
@@ -148,6 +150,7 @@ class ReportGenerator:
                 candidate_paths=self._candidate_paths(review_context),
                 progress_callback=self.progress_callback,
                 concurrency=self.agent_concurrency,
+                agent_mode=self.agent_mode,
             ).review(review_context, task_id=task_id)
             draft = result.draft
             agent_states = result.agent_states

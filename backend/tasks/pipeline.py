@@ -273,6 +273,7 @@ class ReviewPipeline:
             token_budget,
             token_model=token_model,
             agent_concurrency=self.settings.review_agent_concurrency,
+            agent_mode=self.settings.review_agent_mode,
         )
         configure_engine = getattr(report_generator, "configure_engine", None)
         if callable(configure_engine):

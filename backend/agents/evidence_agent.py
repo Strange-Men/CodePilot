@@ -165,3 +165,90 @@ class EvidenceGroundedAgent:
             manifest_limit=max(self.evidence_limit * 3, 12),
             symbol_limit=max(self.evidence_limit * 2, 8),
         )
+
+    @staticmethod
+    def render_grouped_prompt(
+        context: ReviewContext,
+        agents_with_evidence: list[tuple[EvidenceGroundedAgent, list[EvidenceRecord], RetrievalPolicy]],
+        token_budget: int,
+    ) -> str:
+        """Render a grouped prompt for two logical agents sharing one LLM call.
+
+        Args:
+            context: The review context.
+            agents_with_evidence: List of (agent, evidence_bundle, retrieval_policy) tuples.
+            token_budget: Shared token budget for the group.
+
+        Returns:
+            Combined prompt string requesting agent_outputs JSON.
+        """
+        retriever = EvidenceRetriever(context)
+
+        agent_sections: list[str] = []
+        agent_roles: list[str] = []
+        for agent, evidence_bundle, policy in agents_with_evidence:
+            agent_roles.append(agent.role)
+            evidence_lines: list[str] = []
+            for record in evidence_bundle:
+                compressed = retriever.compress_for_prompt(record, agent.evidence_query, policy=policy)
+                evidence_lines.append(
+                    f"- evidence_id={record.evidence_id}; file={record.file_path}; "
+                    f"lines={record.start_line}-{record.end_line}; "
+                    f"excerpt_lines={compressed.excerpt_start_line}-{compressed.excerpt_end_line}; "
+                    f"truncated={str(compressed.truncated).lower()}; snippet={compressed.snippet}"
+                )
+            agent_sections.append(
+                f"### Agent: {agent.role}\n"
+                f"Review category: {agent.category}. Target report section: {agent.section}.\n"
+                f"Evidence:\n" + "\n".join(evidence_lines)
+            )
+
+        roles_str = ", ".join(agent_roles)
+        return (
+            f"You are CodePilot's grouped review agent producing findings for: {roles_str}.\n"
+            "\n"
+            "TASK: Analyze the evidence below and produce findings for EACH logical agent.\n"
+            "Each finding must be grounded in the provided evidence_ids for that agent.\n"
+            "Each agent should produce 1-3 actionable findings when evidence supports it.\n"
+            "If the evidence genuinely supports no findings for an agent, set no_findings_reason.\n"
+            "\n"
+            "OUTPUT FORMAT: Return ONLY valid JSON. No markdown fences, no explanation text.\n"
+            'Top-level structure: {"agent_outputs": {"AgentRole": {"findings": [...], '
+            '"no_findings_reason": null}, ...}}\n'
+            "Each finding MUST have these required fields:\n"
+            "- title: string (short summary)\n"
+            "- description: string (concrete explanation)\n"
+            "- category: string (must match the agent's category exactly)\n"
+            '- severity: one of "high", "medium", "low"\n'
+            "- confidence: number 0.0-1.0\n"
+            "- evidence_ids: array of strings from that agent's evidence (at least one)\n"
+            "- display: {en: {title, description, ...}, zh: {title, description, ...}}\n"
+            "Optional fields: recommendation, impact, first_step, validation_tests, "
+            "confidence_rationale, caveat (all nullable).\n"
+            "\n"
+            "Each agent must ONLY use evidence_ids from its own evidence section.\n"
+            "Do not cross-reference evidence between agents.\n"
+            "\n"
+            "Bilingual display rules:\n"
+            "- display.en: mirror the top-level English fields exactly.\n"
+            "- display.zh: natural Chinese for software engineers. Concise professional wording.\n"
+            "- NEVER use '代码坏味道'. Use '代码质量问题' instead.\n"
+            "- Preferred terms: 架构分析, 可维护性问题, 重构建议, 第一步建议, 验证方式, 注意事项.\n"
+            "- Keep code symbols, file paths, commands, evidence IDs untranslated.\n"
+            "- severity, confidence, evidence_ids, category must be identical in en and zh.\n"
+            "\n"
+            "Quality guidance:\n"
+            "- Prefer concrete descriptions of code responsibility, change risk, "
+            "and specific actionable steps over vague statements.\n"
+            "- impact: practical consequence if left unaddressed.\n"
+            "- first_step: safest initial change before attempting a fix.\n"
+            "- validation_tests: test files or commands to run before and after.\n"
+            "- confidence_rationale: why this confidence level.\n"
+            "- caveat: risks or reasons the recommendation might not apply.\n"
+            "\n"
+            f"Per-group prompt budget: {token_budget} tokens.\n"
+            f"Repository: {context.repo_url}\n"
+            f"Summary: {context.repository_summary}\n"
+            "\n"
+            + "\n\n".join(agent_sections)
+        )

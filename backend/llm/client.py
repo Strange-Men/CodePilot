@@ -259,6 +259,82 @@ class MockLLMClient:
             )
         ]
 
+    def generate_grouped_structured_findings(self, prompt: str) -> dict[str, dict[str, object]]:
+        """Mock grouped findings for two logical agents in one call.
+
+        Returns a dict keyed by agent role, each containing
+        {'findings': [...], 'no_findings_reason': None}.
+        """
+        # Detect agent roles from prompt sections
+        agent_roles = re.findall(r"### Agent: (\w+)", prompt)
+        if not agent_roles:
+            return {}
+
+        result: dict[str, dict[str, object]] = {}
+        for role in agent_roles:
+            # Extract category for this agent from the prompt
+            category_match = re.search(
+                rf"### Agent: {re.escape(role)}\nReview category: (\w+)",
+                prompt,
+            )
+            category = category_match.group(1) if category_match else "general"
+
+            # Find evidence IDs scoped to this agent's section
+            section_pattern = rf"### Agent: {re.escape(role)}\n.*?(?=### Agent:|$)"
+            section_match = re.search(section_pattern, prompt, re.DOTALL)
+            section_text = section_match.group(0) if section_match else prompt
+            evidence_ids = list(dict.fromkeys(re.findall(r"\bev_[a-f0-9]{20}\b", section_text)))
+
+            if not evidence_ids:
+                result[role] = {"findings": [], "no_findings_reason": "No evidence available."}
+                continue
+
+            display = self._build_grouped_display(category)
+            result[role] = {
+                "findings": [
+                    {
+                        "title": f"Evidence-grounded {category} finding",
+                        "description": (
+                            "The selected evidence highlights a repository concern."
+                        ),
+                        "category": category,
+                        "severity": "medium",
+                        "confidence": 0.72,
+                        "recommendation": "Review the cited evidence before changing code.",
+                        "evidence_ids": evidence_ids[:3],
+                        "impact": "Structural concern that should be reviewed.",
+                        "first_step": "Inspect the cited code path.",
+                        "validation_tests": ["Run the test suite after changes."],
+                        "confidence_rationale": "Based on evidence records provided.",
+                        "caveat": "Confirm with production behavior before acting.",
+                        "display": display,
+                    }
+                ],
+                "no_findings_reason": None,
+            }
+        return result
+
+    def _build_grouped_display(self, category: str) -> dict[str, dict[str, object]]:
+        """Build bilingual display fields for a grouped mock finding."""
+        en_map = {
+            "architecture": ("Architecture boundary review", "The evidence suggests a structural boundary concern."),
+            "code_smell": ("Code quality issue detected", "The evidence highlights a code quality pattern."),
+            "maintainability": ("Maintainability risk identified", "The evidence shows a maintainability concern."),
+            "refactor": ("Refactoring candidate found", "The evidence suggests an extraction opportunity."),
+        }
+        zh_map = {
+            "architecture": ("架构边界需要审查", "证据表明存在结构性边界问题。"),
+            "code_smell": ("代码质量问题需要关注", "证据显示存在代码质量模式。"),
+            "maintainability": ("可维护性风险需要改善", "证据表明存在可维护性问题。"),
+            "refactor": ("重构候选需要评估", "证据表明存在提取机会。"),
+        }
+        en_title, en_desc = en_map.get(category, ("Repository finding", "Evidence-based concern."))
+        zh_title, zh_desc = zh_map.get(category, ("仓库问题需要关注", "基于证据的问题。"))
+        return {
+            "en": {"title": en_title, "description": en_desc},
+            "zh": {"title": zh_title, "description": zh_desc},
+        }
+
     @staticmethod
     def _extract_after(prompt: str, label: str) -> str | None:
         for line in prompt.splitlines():

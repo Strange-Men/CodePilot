@@ -245,6 +245,12 @@ def main() -> int:
         default=None,
         help="Override REVIEW_ENGINE.",
     )
+    parser.add_argument(
+        "--agent-mode",
+        choices=["separate", "grouped"],
+        default=None,
+        help="Override REVIEW_AGENT_MODE (separate or grouped).",
+    )
     args = parser.parse_args()
 
     # Apply overrides
@@ -254,6 +260,8 @@ def main() -> int:
         os.environ["REVIEW_SPEED_MODE"] = args.speed_mode
     if args.engine is not None:
         os.environ["REVIEW_ENGINE"] = args.engine
+    if args.agent_mode is not None:
+        os.environ["REVIEW_AGENT_MODE"] = args.agent_mode
 
     # Ensure mock is off
     os.environ["USE_MOCK_LLM"] = "false"
@@ -269,6 +277,7 @@ def main() -> int:
     print(f"Concurrency: {os.environ.get('REVIEW_AGENT_CONCURRENCY', '2')}")
     print(f"Speed mode: {os.environ.get('REVIEW_SPEED_MODE', 'balanced')}")
     print(f"Engine: {os.environ.get('REVIEW_ENGINE', 'v3_multi_agent')}")
+    print(f"Agent mode: {os.environ.get('REVIEW_AGENT_MODE', 'separate')}")
     print()
 
     # Import after env setup
