@@ -28,6 +28,14 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
+# Load .env into os.environ so preflight check can read MIMO_API_KEY
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT_DIR / ".env")
+except ImportError:
+    pass  # python-dotenv not installed; rely on shell env
+
 
 def _preflight_auth_check() -> str | None:
     """Validate that a real API key is available before running.
@@ -154,8 +162,8 @@ def print_timing_summary(events: list[dict]) -> None:
     for stage in pipeline_stages:
         if stage in stage_events:
             for event in stage_events[stage]:
-                duration = event.get("duration_ms", "N/A")
-                success = event.get("success", "N/A")
+                duration = event.get("duration_ms") or "N/A"
+                success = event.get("success") or "N/A"
                 extra = ""
                 if event.get("concurrency"):
                     extra += f" concurrency={event['concurrency']}"
@@ -175,12 +183,12 @@ def print_timing_summary(events: list[dict]) -> None:
         print("\n--- Agent Stages ---")
         for stage in sorted(agent_stages):
             for event in stage_events[stage]:
-                duration = event.get("duration_ms", "N/A")
-                success = event.get("success", "N/A")
-                retries = event.get("retries", "0")
-                provider = event.get("provider", "")
-                model = event.get("model", "")
-                concurrency = event.get("concurrency", "")
+                duration = event.get("duration_ms") or "N/A"
+                success = event.get("success") or "N/A"
+                retries = event.get("retries") or "0"
+                provider = event.get("provider") or ""
+                model = event.get("model") or ""
+                concurrency = event.get("concurrency") or ""
                 print(
                     f"  {stage:25s} {duration:>8s} ms  success={success} "
                     f"retries={retries} provider={provider} model={model} "
@@ -193,11 +201,11 @@ def print_timing_summary(events: list[dict]) -> None:
         print("\n--- LLM Requests ---")
         for stage in llm_stages:
             for event in stage_events[stage]:
-                duration = event.get("duration_ms", "N/A")
-                success = event.get("success", "N/A")
-                retries = event.get("retries", "0")
-                provider = event.get("provider", "")
-                model = event.get("model", "")
+                duration = event.get("duration_ms") or "N/A"
+                success = event.get("success") or "N/A"
+                retries = event.get("retries") or "0"
+                provider = event.get("provider") or ""
+                model = event.get("model") or ""
                 print(
                     f"  {stage:25s} {duration:>8s} ms  success={success} "
                     f"retries={retries} provider={provider} model={model}"
