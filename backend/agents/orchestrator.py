@@ -263,6 +263,10 @@ class AgentOrchestrator:
         metadata = retrieval_stats.to_metadata() if retrieval_stats is not None else {}
         if duration_seconds is not None:
             metadata["duration_seconds"] = round(duration_seconds, 6)
+        no_reason = getattr(agent, "last_no_findings_reason", None)
+        if no_reason:
+            metadata["no_findings_reason"] = no_reason
+        metadata["validated_finding_count"] = len(findings)
         return AgentExecutionState(
             agent_id=agent_id,
             status="completed",

@@ -43,6 +43,7 @@ class TestTranslationProviderResolution:
     def test_auto_falls_back_to_openai(self) -> None:
         settings = Settings(
             _env_file=None,
+            MIMO_API_KEY="",
             OPENAI_API_KEY="openai-key",
             OPENAI_BASE_URL="https://openai.example.com/v1",
             OPENAI_MODEL="gpt-4o",

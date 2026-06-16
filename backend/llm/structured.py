@@ -29,6 +29,7 @@ class StructuredLLMResult:
     findings: list[RawLLMFinding]
     invalid_attempts: int = 0
     errors: list[str] = field(default_factory=list)
+    no_findings_reason: str | None = None
 
 
 class StructuredLLMClient:
@@ -59,13 +60,14 @@ class StructuredLLMClient:
             completion = self.llm_client.generate_review(current_prompt)
             self.cost_tracker.record(current_prompt, completion)
             try:
-                findings = self._parse_findings(completion)
+                findings, no_reason = self._parse_findings(completion)
                 if self.max_findings is not None:
                     findings = findings[: self.max_findings]
                 return StructuredLLMResult(
                     findings=self._filter_allowed(findings, allowed_evidence_ids),
                     invalid_attempts=attempt,
                     errors=errors,
+                    no_findings_reason=no_reason,
                 )
             except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
                 errors.append(str(exc))
@@ -76,14 +78,19 @@ class StructuredLLMClient:
         return StructuredLLMResult(findings=[], invalid_attempts=len(errors), errors=errors)
 
     @staticmethod
-    def _parse_findings(completion: str) -> list[RawLLMFinding]:
+    def _parse_findings(completion: str) -> tuple[list[RawLLMFinding], str | None]:
         data = json.loads(completion)
-        raw_findings = data["findings"] if isinstance(data, dict) else data
+        no_reason: str | None = None
+        if isinstance(data, dict):
+            raw_findings = data.get("findings", [])
+            no_reason = data.get("no_findings_reason")
+        else:
+            raw_findings = data
         findings = [RawLLMFinding.model_validate(item) for item in raw_findings]
         for finding in findings:
             if not finding.evidence_ids:
                 raise ValueError("Structured finding lacks evidence_ids.")
-        return findings
+        return findings, no_reason
 
     @staticmethod
     def _filter_allowed(findings: list[RawLLMFinding], allowed_evidence_ids: set[str]) -> list[RawLLMFinding]:
