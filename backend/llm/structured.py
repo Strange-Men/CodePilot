@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
+from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.structured_review import RawLLMFinding
 from backend.services.token_counting import PromptTokenCounter
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -71,6 +75,14 @@ class StructuredLLMClient:
                 )
             except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
                 errors.append(str(exc))
+                logger.info(
+                    "structured_parse_failure attempt=%d error_type=%s "
+                    "completion_length=%d sanitized_error=%s",
+                    attempt + 1,
+                    type(exc).__name__,
+                    len(completion),
+                    str(exc)[:200],
+                )
                 current_prompt = (
                     f"{prompt}\n\nPrevious output was invalid: {exc}. "
                     "Return only JSON with a top-level findings array and valid evidence_ids."
@@ -78,8 +90,19 @@ class StructuredLLMClient:
         return StructuredLLMResult(findings=[], invalid_attempts=len(errors), errors=errors)
 
     @staticmethod
+    def _strip_code_fences(completion: str) -> str:
+        """Strip markdown code fences (```json ... ```) from LLM output."""
+        stripped = completion.strip()
+        # Match ```json ... ``` or ``` ... ```
+        match = re.match(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", stripped, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return stripped
+
+    @staticmethod
     def _parse_findings(completion: str) -> tuple[list[RawLLMFinding], str | None]:
-        data = json.loads(completion)
+        cleaned = StructuredLLMClient._strip_code_fences(completion)
+        data = json.loads(cleaned)
         no_reason: str | None = None
         if isinstance(data, dict):
             raw_findings = data.get("findings", [])

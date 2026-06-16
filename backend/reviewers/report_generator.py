@@ -53,7 +53,7 @@ class ReportGenerator:
         self.progress_callback = progress_callback
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> ReportResult:
-        compose_started = time.perf_counter()
+        total_started = time.perf_counter()
         if self.review_engine == "v3_single_agent":
             report, draft, agent_states, review_state = self._generate_v3_single_agent(task_id, context)
         elif self.review_engine == "v3_multi_agent":
@@ -63,9 +63,16 @@ class ReportGenerator:
             raw_report = self.llm_client.generate_review(prompt)
             report = self._normalize_report(raw_report, context)
             draft, agent_states, review_state = None, [], None
+        agent_orchestration_ms = round((time.perf_counter() - total_started) * 1000, 1)
+
+        compose_started = time.perf_counter()
         if self.review_scope is not None and self.review_scope.is_diff_mode:
             report = report.rstrip() + "\n\n" + self._diff_scope_section(as_review_context(context)) + "\n"
         compose_duration_ms = round((time.perf_counter() - compose_started) * 1000, 1)
+        logger.info(
+            "performance_event task_id=%s stage=agent_orchestration duration_ms=%s success=true engine=%s",
+            task_id, agent_orchestration_ms, self.review_engine,
+        )
         logger.info(
             "performance_event task_id=%s stage=report_compose duration_ms=%s success=true engine=%s",
             task_id, compose_duration_ms, self.review_engine,

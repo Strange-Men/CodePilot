@@ -96,19 +96,35 @@ class EvidenceGroundedAgent:
             "Severity can be high, medium, or low — medium and low findings are welcome.\n"
             "If the evidence genuinely supports no findings, return an empty array with a reason.\n"
             "\n"
-            "Return only JSON: {\"findings\": [{\"title\": str, \"description\": str, "
-            "\"category\": str, \"severity\": str, \"confidence\": number, "
-            "\"recommendation\": str, \"evidence_ids\": [str], "
-            "\"impact\": str|null, \"first_step\": str|null, "
-            "\"validation_tests\": [str], \"confidence_rationale\": str|null, "
-            "\"caveat\": str|null, "
-            "\"display\": {\"en\": {\"title\": str, \"description\": str, "
-            "\"recommendation\": str|null, \"impact\": str|null, \"first_step\": str|null, "
-            "\"validation_tests\": [str], \"confidence_rationale\": str|null, \"caveat\": str|null}, "
-            "\"zh\": {\"title\": str, \"description\": str, "
-            "\"recommendation\": str|null, \"impact\": str|null, \"first_step\": str|null, "
-            "\"validation_tests\": [str], \"confidence_rationale\": str|null, \"caveat\": str|null"
-            "}}}], \"no_findings_reason\": str|null}.\n"
+            "OUTPUT FORMAT: Return ONLY valid JSON. No markdown fences, no explanation text.\n"
+            "Top-level structure: {\"findings\": [...], \"no_findings_reason\": null}\n"
+            "Each finding MUST have these required fields:\n"
+            "- title: string (short summary)\n"
+            "- description: string (concrete explanation)\n"
+            f"- category: string (must be exactly \"{self.category}\")\n"
+            "- severity: one of \"high\", \"medium\", \"low\"\n"
+            "- confidence: number 0.0-1.0\n"
+            "- evidence_ids: array of strings from the provided evidence (at least one)\n"
+            "- display: {en: {title, description, ...}, zh: {title, description, ...}}\n"
+            "Optional fields: recommendation, impact, first_step, validation_tests, "
+            "confidence_rationale, caveat (all nullable).\n"
+            "\n"
+            "EXAMPLE:\n"
+            '{"findings": [{"title": "Broad exception handler", '
+            '"description": "The except block catches all exceptions including KeyboardInterrupt.", '
+            f'"category": "{self.category}", "severity": "medium", "confidence": 0.8, '
+            '"recommendation": "Catch specific exceptions instead.", '
+            '"evidence_ids": ["ev_abc123"], "impact": "Silences real errors.", '
+            '"first_step": "Add specific exception types to the except clause.", '
+            '"validation_tests": ["pytest tests/test_error_handling.py"], '
+            '"confidence_rationale": "Single evidence record confirms the pattern.", '
+            '"caveat": "May be intentional for top-level error boundary.", '
+            '"display": {"en": {"title": "Broad exception handler", '
+            '"description": "The except block catches all exceptions including KeyboardInterrupt."}, '
+            '"zh": {"title": "宽泛异常处理", '
+            '"description": "except 块捕获所有异常，包括 KeyboardInterrupt。"}}}], '
+            '"no_findings_reason": null}\n'
+            "\n"
             "Use evidence_ids only for grounding. Do not invent file paths, line ranges, or snippets.\n"
             "\n"
             "Bilingual display rules:\n"

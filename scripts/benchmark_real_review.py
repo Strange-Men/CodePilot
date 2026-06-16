@@ -151,6 +151,7 @@ def print_timing_summary(events: list[dict]) -> None:
         "parse",
         "context_build",
         "report_render",
+        "agent_orchestration",
         "report_compose",
         "persistence",
         "persist_findings",
