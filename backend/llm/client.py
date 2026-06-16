@@ -329,6 +329,7 @@ class OpenAICompatibleClient:
             "temperature": 0.2,
         }
         provider = self._provider_label()
+        llm_started = time.perf_counter()
         with httpx.Client(timeout=self._timeout) as client:
             for retry_index in range(self._max_retries + 1):
                 try:
@@ -340,13 +341,22 @@ class OpenAICompatibleClient:
                     if not self._is_retryable_status(response.status_code):
                         response.raise_for_status()
                         data = response.json()
+                        duration_ms = round((time.perf_counter() - llm_started) * 1000, 1)
+                        logger.info(
+                            "performance_event stage=llm_request duration_ms=%s "
+                            "success=true retries=%d provider=%s model=%s",
+                            duration_ms, retry_index, provider,
+                            self.settings.openai_model,
+                        )
                         return data["choices"][0]["message"]["content"]
                     if retry_index == self._max_retries:
                         response.raise_for_status()
                 except httpx.TimeoutException as exc:
                     timeout_type = type(exc).__name__
                     logger.warning(
-                        "event=llm_timeout provider=%s model=%s timeout_type=%s attempt=%d max_retries=%d",
+                        "performance_event stage=llm_request success=false "
+                        "provider=%s model=%s timeout_type=%s "
+                        "attempt=%d max_retries=%d",
                         provider,
                         self.settings.openai_model,
                         timeout_type,
@@ -354,16 +364,37 @@ class OpenAICompatibleClient:
                         self._max_retries,
                     )
                     if retry_index == self._max_retries:
+                        duration_ms = round(
+                            (time.perf_counter() - llm_started) * 1000, 1
+                        )
+                        logger.info(
+                            "performance_event stage=llm_request "
+                            "duration_ms=%s success=false retries=%d "
+                            "provider=%s model=%s",
+                            duration_ms, retry_index, provider,
+                            self.settings.openai_model,
+                        )
                         raise
                 except httpx.RequestError as exc:
                     logger.warning(
-                        "event=llm_request_error provider=%s model=%s error_type=%s attempt=%d",
+                        "performance_event stage=llm_request success=false "
+                        "provider=%s model=%s error_type=%s attempt=%d",
                         provider,
                         self.settings.openai_model,
                         type(exc).__name__,
                         retry_index + 1,
                     )
                     if retry_index == self._max_retries:
+                        duration_ms = round(
+                            (time.perf_counter() - llm_started) * 1000, 1
+                        )
+                        logger.info(
+                            "performance_event stage=llm_request "
+                            "duration_ms=%s success=false retries=%d "
+                            "provider=%s model=%s",
+                            duration_ms, retry_index, provider,
+                            self.settings.openai_model,
+                        )
                         raise
                 self.sleep(RETRY_BASE_DELAY_SECONDS * (2**retry_index))
         raise RuntimeError("LLM request failed without a response.")

@@ -87,14 +87,19 @@ class ReviewPipeline:
             self._notify_progress("done")
             pipeline_duration_ms = round((time.perf_counter() - pipeline_started) * 1000, 1)
             logger.info(
-                "event=task_completed task_id=%s duration_ms=%s concurrency=%s",
+                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=true concurrency=%s",
                 task_id,
                 pipeline_duration_ms,
                 self.settings.review_agent_concurrency,
             )
         except Exception as exc:
             pipeline_duration_ms = round((time.perf_counter() - pipeline_started) * 1000, 1)
-            logger.info("event=task_failed_duration task_id=%s duration_ms=%s", task_id, pipeline_duration_ms)
+            logger.info(
+                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=false concurrency=%s",
+                task_id,
+                pipeline_duration_ms,
+                self.settings.review_agent_concurrency,
+            )
             self._fail_review(task_id, repo_url, exc, report_result=report_result)
             self._notify_progress("task_failed")
         finally:
@@ -103,12 +108,22 @@ class ReviewPipeline:
 
     def _clone_repository(self, clone_service: CloneService, task_id: str, repo_url: str) -> Path:
         self.store.update_status(task_id, ReviewStatus.cloning)
-        logger.info("event=clone_started task_id=%s repo_url=%s", task_id, repo_url)
         started = time.perf_counter()
-        repo_dir = clone_service.clone(repo_url, task_id)
-        duration_ms = round((time.perf_counter() - started) * 1000, 1)
-        logger.info("event=clone_completed task_id=%s repo_dir=%s duration_ms=%s", task_id, repo_dir, duration_ms)
-        return repo_dir
+        try:
+            repo_dir = clone_service.clone(repo_url, task_id)
+            duration_ms = round((time.perf_counter() - started) * 1000, 1)
+            logger.info(
+                "performance_event task_id=%s stage=clone duration_ms=%s success=true",
+                task_id, duration_ms,
+            )
+            return repo_dir
+        except Exception:
+            duration_ms = round((time.perf_counter() - started) * 1000, 1)
+            logger.info(
+                "performance_event task_id=%s stage=clone duration_ms=%s success=false",
+                task_id, duration_ms,
+            )
+            raise
 
     def _build_manifest(self, repo_dir: Path) -> SandboxManifest:
         return SandboxFilter().build_manifest(
@@ -127,7 +142,6 @@ class ReviewPipeline:
         self.store.update_status(task_id, ReviewStatus.parsing)
         self._notify_progress("sandbox_parsing")
         parse_started = time.perf_counter()
-        logger.info("event=parse_started task_id=%s repo_dir=%s", task_id, repo_dir)
         parser = self._select_parser(repo_dir, manifest)
         indexer = self.indexer_factory(parser, self.settings.max_files, self.settings.max_file_size_bytes)
         set_large_repo_threshold = getattr(indexer, "set_large_repo_threshold", None)
@@ -144,14 +158,14 @@ class ReviewPipeline:
             context = legacy_context.to_review_context()
         parse_duration_ms = round((time.perf_counter() - parse_started) * 1000, 1)
         logger.info(
-            "event=parse_completed task_id=%s language=%s total_source_files=%s "
-            "analyzed_files=%s skipped_files=%s duration_ms=%s",
+            "performance_event task_id=%s stage=parse duration_ms=%s success=true "
+            "language=%s total_source_files=%s analyzed_files=%s skipped_files=%s",
             task_id,
+            parse_duration_ms,
             parser.language,
             context.total_source_files,
             context.analyzed_files,
             context.skipped_files,
-            parse_duration_ms,
         )
         return context
 
@@ -214,13 +228,15 @@ class ReviewPipeline:
 
     def _record_summarized(self, task_id: str, context: ReviewContext) -> None:
         self.store.update_status(task_id, ReviewStatus.summarizing)
-        logger.info("event=summarize_completed task_id=%s file_summaries=%s", task_id, len(context.file_summaries))
+        logger.info(
+            "performance_event task_id=%s stage=context_build duration_ms=0 success=true file_summaries=%s",
+            task_id, len(context.file_summaries),
+        )
         # Summaries are deterministic and generated during indexing for the MVP.
 
     def _generate_report(self, task_id: str, context: ReviewContext):
         self.store.update_status(task_id, ReviewStatus.reviewing)
         self._notify_progress("evidence_retrieval")
-        logger.info("event=review_started task_id=%s", task_id)
 
         # Adjust token budget for fast mode
         token_budget = self.settings.final_prompt_token_budget
@@ -244,22 +260,28 @@ class ReviewPipeline:
         configure_progress_callback = getattr(report_generator, "configure_progress_callback", None)
         if callable(configure_progress_callback):
             configure_progress_callback(self.progress_callback)
+
         review_started = time.perf_counter()
-        logger.info("event=export_started task_id=%s", task_id)
         result = report_generator.generate(task_id, context)
         review_duration_ms = round((time.perf_counter() - review_started) * 1000, 1)
+
+        # Persistence timing
+        persist_started = time.perf_counter()
         if result.structured_draft is not None and result.structured_draft.findings:
             self.store.replace_structured_findings(task_id, result.structured_draft.findings, context.evidence)
         if result.agent_states:
             self.store.replace_agent_states(task_id, result.agent_states)
         if result.review_state is not None:
             self.store.replace_review_state(task_id, result.review_state.safe_snapshot())
-        logger.info("event=export_completed task_id=%s export_path=%s", task_id, result.export_path)
+        persist_duration_ms = round((time.perf_counter() - persist_started) * 1000, 1)
+
         logger.info(
-            "event=review_completed task_id=%s report_chars=%s duration_ms=%s",
-            task_id,
-            len(result.report),
-            review_duration_ms,
+            "performance_event task_id=%s stage=report_render duration_ms=%s success=true report_chars=%s",
+            task_id, review_duration_ms, len(result.report),
+        )
+        logger.info(
+            "performance_event task_id=%s stage=persistence duration_ms=%s success=true",
+            task_id, persist_duration_ms,
         )
         return result
 

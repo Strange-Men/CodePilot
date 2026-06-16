@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 
 from backend.agents.evidence_agent import EvidenceGroundedAgent
@@ -207,3 +208,172 @@ def test_concurrency_1_matches_serial_behavior(sample_context) -> None:
     # Both should have same number of results
     assert len(result_serial.agent_results) == len(result_serial2.agent_results)
     assert len(result_serial.validated_findings) == len(result_serial2.validated_findings)
+
+
+def test_concurrency_4_submits_all_agents(sample_context) -> None:
+    """With concurrency=4, all 4 default agents are submitted and complete."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        concurrency=4,
+    )
+
+    result = orchestrator.run(ReviewState(task_id="test-4agents", context=context))
+
+    assert len(result.agent_results) == 4
+    assert {state.agent_id for state in result.agent_results} == {
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    }
+    assert all(state.status == "completed" for state in result.agent_results)
+    assert result.metadata.get("agent_concurrency") == 4
+
+
+def test_concurrency_4_deterministic_ordering(sample_context) -> None:
+    """Agent results maintain deterministic A1, A2, A3, A4 order with concurrency=4."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        concurrency=4,
+    )
+
+    result = orchestrator.run(ReviewState(task_id="test-order", context=context))
+
+    expected_order = [
+        "ArchitectureAgent",
+        "CodeSmellAgent",
+        "MaintainabilityAgent",
+        "RefactorAgent",
+    ]
+    actual_order = [state.agent_id for state in result.agent_results]
+    assert actual_order == expected_order
+
+
+def test_concurrency_4_failure_isolation(sample_context) -> None:
+    """With concurrency=4, one agent failure does not cancel other agents."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        agent_classes=[FailingAgent, CodeSmellAgent, CodeSmellAgent, CodeSmellAgent],
+        concurrency=4,
+    )
+
+    result = orchestrator.run(ReviewState(task_id="test-fail-iso", context=context))
+
+    assert len(result.agent_results) == 4
+    assert result.agent_results[0].status == "failed"
+    assert result.agent_results[0].error == "agent failed"
+    assert all(state.status == "completed" for state in result.agent_results[1:])
+    assert "FailingAgent" in result.errors
+
+
+def test_timing_logs_emitted(sample_context, caplog) -> None:
+    """Performance event logs are emitted during agent execution."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        agent_classes=[CodeSmellAgent, CodeSmellAgent],
+        concurrency=2,
+    )
+
+    # Temporarily enable propagation so caplog can capture logs
+    test_logger = logging.getLogger("backend.agents.orchestrator")
+    test_logger.propagate = True
+    try:
+        with caplog.at_level(logging.INFO, logger="backend.agents.orchestrator"):
+            orchestrator.run(ReviewState(task_id="test-timing", context=context))
+
+        # Check for performance_event logs
+        performance_logs = [
+            record for record in caplog.records
+            if "performance_event" in record.message
+        ]
+        assert len(performance_logs) >= 4  # 2 agent_start + 2 agent_end
+
+        # Check agent_start logs
+        start_logs = [r for r in performance_logs if "stage=agent_start" in r.message]
+        assert len(start_logs) == 2
+        assert all("concurrency=2" in r.message for r in start_logs)
+
+        # Check agent_end logs
+        end_logs = [r for r in performance_logs if "stage=agent_end" in r.message]
+        assert len(end_logs) == 2
+        assert all("success=true" in r.message for r in end_logs)
+        assert all("duration_ms=" in r.message for r in end_logs)
+        assert all("retries=" in r.message for r in end_logs)
+    finally:
+        test_logger.propagate = False
+
+
+def test_timing_logs_no_secrets(sample_context, caplog) -> None:
+    """Performance event logs do not contain API keys or secrets."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        agent_classes=[CodeSmellAgent],
+        concurrency=1,
+    )
+
+    test_logger = logging.getLogger("backend.agents.orchestrator")
+    test_logger.propagate = True
+    try:
+        with caplog.at_level(logging.INFO, logger="backend.agents.orchestrator"):
+            orchestrator.run(ReviewState(task_id="test-no-secrets", context=context))
+
+        # Check that no log contains API key patterns
+        for record in caplog.records:
+            msg = record.message
+            assert "sk-" not in msg, "Log contains potential API key"
+            assert "OPENAI_API_KEY" not in msg, "Log contains env var name"
+            assert "MIMO_API_KEY" not in msg, "Log contains env var name"
+    finally:
+        test_logger.propagate = False
+
+
+def test_retry_count_recorded(sample_context, caplog) -> None:
+    """Retry count is recorded in agent_end logs."""
+    context = _context_with_evidence(sample_context)
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        agent_classes=[CodeSmellAgent],
+        concurrency=1,
+    )
+
+    test_logger = logging.getLogger("backend.agents.orchestrator")
+    test_logger.propagate = True
+    try:
+        with caplog.at_level(logging.INFO, logger="backend.agents.orchestrator"):
+            orchestrator.run(ReviewState(task_id="test-retries", context=context))
+
+        # Check agent_end logs have retries field
+        end_logs = [
+            r for r in caplog.records
+            if "performance_event" in r.message and "stage=agent_end" in r.message
+        ]
+        assert len(end_logs) == 1
+        assert "retries=" in end_logs[0].message
+    finally:
+        test_logger.propagate = False
+
+
+def test_provider_label_derived(sample_context) -> None:
+    """Provider label is correctly derived from model name."""
+    orchestrator = AgentOrchestrator(
+        MockLLMClient(),
+        model="mimo-v2.5-pro",
+    )
+    assert orchestrator._provider_label() == "mimo"
+
+    orchestrator2 = AgentOrchestrator(
+        MockLLMClient(),
+        model="gpt-4o-mini",
+    )
+    assert orchestrator2._provider_label() == "openai"
+
+    orchestrator3 = AgentOrchestrator(
+        MockLLMClient(),
+        model="claude-3-sonnet",
+    )
+    assert orchestrator3._provider_label() == "claude"

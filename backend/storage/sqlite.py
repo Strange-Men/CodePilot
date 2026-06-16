@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 
+from backend.core.logging import get_logger
 from backend.models.context import EvidenceRecord
 from backend.models.review import ReviewStatus
 from backend.models.review_state import AgentExecutionState, PersistedReviewState
 from backend.models.structured_review import ReviewFinding
+
+logger = get_logger(__name__)
 
 
 class ReviewStore:
@@ -295,6 +299,7 @@ class ReviewStore:
         findings: list[ReviewFinding],
         evidence: list[EvidenceRecord],
     ) -> None:
+        started = time.perf_counter()
         now = self._now()
         with self._lock, self._connect() as conn:
             conn.execute("DELETE FROM review_findings WHERE task_id = ?", (task_id,))
@@ -367,6 +372,11 @@ class ReviewStore:
                     ),
                 )
             conn.commit()
+        duration_ms = round((time.perf_counter() - started) * 1000, 1)
+        logger.info(
+            "performance_event task_id=%s stage=persist_findings duration_ms=%s success=true findings=%d",
+            task_id, duration_ms, len(findings),
+        )
 
     def get_structured_findings(self, task_id: str) -> list[dict]:
         with self._lock, self._connect() as conn:
@@ -393,6 +403,7 @@ class ReviewStore:
         return [self._decode_json_columns(dict(row)) for row in rows]
 
     def replace_agent_states(self, task_id: str, agent_states: list[AgentExecutionState]) -> None:
+        started = time.perf_counter()
         now = self._now()
         with self._lock, self._connect() as conn:
             conn.execute("DELETE FROM review_agent_states WHERE task_id = ?", (task_id,))
@@ -423,6 +434,11 @@ class ReviewStore:
                     ),
                 )
             conn.commit()
+        duration_ms = round((time.perf_counter() - started) * 1000, 1)
+        logger.info(
+            "performance_event task_id=%s stage=persist_agent_states duration_ms=%s success=true agents=%d",
+            task_id, duration_ms, len(agent_states),
+        )
 
     def get_agent_states(self, task_id: str) -> list[dict]:
         with self._lock, self._connect() as conn:
@@ -470,6 +486,7 @@ class ReviewStore:
             conn.commit()
 
     def replace_review_state(self, task_id: str, state: PersistedReviewState) -> None:
+        started = time.perf_counter()
         now = self._now()
         state = state.model_copy(update={"task_id": task_id})
         payload = state.model_dump(mode="json")
@@ -486,6 +503,11 @@ class ReviewStore:
                 (task_id, self._json(payload), "v3.1", now, now),
             )
             conn.commit()
+        duration_ms = round((time.perf_counter() - started) * 1000, 1)
+        logger.info(
+            "performance_event task_id=%s stage=persist_review_state duration_ms=%s success=true",
+            task_id, duration_ms,
+        )
 
     def get_review_state(self, task_id: str) -> PersistedReviewState | None:
         with self._lock, self._connect() as conn:

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from backend.agents.architecture_agent import ArchitectureAgent
 from backend.agents.orchestrator import AgentOrchestrator, AgentProgressCallback
+from backend.core.logging import get_logger
 from backend.llm.client import LLMClient
 from backend.models.context import RepositoryContext, ReviewContext, as_review_context
 from backend.models.report_result import ReportResult
@@ -14,6 +15,8 @@ from backend.models.structured_review import StructuredReviewDraft
 from backend.prompts import PromptRenderer
 from backend.reviewers.markdown_adapter import MarkdownReviewAdapter
 from backend.reviewers.report_composer import HumanReadableReportComposer
+
+logger = get_logger(__name__)
 
 
 class ReportGenerator:
@@ -50,6 +53,7 @@ class ReportGenerator:
         self.progress_callback = progress_callback
 
     def generate(self, task_id: str, context: ReviewContext | RepositoryContext) -> ReportResult:
+        compose_started = time.perf_counter()
         if self.review_engine == "v3_single_agent":
             report, draft, agent_states, review_state = self._generate_v3_single_agent(task_id, context)
         elif self.review_engine == "v3_multi_agent":
@@ -61,6 +65,11 @@ class ReportGenerator:
             draft, agent_states, review_state = None, [], None
         if self.review_scope is not None and self.review_scope.is_diff_mode:
             report = report.rstrip() + "\n\n" + self._diff_scope_section(as_review_context(context)) + "\n"
+        compose_duration_ms = round((time.perf_counter() - compose_started) * 1000, 1)
+        logger.info(
+            "performance_event task_id=%s stage=report_compose duration_ms=%s success=true engine=%s",
+            task_id, compose_duration_ms, self.review_engine,
+        )
         export_path = self.reports_path / f"{task_id}.md"
         export_path.write_text(report, encoding="utf-8")
         return ReportResult(

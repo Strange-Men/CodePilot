@@ -76,11 +76,16 @@ class AgentOrchestrator:
                 token_budget=self.per_agent_token_budget,
             )
             agent.set_candidate_paths(self.candidate_paths)
+            logger.info(
+                "performance_event task_id=%s stage=agent_start agent=%s concurrency=%d",
+                state.task_id or "none", agent.role, self.concurrency,
+            )
             self._notify_progress("agent_running", agent.role)
             started = time.perf_counter()
             try:
                 draft = agent.review(state.context)
                 duration_seconds = time.perf_counter() - started
+                duration_ms = round(duration_seconds * 1000, 1)
                 findings.extend(draft.findings)
                 state.evidence_bundles[agent.role] = list(agent.last_evidence_bundle)
                 agent_state = self.build_completed_state(
@@ -90,9 +95,18 @@ class AgentOrchestrator:
                     duration_seconds=duration_seconds,
                 )
                 state.agent_results.append(agent_state)
+                cost_tracker = getattr(getattr(agent, "structured_client", None), "cost_tracker", None)
+                retries = getattr(cost_tracker, "calls", 0) - 1 if cost_tracker else 0
+                logger.info(
+                    "performance_event task_id=%s stage=agent_end agent=%s "
+                    "duration_ms=%s success=true retries=%d provider=%s model=%s",
+                    state.task_id or "none", agent.role, duration_ms, retries,
+                    self._provider_label(), self.model,
+                )
                 self._notify_progress("agent_completed", agent.role, agent_state)
             except Exception as exc:
                 duration_seconds = time.perf_counter() - started
+                duration_ms = round(duration_seconds * 1000, 1)
                 state.errors[agent.role] = str(exc)
                 agent_state = AgentExecutionState(
                     agent_id=agent.role,
@@ -102,6 +116,12 @@ class AgentOrchestrator:
                     metadata={"duration_seconds": round(duration_seconds, 6)},
                 )
                 state.agent_results.append(agent_state)
+                logger.info(
+                    "performance_event task_id=%s stage=agent_end agent=%s "
+                    "duration_ms=%s success=false retries=0 provider=%s model=%s",
+                    state.task_id or "none", agent.role, duration_ms,
+                    self._provider_label(), self.model,
+                )
                 self._notify_progress("agent_failed", agent.role, agent_state)
         self._finalize_state(state, findings)
         return state
@@ -122,6 +142,10 @@ class AgentOrchestrator:
             )
             agent.set_candidate_paths(self.candidate_paths)
             indexed_agents.append((index, agent))
+            logger.info(
+                "performance_event task_id=%s stage=agent_start agent=%s concurrency=%d",
+                state.task_id or "none", agent.role, self.concurrency,
+            )
             self._notify_progress("agent_running", agent.role)
 
         # Results indexed by original position
@@ -135,21 +159,37 @@ class AgentOrchestrator:
             try:
                 draft = agent.review(state.context)
                 duration_seconds = time.perf_counter() - started
+                duration_ms = round(duration_seconds * 1000, 1)
                 agent_state = self.build_completed_state(
                     agent.role,
                     draft.findings,
                     agent,
                     duration_seconds=duration_seconds,
                 )
+                cost_tracker = getattr(getattr(agent, "structured_client", None), "cost_tracker", None)
+                retries = getattr(cost_tracker, "calls", 0) - 1 if cost_tracker else 0
+                logger.info(
+                    "performance_event task_id=%s stage=agent_end agent=%s "
+                    "duration_ms=%s success=true retries=%d provider=%s model=%s",
+                    state.task_id or "none", agent.role, duration_ms, retries,
+                    self._provider_label(), self.model,
+                )
                 return index, draft, agent_state
             except Exception as exc:
                 duration_seconds = time.perf_counter() - started
+                duration_ms = round(duration_seconds * 1000, 1)
                 agent_state = AgentExecutionState(
                     agent_id=agent.role,
                     status="failed",
                     error=str(exc),
                     validation_status="failed",
                     metadata={"duration_seconds": round(duration_seconds, 6)},
+                )
+                logger.info(
+                    "performance_event task_id=%s stage=agent_end agent=%s "
+                    "duration_ms=%s success=false retries=0 provider=%s model=%s",
+                    state.task_id or "none", agent.role, duration_ms,
+                    self._provider_label(), self.model,
                 )
                 return index, None, agent_state
 
@@ -200,6 +240,15 @@ class AgentOrchestrator:
     ) -> None:
         if self.progress_callback is not None:
             self.progress_callback(event, agent_id, agent_state)
+
+    def _provider_label(self) -> str:
+        """Derive a safe provider label from model name for logging."""
+        model = self.model.lower()
+        if "mimo" in model or "xiaomi" in model:
+            return "mimo"
+        if "gpt" in model or "openai" in model:
+            return "openai"
+        return model.split("-")[0] if model else "unknown"
 
     @staticmethod
     def build_completed_state(

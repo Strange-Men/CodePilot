@@ -1,16 +1,16 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-15
-> Verified with: `pytest` and frontend tests on 2026-06-15
+> Last updated: 2026-06-16
+> Verified with: `pytest` and frontend tests on 2026-06-16
 
 ## Current Test Inventory
 
-`pytest` collected 549 tests: 548 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 556 tests: 555 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 440 | 39 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, finding title generation, V3.5.7 inline patterns, prose replacements, validation backticks, and orchestrator concurrency. |
+| Unit | 447 | 39 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, finding title generation, V3.5.7 inline patterns, prose replacements, validation backticks, and orchestrator concurrency. |
 | Integration | 88 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
