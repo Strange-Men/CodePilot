@@ -174,6 +174,17 @@ PROSE_REPLACEMENTS: dict[str, str] = {
     "Not available": "暂无数据",
     "none": "无",
     "none detected": "未检测到",
+    # Bare English labels from to_markdown() in contract sections
+    # (these lack the bold ** wrappers that LABEL_TRANSLATIONS handles)
+    "  Recommendation: ": "  建议：",
+    "  Impact: ": "  影响：",
+    "  First step: ": "  建议先做：",
+    "  Validation tests: ": "  验证方式：",
+    "  Caveat: ": "  注意事项：",
+    "  Grounding: ": "  证据说明：",
+    "Category: ": "问题类型：",
+    "Files: ": "涉及文件：",
+    "Evidence: ": "证据引用：",
 }
 
 # Agent display names for zh mode

@@ -94,6 +94,54 @@ class TestBannedEnglishLabelsInZh:
         "Grounding:",
     ]
 
+    def test_report_composer_bare_labels_translated_in_zh(self) -> None:
+        """Bare English labels from to_markdown() must be translated in zh reports.
+
+        Regression test: report_composer._contract_sections() calls finding.to_markdown()
+        which outputs bare labels (Recommendation:, Impact:, etc.). The translation
+        pipeline must catch these even though they lack bold ** wrappers.
+        """
+        from backend.models.structured_review import ReviewFinding
+
+        finding = ReviewFinding(
+            section="Code Smells",
+            title="Test issue",
+            description="A test issue.",
+            severity="high",
+            confidence=0.85,
+            files=["src/app.py"],
+            evidence_ids=["ev_001"],
+            recommendation="Fix this.",
+            impact="Affects stability.",
+            first_step="Add tests.",
+            validation_tests=["pytest tests/"],
+            caveat="Public API.",
+            evidence=["ev_001 -> src/app.py:10-20"],
+        )
+        # Simulate report_composer._contract_sections() path: to_markdown() produces bare labels
+        english_markdown = finding.to_markdown()
+        # Verify the English markdown actually has bare labels (precondition)
+        assert "  Recommendation: " in english_markdown
+        assert "  Impact: " in english_markdown
+
+        # Now translate through the pipeline (same path as render_localized_report)
+        result = render_localized_report(
+            f"# Code Smells\n{english_markdown}\n", "zh",
+        )
+        for banned in self.BANNED_LABELS:
+            assert banned not in result, f"Banned bare label '{banned}' leaked into zh report"
+
+        # Verify Chinese replacements are present
+        assert "建议：" in result
+        assert "影响：" in result
+        assert "建议先做：" in result
+        assert "验证方式：" in result
+        assert "注意事项：" in result
+        assert "证据说明：" in result
+        assert "问题类型：" in result
+        assert "涉及文件：" in result
+        assert "证据引用：" in result
+
     def test_structured_review_zh_markdown_no_banned_labels(self) -> None:
         """to_localized_markdown with lang='zh' should use Chinese labels."""
         finding = ReviewFinding(
