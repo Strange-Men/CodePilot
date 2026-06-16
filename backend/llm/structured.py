@@ -107,7 +107,7 @@ class StructuredLLMClient:
         if isinstance(data, dict):
             raw_findings = data.get("findings", [])
             no_reason = data.get("no_findings_reason")
-            if not isinstance(no_reason, (str, type(None))):
+            if not isinstance(no_reason, str | None):
                 no_reason = None
         elif isinstance(data, list):
             raw_findings = data
@@ -246,7 +246,7 @@ class StructuredLLMClient:
 
             raw_findings = agent_data.get("findings", [])
             no_reason = agent_data.get("no_findings_reason")
-            if not isinstance(no_reason, (str, type(None))):
+            if not isinstance(no_reason, str | None):
                 no_reason = None
 
             parsed_findings: list[RawLLMFinding] = []
