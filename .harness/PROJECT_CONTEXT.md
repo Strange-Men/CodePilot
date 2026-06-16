@@ -6,10 +6,10 @@
 
 ## Current Version
 
-CodePilot V3.5.2 makes evidence-grounded Agent contributions visible through frontend summary cards, grouped
-findings, and distinct evidence labels while preserving the complete Markdown report and old-report fallback.
-It builds on V3.5.1 MiMo mode selection and V3.5 evaluation infrastructure, with 327 collected backend tests
-(326 passed, 1 skipped) and 19 frontend tests.
+CodePilot V3.5.10 stabilizes the grouped agent experiment. V3.5.9 bilingual output and Chinese report rendering
+remain the production default. V3.5.10 added an experimental `REVIEW_AGENT_MODE=grouped` flag (2 grouped LLM calls),
+but the first real benchmark showed grouped mode is 3x slower and produces 0 findings, so `separate` remains the
+recommended default. Grouped mode is experimental only and should not be used for production or demos.
 
 ## Release History
 
@@ -199,7 +199,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `LLM_WRITE_TIMEOUT_SECONDS` | `30` | HTTP write timeout for LLM calls. |
 | `LLM_POOL_TIMEOUT_SECONDS` | `10` | HTTP pool timeout for LLM calls. |
 | `LLM_MAX_RETRIES` | `2` | Max retries for transient LLM errors (timeout, 429, 5xx). |
-| `REVIEW_AGENT_MODE` | `separate` | Agent orchestration mode: `separate` (4 LLM calls, V3.5.9) or `grouped` (2 grouped calls, V3.5.10). |
+| `REVIEW_AGENT_MODE` | `separate` | Agent orchestration mode: `separate` (4 LLM calls, V3.5.9, recommended default) or `grouped` (2 grouped calls, V3.5.10, **experimental only** — failed first benchmark: 3x slower, 0 findings). |
 | `REVIEW_AGENT_CONCURRENCY` | `2` | Number of review agents to run concurrently (1 = serial, 4 = fastest). |
 | `REVIEW_SPEED_MODE` | `balanced` | `balanced` (full depth) or `fast` (stricter token budget, same agents/evidence). |
 | `ENABLE_LLM_TRANSLATION` | `false` | Opt-in to use real LLM for Chinese translation instead of MockTranslator. |

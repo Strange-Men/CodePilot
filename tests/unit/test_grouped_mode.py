@@ -723,3 +723,184 @@ def test_finding_validator_rejects_empty_evidence_ids(sample_context) -> None:
     # Empty evidence_ids should return None
     result = validator.validate(raw, section=REPORT_SECTIONS[0])
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Test 26: Grouped parser rejects top-level JSON list
+# ---------------------------------------------------------------------------
+
+def test_grouped_parser_rejects_top_level_list() -> None:
+    """Grouped response that is a JSON list (not dict) raises ValueError."""
+    raw = json.dumps([{"findings": []}])
+    agent_evidence_ids = {"ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"}}
+
+    import pytest
+    with pytest.raises(ValueError, match="agent_outputs"):
+        StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+
+# ---------------------------------------------------------------------------
+# Test 27: Grouped parser rejects agent_outputs as list
+# ---------------------------------------------------------------------------
+
+def test_grouped_parser_rejects_agent_outputs_as_list() -> None:
+    """Grouped response where agent_outputs is a list raises ValueError."""
+    raw = json.dumps({"agent_outputs": [{"findings": []}]})
+    agent_evidence_ids = {"ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"}}
+
+    import pytest
+    with pytest.raises(ValueError, match="object"):
+        StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+
+# ---------------------------------------------------------------------------
+# Test 28: Grouped parser handles findings as non-list (dict)
+# ---------------------------------------------------------------------------
+
+def test_grouped_parser_handles_findings_as_dict() -> None:
+    """If an agent's 'findings' value is a dict instead of list, agent gets parse_error."""
+    raw = json.dumps({
+        "agent_outputs": {
+            "ArchitectureAgent": {
+                "findings": {"title": "not a list"},
+                "no_findings_reason": None,
+            },
+            "MaintainabilityAgent": {
+                "findings": [],
+                "no_findings_reason": None,
+            },
+        }
+    })
+
+    agent_evidence_ids = {
+        "ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"},
+        "MaintainabilityAgent": {"ev_eee444fff555ggg666hh"},
+    }
+    result = StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+    assert result["ArchitectureAgent"].parse_error is not None
+    assert "array" in result["ArchitectureAgent"].parse_error
+    assert result["MaintainabilityAgent"].parse_error is None
+
+
+# ---------------------------------------------------------------------------
+# Test 29: Grouped parser handles findings as string
+# ---------------------------------------------------------------------------
+
+def test_grouped_parser_handles_findings_as_string() -> None:
+    """If an agent's 'findings' value is a string, agent gets parse_error."""
+    raw = json.dumps({
+        "agent_outputs": {
+            "ArchitectureAgent": {
+                "findings": "not a list",
+                "no_findings_reason": None,
+            },
+        }
+    })
+
+    agent_evidence_ids = {"ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"}}
+    result = StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+    assert result["ArchitectureAgent"].parse_error is not None
+    assert "array" in result["ArchitectureAgent"].parse_error
+
+
+# ---------------------------------------------------------------------------
+# Test 30: Valid sibling salvaged when findings is wrong type
+# ---------------------------------------------------------------------------
+
+def test_salvage_valid_sibling_when_findings_wrong_type() -> None:
+    """If one agent's findings is wrong type, the other agent's output is still valid."""
+    raw = json.dumps({
+        "agent_outputs": {
+            "ArchitectureAgent": {
+                "findings": 42,  # wrong type: int instead of list
+                "no_findings_reason": None,
+            },
+            "MaintainabilityAgent": {
+                "findings": [],
+                "no_findings_reason": "No issues found.",
+            },
+        }
+    })
+
+    agent_evidence_ids = {
+        "ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"},
+        "MaintainabilityAgent": {"ev_eee444fff555ggg666hh"},
+    }
+    result = StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+    # ArchitectureAgent should have parse_error
+    assert result["ArchitectureAgent"].parse_error is not None
+    assert result["ArchitectureAgent"].findings == []
+
+    # MaintainabilityAgent should be valid (salvaged)
+    assert result["MaintainabilityAgent"].parse_error is None
+    assert result["MaintainabilityAgent"].no_findings_reason == "No issues found."
+
+
+# ---------------------------------------------------------------------------
+# Test 31: no_findings_reason non-string is sanitized to None (grouped)
+# ---------------------------------------------------------------------------
+
+def test_grouped_no_findings_reason_non_string_sanitized() -> None:
+    """If no_findings_reason is not a string, it is sanitized to None."""
+    raw = json.dumps({
+        "agent_outputs": {
+            "ArchitectureAgent": {
+                "findings": [],
+                "no_findings_reason": 12345,
+            },
+        }
+    })
+
+    agent_evidence_ids = {"ArchitectureAgent": {"ev_aaa111bbb222ccc333dd"}}
+    result = StructuredLLMClient._parse_grouped_response(raw, agent_evidence_ids)
+
+    assert result["ArchitectureAgent"].no_findings_reason is None
+
+
+# ---------------------------------------------------------------------------
+# Test 32: Separate parser rejects top-level string
+# ---------------------------------------------------------------------------
+
+def test_separate_parser_rejects_top_level_string() -> None:
+    """Separate parser raises ValueError for top-level JSON string."""
+    import pytest
+    with pytest.raises(ValueError, match="Expected JSON object or array"):
+        StructuredLLMClient._parse_findings('"just a string"')
+
+
+# ---------------------------------------------------------------------------
+# Test 33: Separate parser rejects top-level number
+# ---------------------------------------------------------------------------
+
+def test_separate_parser_rejects_top_level_number() -> None:
+    """Separate parser raises ValueError for top-level JSON number."""
+    import pytest
+    with pytest.raises(ValueError, match="Expected JSON object or array"):
+        StructuredLLMClient._parse_findings("42")
+
+
+# ---------------------------------------------------------------------------
+# Test 34: Separate parser rejects findings as non-list
+# ---------------------------------------------------------------------------
+
+def test_separate_parser_rejects_findings_as_non_list() -> None:
+    """Separate parser raises ValueError when findings is not a list."""
+    import pytest
+    bad = json.dumps({"findings": "not a list"})
+    with pytest.raises(ValueError, match="must be an array"):
+        StructuredLLMClient._parse_findings(bad)
+
+
+# ---------------------------------------------------------------------------
+# Test 35: no_findings_reason non-string sanitized in separate mode
+# ---------------------------------------------------------------------------
+
+def test_separate_no_findings_reason_non_string_sanitized() -> None:
+    """Separate parser sanitizes non-string no_findings_reason to None."""
+    raw = json.dumps({"findings": [], "no_findings_reason": [1, 2, 3]})
+    findings, reason = StructuredLLMClient._parse_findings(raw)
+    assert findings == []
+    assert reason is None

@@ -107,8 +107,18 @@ class StructuredLLMClient:
         if isinstance(data, dict):
             raw_findings = data.get("findings", [])
             no_reason = data.get("no_findings_reason")
-        else:
+            if not isinstance(no_reason, (str, type(None))):
+                no_reason = None
+        elif isinstance(data, list):
             raw_findings = data
+        else:
+            raise ValueError(
+                f"Expected JSON object or array, got {type(data).__name__}."
+            )
+        if not isinstance(raw_findings, list):
+            raise ValueError(
+                f"'findings' must be an array, got {type(raw_findings).__name__}."
+            )
         findings = [RawLLMFinding.model_validate(item) for item in raw_findings]
         for finding in findings:
             if not finding.evidence_ids:
@@ -236,10 +246,17 @@ class StructuredLLMClient:
 
             raw_findings = agent_data.get("findings", [])
             no_reason = agent_data.get("no_findings_reason")
+            if not isinstance(no_reason, (str, type(None))):
+                no_reason = None
 
             parsed_findings: list[RawLLMFinding] = []
             parse_error: str | None = None
             try:
+                if not isinstance(raw_findings, list):
+                    raise ValueError(
+                        f"Agent '{agent_role}' 'findings' must be an array, "
+                        f"got {type(raw_findings).__name__}."
+                    )
                 for item in raw_findings:
                     finding = RawLLMFinding.model_validate(item)
                     if not finding.evidence_ids:
