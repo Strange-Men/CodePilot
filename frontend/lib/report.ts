@@ -18,6 +18,7 @@ export const architectureGraphSection = "Architecture Graph";
 export const repositoryInsightsSection = "Repository Insights";
 export const reportOverviewSections = [
   "Executive Summary",
+  "Priority Recommendations",
   "What This Repository Is",
   "How It Works",
   "Key Architecture Map",
@@ -50,6 +51,7 @@ const zhHeadingMap: Record<string, string> = {
   "代码坏味道": "Code Smells",
   "可维护性问题": "Maintainability Issues",
   "重构建议": "Refactoring Suggestions",
+  "优先处理建议": "Priority Recommendations",
   "行动计划": "Action Plan",
   "证据附录": "Evidence Appendix",
   "仓库指标": "Repository Metrics",

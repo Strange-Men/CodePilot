@@ -31,6 +31,7 @@ REPORT_HEADING_TRANSLATIONS: dict[str, str] = {
     "Evidence Appendix": "证据附录",
     "Repository Metrics": "仓库指标",
     "Diff Review Scope": "差异审查范围",
+    "Priority Recommendations": "优先处理建议",
 }
 
 LABEL_TRANSLATIONS: dict[str, str] = {
@@ -39,18 +40,18 @@ LABEL_TRANSLATIONS: dict[str, str] = {
     "**Scope analyzed:**": "**分析范围：**",
     "**Repository summary:**": "**仓库摘要：**",
     "**Why it matters:**": "**为什么重要：**",
-    "**Where:**": "**位置：**",
-    "**Likely responsibility area:**": "**可能的责任区域：**",
-    "**First step:**": "**第一步建议：**",
+    "**Where:**": "**涉及文件：**",
+    "**Likely responsibility area:**": "**责任范围：**",
+    "**First step:**": "**建议先做：**",
     "**Change risk:**": "**变更风险：**",
-    "**Evidence:**": "**证据：**",
+    "**Evidence:**": "**证据引用：**",
     "**Validation tests:**": "**验证方式：**",
     "**Caveat:**": "**注意事项：**",
     "**Recommendation:**": "**建议：**",
     "**Impact:**": "**影响：**",
-    "**First safe step:**": "**第一步建议：**",
-    "**Category:**": "**类型：**",
-    "**Grounding:**": "**证据定位：**",
+    "**First safe step:**": "**建议先做：**",
+    "**Category:**": "**问题类型：**",
+    "**Grounding:**": "**证据说明：**",
     "**Status:**": "**状态：**",
 }
 
@@ -132,9 +133,9 @@ PROSE_REPLACEMENTS: dict[str, str] = {
     "keep the change local to the validated evidence and verify behavior before widening scope.": (
         "将变更控制在已验证的证据范围内，扩大范围前先验证行为。"
     ),
-    # Common status text
-    "No validated findings.": "暂无已验证的问题发现。",
-    "No validated finding was produced.": "未产出已验证的问题发现。",
+    # Common status text — natural Chinese wording
+    "No validated findings.": "暂未发现明确的问题。",
+    "No validated finding was produced.": "暂未产出需要单独列出的问题发现。",
     "No validated evidence was cited": "未引用已验证的证据",
     "No validated evidence reference.": "无已验证的证据引用。",
     "Error:": "错误：",
@@ -167,6 +168,12 @@ PROSE_REPLACEMENTS: dict[str, str] = {
     "No related test file was identified by name.": "未通过名称匹配到相关测试文件。",
     "Add a focused characterization test for": "为以下目标添加针对性的表征测试：",
     "then run the repository test suite.": "然后运行仓库测试套件。",
+    # Agent status text
+    "Status: **completed**; validation: **validated**.": "状态：**已完成**；验证：**已通过**。",
+    "Status: **completed**; validation: **pending**.": "状态：**已完成**；验证：**待验证**。",
+    "Not available": "暂无数据",
+    "none": "无",
+    "none detected": "未检测到",
 }
 
 # Agent display names for zh mode

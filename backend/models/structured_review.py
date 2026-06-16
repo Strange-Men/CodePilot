@@ -109,7 +109,7 @@ class ReviewFinding(BaseModel):
         """Generate localized markdown using bilingual display fields.
 
         For lang='en', equivalent to to_markdown().
-        For lang='zh', uses display.zh fields when available.
+        For lang='zh', uses display.zh fields and Chinese labels.
         Code symbols, file paths, evidence IDs are never translated.
         """
         title = self._display_field("title", lang) or self.title
@@ -117,7 +117,43 @@ class ReviewFinding(BaseModel):
         if title is None:
             return (description or "").strip()
 
-        heading = f"- **{title}:** {(description or '').strip()}"
+        # Use Chinese labels for zh, English for en
+        if lang == "zh":
+            return self._to_zh_markdown(title, description or "")
+        return self._to_en_localized_markdown(title, description or "", lang)
+
+    def _to_zh_markdown(self, title: str, description: str) -> str:
+        """Generate Chinese-native markdown with proper labels."""
+        heading = f"- **{title}：** {description.strip()}"
+        if self.category or self.confidence is not None:
+            confidence = f"{self.confidence:.2f}" if self.confidence is not None else "n/a"
+            heading = f"{heading} 问题类型：{self.category or '通用'}；置信度：{confidence}。"
+        if self.files:
+            heading = f"{heading} 涉及文件：{', '.join(f'`{path}`' for path in self.files)}。"
+        if self.evidence_ids:
+            heading = f"{heading} 证据引用：{', '.join(self.evidence_ids)}。"
+        recommendation = self._display_field("recommendation", "zh")
+        if recommendation:
+            heading = f"{heading}\n  建议：{recommendation.strip()}"
+        impact = self._display_field("impact", "zh")
+        if impact:
+            heading = f"{heading}\n  影响：{impact.strip()}"
+        first_step = self._display_field("first_step", "zh")
+        if first_step:
+            heading = f"{heading}\n  建议先做：{first_step.strip()}"
+        validation_tests = self._display_validation_tests("zh")
+        if validation_tests:
+            heading = f"{heading}\n  验证方式：{', '.join(validation_tests)}"
+        caveat = self._display_field("caveat", "zh")
+        if caveat:
+            heading = f"{heading}\n  注意事项：{caveat.strip()}"
+        if self.evidence:
+            heading = f"{heading}\n  证据说明：{'; '.join(self.evidence)}"
+        return heading
+
+    def _to_en_localized_markdown(self, title: str, description: str, lang: str) -> str:
+        """Generate localized markdown for non-zh languages (uses English labels)."""
+        heading = f"- **{title}:** {description.strip()}"
         if self.category or self.confidence is not None:
             confidence = f"{self.confidence:.2f}" if self.confidence is not None else "n/a"
             heading = f"{heading} Category: {self.category or 'general'}; confidence={confidence}."

@@ -107,7 +107,9 @@ def build_reviews_router(
                 from backend.models.structured_review import StructuredReviewDraft
 
                 draft = StructuredReviewDraft(findings=findings_with_display)
-                report_markdown = render_localized_report(report_markdown, normalized_lang)
+                report_markdown = render_localized_report(
+                    report_markdown, normalized_lang, findings=findings_with_display,
+                )
                 # Replace English finding prose with zh display fields in the report
                 report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
             elif localization_service is not None:
@@ -223,7 +225,9 @@ def build_reviews_router(
                 from backend.models.structured_review import StructuredReviewDraft
 
                 draft = StructuredReviewDraft(findings=findings_with_display)
-                content = render_localized_report(content, normalized_lang)
+                content = render_localized_report(
+                    content, normalized_lang, findings=findings_with_display,
+                )
                 content = _render_bilingual_report(content, draft, normalized_lang)
             elif localization_service is not None:
                 source_updated_at = row.get("updated_at", "")

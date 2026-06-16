@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from backend.models.structured_review import ReviewFinding
+from backend.reviewers.constants import DEFAULT_SECTION_CONTENT, DEFAULT_SECTION_CONTENT_ZH
 from backend.reviewers.localization import (
     Language,
     translate_enum_values,
@@ -17,9 +19,14 @@ from backend.reviewers.localization import (
     translate_report_labels,
     translate_report_prose,
 )
+from backend.reviewers.priority_layer import generate_priority_section
 
 
-def render_localized_report(report_markdown: str, lang: Language) -> str:
+def render_localized_report(
+    report_markdown: str,
+    lang: Language,
+    findings: list[ReviewFinding] | None = None,
+) -> str:
     """Render a localized version of the report markdown.
 
     For English, returns the original report unchanged.
@@ -29,6 +36,7 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
     Args:
         report_markdown: The canonical English report markdown.
         lang: Target language ('en' or 'zh').
+        findings: Optional ReviewFinding objects for priority section injection.
 
     Returns:
         The localized report markdown.
@@ -51,7 +59,18 @@ def render_localized_report(report_markdown: str, lang: Language) -> str:
     # Step 5: Translate enum values (severity, status, category)
     translated = translate_enum_values(translated, lang)
 
-    # Step 6: Strip backticks from Chinese natural language text
+    # Step 6: Replace default section content with Chinese
+    translated = translated.replace(DEFAULT_SECTION_CONTENT, DEFAULT_SECTION_CONTENT_ZH)
+
+    # Step 7: Inject priority section after Executive Summary
+    if findings:
+        priority_section = generate_priority_section(findings)
+        if priority_section:
+            translated = _inject_after_heading(
+                translated, "执行摘要", priority_section,
+            )
+
+    # Step 8: Strip backticks from Chinese natural language text
     translated = _fix_chinese_validation_backticks(translated)
 
     return translated
@@ -61,6 +80,7 @@ def render_localized_report_with_prose(
     report_markdown: str,
     localized_findings: list[dict],
     lang: Language,
+    findings: list[ReviewFinding] | None = None,
 ) -> str:
     """Render a localized report with natural Chinese finding prose.
 
@@ -75,6 +95,7 @@ def render_localized_report_with_prose(
         report_markdown: The canonical English report markdown.
         localized_findings: Findings with *_zh keys merged in.
         lang: Target language ('en' or 'zh').
+        findings: Optional ReviewFinding objects for priority section injection.
 
     Returns:
         The localized report markdown with natural Chinese prose.
@@ -94,6 +115,9 @@ def render_localized_report_with_prose(
 
     # Step 3.5: Translate enum values (severity, status, category)
     translated = translate_enum_values(translated, lang)
+
+    # Step 3.6: Replace default section content with Chinese
+    translated = translated.replace(DEFAULT_SECTION_CONTENT, DEFAULT_SECTION_CONTENT_ZH)
 
     # Step 4: Build replacement map from localized findings
     replacements: dict[str, str] = {}
@@ -130,7 +154,15 @@ def render_localized_report_with_prose(
     for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):
         translated = translated.replace(en, zh)
 
-    # Step 6: Strip backticks from Chinese natural language validation text
+    # Step 6: Inject priority section after Executive Summary
+    if findings:
+        priority_section = generate_priority_section(findings)
+        if priority_section:
+            translated = _inject_after_heading(
+                translated, "执行摘要", priority_section,
+            )
+
+    # Step 7: Strip backticks from Chinese natural language validation text
     translated = _fix_chinese_validation_backticks(translated)
 
     return translated
@@ -143,6 +175,35 @@ def render_localized_finding_text(text: str | None, lang: Language) -> str | Non
     Returns None if input is None.
     """
     return translate_finding_labels(text, lang)
+
+
+def _inject_after_heading(report: str, heading_text: str, section: str) -> str:
+    """Insert a new section after the block containing the given heading.
+
+    Finds the heading by exact text match and inserts the section after
+    the entire heading block (heading line + its content until the next heading).
+    If the heading is not found, prepends the section at the top.
+    """
+    lines = report.split("\n")
+    insert_idx = len(lines)  # default: append at end
+    in_target_block = False
+
+    for i, line in enumerate(lines):
+        match = re.match(r"^#{1,2}\s+(.+)$", line)
+        if match:
+            current_heading = match.group(1).strip()
+            if current_heading == heading_text:
+                in_target_block = True
+                continue
+            elif in_target_block:
+                # We've reached the next heading after the target block
+                insert_idx = i
+                break
+
+    # Insert the priority section
+    before = "\n".join(lines[:insert_idx])
+    after = "\n".join(lines[insert_idx:])
+    return f"{before}\n\n{section}\n\n{after}"
 
 
 def _translate_agent_names(report_markdown: str, lang: Language) -> str:

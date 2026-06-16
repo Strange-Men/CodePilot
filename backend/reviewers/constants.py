@@ -4,6 +4,8 @@ from __future__ import annotations
 
 DEFAULT_SECTION_CONTENT = "No critical findings detected from the available repository summaries."
 
+DEFAULT_SECTION_CONTENT_ZH = "暂未从可用的仓库摘要中检测到明确的问题。"
+
 
 def format_cycle_group(cycle: list[str], limit: int = 6) -> str:
     """Format a dependency cycle into a bounded, human-readable bullet.

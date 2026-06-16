@@ -108,7 +108,7 @@ class TestTranslateFindingLabels:
     def test_zh_translates_first_step(self) -> None:
         text = "**First step:** Add tests before refactoring."
         result = translate_finding_labels(text, "zh")
-        assert result == "**第一步建议：** Add tests before refactoring."
+        assert result == "**建议先做：** Add tests before refactoring."
 
     def test_zh_translates_caveat(self) -> None:
         text = "**Caveat:** This is a public API."
@@ -124,7 +124,7 @@ class TestTranslateFindingLabels:
         text = "**Why it matters:** Important.\n**First step:** Do something."
         result = translate_finding_labels(text, "zh")
         assert "**为什么重要：**" in result
-        assert "**第一步建议：**" in result
+        assert "**建议先做：**" in result
 
 
 class TestTranslateReportLabels:
@@ -337,9 +337,9 @@ class TestReportBannedStrings:
             assert banned in LABEL_TRANSLATIONS, f"Missing translation for: {banned}"
 
     def test_first_step_uses_polished_term(self) -> None:
-        """First step label should use 第一步建议, not 安全第一步."""
-        assert LABEL_TRANSLATIONS["**First step:**"] == "**第一步建议：**"
-        assert LABEL_TRANSLATIONS["**First safe step:**"] == "**第一步建议：**"
+        """First step label should use 建议先做, not 安全第一步."""
+        assert LABEL_TRANSLATIONS["**First step:**"] == "**建议先做：**"
+        assert LABEL_TRANSLATIONS["**First safe step:**"] == "**建议先做：**"
 
     def test_confidence_pattern_translated(self) -> None:
         assert "confidence=" in PROSE_REPLACEMENTS
