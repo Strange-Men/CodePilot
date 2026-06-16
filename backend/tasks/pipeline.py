@@ -83,14 +83,27 @@ class ReviewPipeline:
             )
             self._record_summarized(task_id, context)
             report_result = self._generate_report(task_id, context)
-            self._complete_review(task_id, report_result.report, report_result.export_path)
-            self._notify_progress("done")
+            all_failed = bool(report_result.agent_states) and all(
+                s.status == "failed" for s in report_result.agent_states
+            )
+            if all_failed:
+                failed_agents = ", ".join(s.agent_id for s in report_result.agent_states)
+                error_msg = f"All agents failed: {failed_agents}"
+                logger.error("event=all_agents_failed task_id=%s agents=%s", task_id, failed_agents)
+                self._fail_review(
+                    task_id, repo_url, RuntimeError(error_msg), report_result=report_result,
+                )
+                self._notify_progress("task_failed")
+            else:
+                self._complete_review(task_id, report_result.report, report_result.export_path)
+                self._notify_progress("done")
             pipeline_duration_ms = round((time.perf_counter() - pipeline_started) * 1000, 1)
             logger.info(
-                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=true "
+                "performance_event task_id=%s stage=total_pipeline duration_ms=%s success=%s "
                 "concurrency=%s provider=%s model=%s",
                 task_id,
                 pipeline_duration_ms,
+                str(not all_failed).lower(),
                 self.settings.review_agent_concurrency,
                 self._resolve_provider_label(),
                 self._resolve_token_model(),

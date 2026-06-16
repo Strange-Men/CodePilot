@@ -307,6 +307,49 @@ def test_parse_findings_strips_plain_code_fences() -> None:
     assert len(findings) == 1
 
 
+def test_parse_findings_handles_text_before_code_fence() -> None:
+    """Parser should extract JSON from code fence even with surrounding text."""
+    fenced = (
+        'Here are the findings:\n\n'
+        '```json\n{"findings": [{"title": "T", "description": "D", '
+        '"category": "code_smell", "severity": "medium", '
+        '"confidence": 0.5, "evidence_ids": ["ev_1"]}], '
+        '"no_findings_reason": null}\n```'
+    )
+    findings, reason = StructuredLLMClient._parse_findings(fenced)
+    assert len(findings) == 1
+    assert findings[0].title == "T"
+    assert reason is None
+
+
+def test_parse_findings_handles_text_after_code_fence() -> None:
+    """Parser should extract JSON from code fence with trailing text."""
+    fenced = (
+        '```json\n{"findings": [{"title": "T", "description": "D", '
+        '"category": "architecture", "severity": "high", '
+        '"confidence": 0.9, "evidence_ids": ["ev_1"]}], '
+        '"no_findings_reason": null}\n```\n\n'
+        'Hope this helps!'
+    )
+    findings, reason = StructuredLLMClient._parse_findings(fenced)
+    assert len(findings) == 1
+    assert findings[0].category == "architecture"
+
+
+def test_parse_findings_handles_text_surrounding_code_fence() -> None:
+    """Parser should extract JSON from code fence with text on both sides."""
+    fenced = (
+        'I analyzed the code and found these issues:\n\n'
+        '```json\n{"findings": [{"title": "T", "description": "D", '
+        '"category": "maintainability", "severity": "low", '
+        '"confidence": 0.4, "evidence_ids": ["ev_abc123"]}]}\n```\n\n'
+        'Let me know if you need more details.'
+    )
+    findings, _ = StructuredLLMClient._parse_findings(fenced)
+    assert len(findings) == 1
+    assert findings[0].evidence_ids == ["ev_abc123"]
+
+
 def test_parse_findings_rejects_missing_required_fields() -> None:
     """Parser should reject findings missing title, description, or category."""
     import pytest

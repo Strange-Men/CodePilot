@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.api.errors import install_error_handlers
 from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings, get_settings
+from backend.core.logging import get_logger
 from backend.services.localization_service import (
     LLMTranslator,
     LocalizationService,
@@ -20,6 +21,7 @@ from backend.tasks.runner import ReviewTaskRunner
 
 STALE_REVIEW_THRESHOLD = timedelta(minutes=30)
 STALE_REVIEW_ERROR = "Review was interrupted before completion."
+logger = get_logger(__name__)
 
 
 def create_app(
@@ -63,6 +65,19 @@ def create_app(
 
 
 settings = get_settings()
+logger.info(
+    "startup_config provider=%s model=%s review_engine=%s "
+    "agent_mode=%s use_mock_llm=%s enable_real_llm=%s "
+    "agent_concurrency=%s speed_mode=%s",
+    "mimo" if settings.mimo_api_key else "openai",
+    settings.mimo_model_name if settings.mimo_api_key else settings.openai_model,
+    settings.review_engine,
+    settings.review_agent_mode,
+    settings.use_mock_llm,
+    settings.enable_real_llm,
+    settings.review_agent_concurrency,
+    settings.review_speed_mode,
+)
 store = ReviewStore(settings.database_path)
 runner = ReviewTaskRunner(settings, store)
 app = create_app(settings, store, runner)

@@ -141,6 +141,11 @@ class AgentOrchestrator:
                     metadata={"duration_seconds": round(duration_seconds, 6)},
                 )
                 state.agent_results.append(agent_state)
+                logger.warning(
+                    "event=agent_failed task_id=%s agent=%s error_type=%s error=%s",
+                    state.task_id or "none", agent.role,
+                    type(exc).__name__, str(exc)[:300],
+                )
                 logger.info(
                     "performance_event task_id=%s stage=agent_end agent=%s "
                     "duration_ms=%s success=false retries=0 provider=%s model=%s",
@@ -209,6 +214,11 @@ class AgentOrchestrator:
                     error=str(exc),
                     validation_status="failed",
                     metadata={"duration_seconds": round(duration_seconds, 6)},
+                )
+                logger.warning(
+                    "event=agent_failed task_id=%s agent=%s error_type=%s error=%s",
+                    state.task_id or "none", agent.role,
+                    type(exc).__name__, str(exc)[:300],
                 )
                 logger.info(
                     "performance_event task_id=%s stage=agent_end agent=%s "

@@ -93,8 +93,12 @@ class StructuredLLMClient:
     def _strip_code_fences(completion: str) -> str:
         """Strip markdown code fences (```json ... ```) from LLM output."""
         stripped = completion.strip()
-        # Match ```json ... ``` or ``` ... ```
+        # Match full-string code fence: ```json ... ```
         match = re.match(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", stripped, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        # Fallback: extract code fence from anywhere in the response
+        match = re.search(r"```(?:json)?\s*\n(.*?)\n\s*```", stripped, re.DOTALL)
         if match:
             return match.group(1).strip()
         return stripped
