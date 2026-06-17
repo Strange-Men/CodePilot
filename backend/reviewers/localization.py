@@ -359,8 +359,10 @@ def translate_enum_values(report_markdown: str, lang: Language) -> str:
 
     # Translate inline severity+confidence patterns in top-risk lines
     # Pattern: "(medium, confidence 0.90)" → "（严重程度：中，置信度：0.90）"
+    # Note: 'confidence' may already be translated to '置信度' by prose replacements,
+    # so we match both variants.
     for en_sev, zh_sev in SEVERITY_TRANSLATIONS.items():
-        pattern = rf'\({en_sev}, confidence (\d+\.\d+)\)'
+        pattern = rf'\({en_sev}, (?:confidence|置信度) (\d+\.\d+)\)'
         replacement = f"（严重程度：{zh_sev}，置信度：\\1）"
         result = re.sub(pattern, replacement, result)
 
@@ -370,10 +372,11 @@ def translate_enum_values(report_markdown: str, lang: Language) -> str:
         result = result.replace(f"({en_sev})", f"（{zh_sev}）")
 
     # Translate "in `file`" pattern after confidence parenthetical
-    # Pattern: "）in `path`" → "）\n  - 涉及文件：`path`"
+    # Pattern: "）in `path`" or ") in `path1`, `path2`" → "）\n  - 涉及文件：`path`"
+    # Handles both fullwidth ） and ASCII ) before "in", and multiple comma-separated paths.
     result = re.sub(
-        r'）\s*in `([^`]+)`',
-        lambda m: f"）\n  - 涉及文件：`{m.group(1)}`",
+        r'[）)]\s*in ((?:`[^`]+`(?:,\s*)?)+)',
+        lambda m: f"）\n  - 涉及文件：{m.group(1)}",
         result,
     )
 

@@ -382,6 +382,30 @@ class TestV357InlinePatterns:
         # The "; evidence:" pattern should be translated
         assert "; evidence:" not in result or "；证据引用：" in result
 
+    def test_in_file_path_translated_to_chinese(self) -> None:
+        """The 'in `path`' pattern after confidence parenthetical should be translated."""
+        report = "- **title** (medium, confidence 0.72) in `src/flask/app.py`; evidence: [E4]."
+        result = translate_enum_values(report, "zh")
+        assert "涉及文件：" in result
+        assert "in `src/" not in result
+
+    def test_in_multiple_file_paths_translated(self) -> None:
+        """Multiple comma-separated paths after 'in' should all be preserved."""
+        report = "- **title** (medium, confidence 0.72) in `src/a.py`, `src/b.py`, `src/c.py`; evidence: [E4]."
+        result = translate_enum_values(report, "zh")
+        assert "涉及文件：" in result
+        assert "`src/a.py`" in result
+        assert "`src/b.py`" in result
+        assert "`src/c.py`" in result
+        assert "in `src/" not in result
+
+    def test_in_file_path_with_already_translated_confidence(self) -> None:
+        """When confidence is already translated to 置信度, the pattern should still match."""
+        report = "- **title** (medium, 置信度 0.72) in `src/flask/app.py`; evidence: [E4]."
+        result = translate_enum_values(report, "zh")
+        assert "涉及文件：" in result
+        assert "in `src/" not in result
+
 
 class TestV357ProseReplacements:
     """Verify V3.5.7 new prose replacements."""
