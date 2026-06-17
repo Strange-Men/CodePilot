@@ -223,8 +223,10 @@ class TestGeneratePrioritySection:
             ),
         ]
         result = generate_priority_section(findings)
-        assert "ev_abc123" in result
-        assert "ev_def456" in result
+        assert "[E1]" in result
+        assert "[E2]" in result
+        assert "ev_abc123" not in result  # raw IDs replaced by display refs
+        assert "ev_def456" not in result
 
     def test_file_paths_preserved(self) -> None:
         findings = [

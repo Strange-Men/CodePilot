@@ -1,12 +1,12 @@
 # CodePilot - Testing Strategy
 
 > Harness version: v1.2
-> Last updated: 2026-06-16
-> Verified with: `pytest` and frontend tests on 2026-06-16
+> Last updated: 2026-06-17
+> Verified with: `pytest` and frontend tests on 2026-06-17
 
 ## Current Test Inventory
 
-`pytest` collected 723 tests: 722 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 751 tests: 750 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|

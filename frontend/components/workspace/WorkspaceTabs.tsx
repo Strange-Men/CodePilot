@@ -30,6 +30,7 @@ type WorkspaceTabsProps = {
   activeTab: WorkspaceTab;
   agents: ReviewAgentStateItem[];
   findings: ReviewFindingItem[];
+  evidenceDisplayMap: Record<string, string>;
   isRunning: boolean;
   language: Language;
   onRetryStructuredData: () => void;
@@ -52,6 +53,7 @@ export function WorkspaceTabs({
   activeTab,
   agents,
   findings,
+  evidenceDisplayMap,
   isRunning,
   language,
   onRetryStructuredData,
@@ -116,6 +118,7 @@ export function WorkspaceTabs({
           activeTab,
           agents,
           findings,
+          evidenceDisplayMap,
           isRunning,
           language,
           onRetryStructuredData,
@@ -132,6 +135,7 @@ function renderPanel({
   activeTab,
   agents,
   findings,
+  evidenceDisplayMap,
   isRunning,
   language,
   onRetryStructuredData,
@@ -198,6 +202,7 @@ function renderPanel({
       <FindingsPanel
         error={structuredError}
         findings={findings}
+        evidenceDisplayMap={evidenceDisplayMap}
         language={language}
         loading={structuredLoading}
         onRetry={onRetryStructuredData}
@@ -221,6 +226,7 @@ function renderPanel({
       <EvidencePanel
         error={structuredError}
         findings={findings}
+        evidenceDisplayMap={evidenceDisplayMap}
         language={language}
         loading={structuredLoading}
         onRetry={onRetryStructuredData}

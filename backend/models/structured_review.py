@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from backend.reviewers.evidence_display import EvidenceDisplayMap
 
 
 class BilingualTextField(BaseModel):
@@ -79,7 +84,15 @@ class ReviewFinding(BaseModel):
                 return lang_fields.validation_tests
         return self.validation_tests
 
-    def to_markdown(self) -> str:
+    def _format_evidence_ids(self, display_map: EvidenceDisplayMap | None = None) -> str:
+        """Format evidence IDs using display map if available."""
+        if not self.evidence_ids:
+            return ""
+        if display_map is not None:
+            return " ".join(display_map.ref_bracket(eid) for eid in self.evidence_ids)
+        return ", ".join(self.evidence_ids)
+
+    def to_markdown(self, display_map: EvidenceDisplayMap | None = None) -> str:
         if self.title is None:
             return self.description.strip()
 
@@ -90,7 +103,7 @@ class ReviewFinding(BaseModel):
         if self.files:
             heading = f"{heading} Files: {', '.join(f'`{path}`' for path in self.files)}."
         if self.evidence_ids:
-            heading = f"{heading} Evidence: {', '.join(self.evidence_ids)}."
+            heading = f"{heading} Evidence: {self._format_evidence_ids(display_map)}."
         if self.recommendation:
             heading = f"{heading}\n  Recommendation: {self.recommendation.strip()}"
         if self.impact:
@@ -105,7 +118,7 @@ class ReviewFinding(BaseModel):
             heading = f"{heading}\n  Grounding: {'; '.join(self.evidence)}"
         return heading
 
-    def to_localized_markdown(self, lang: str = "en") -> str:
+    def to_localized_markdown(self, lang: str = "en", display_map: EvidenceDisplayMap | None = None) -> str:
         """Generate localized markdown using bilingual display fields.
 
         For lang='en', equivalent to to_markdown().
@@ -119,10 +132,10 @@ class ReviewFinding(BaseModel):
 
         # Use Chinese labels for zh, English for en
         if lang == "zh":
-            return self._to_zh_markdown(title, description or "")
-        return self._to_en_localized_markdown(title, description or "", lang)
+            return self._to_zh_markdown(title, description or "", display_map=display_map)
+        return self._to_en_localized_markdown(title, description or "", lang, display_map=display_map)
 
-    def _to_zh_markdown(self, title: str, description: str) -> str:
+    def _to_zh_markdown(self, title: str, description: str, *, display_map: EvidenceDisplayMap | None = None) -> str:
         """Generate Chinese-native markdown with proper labels."""
         heading = f"- **{title}：** {description.strip()}"
         if self.category or self.confidence is not None:
@@ -131,7 +144,7 @@ class ReviewFinding(BaseModel):
         if self.files:
             heading = f"{heading} 涉及文件：{', '.join(f'`{path}`' for path in self.files)}。"
         if self.evidence_ids:
-            heading = f"{heading} 证据引用：{', '.join(self.evidence_ids)}。"
+            heading = f"{heading} 证据引用：{self._format_evidence_ids(display_map)}。"
         recommendation = self._display_field("recommendation", "zh")
         if recommendation:
             heading = f"{heading}\n  建议：{recommendation.strip()}"
@@ -151,7 +164,10 @@ class ReviewFinding(BaseModel):
             heading = f"{heading}\n  证据说明：{'; '.join(self.evidence)}"
         return heading
 
-    def _to_en_localized_markdown(self, title: str, description: str, lang: str) -> str:
+    def _to_en_localized_markdown(
+        self, title: str, description: str, lang: str, *,
+        display_map: EvidenceDisplayMap | None = None,
+    ) -> str:
         """Generate localized markdown for non-zh languages (uses English labels)."""
         heading = f"- **{title}:** {description.strip()}"
         if self.category or self.confidence is not None:
@@ -160,7 +176,7 @@ class ReviewFinding(BaseModel):
         if self.files:
             heading = f"{heading} Files: {', '.join(f'`{path}`' for path in self.files)}."
         if self.evidence_ids:
-            heading = f"{heading} Evidence: {', '.join(self.evidence_ids)}."
+            heading = f"{heading} Evidence: {self._format_evidence_ids(display_map)}."
         recommendation = self._display_field("recommendation", lang)
         if recommendation:
             heading = f"{heading}\n  Recommendation: {recommendation.strip()}"
@@ -187,14 +203,17 @@ class StructuredReviewDraft(BaseModel):
     def findings_for(self, section: str) -> list[ReviewFinding]:
         return [finding for finding in self.findings if finding.section == section]
 
-    def section_markdown(self, section: str) -> str:
+    def section_markdown(self, section: str, display_map: EvidenceDisplayMap | None = None) -> str:
         return "\n\n".join(
-            finding.to_markdown()
+            finding.to_markdown(display_map)
             for finding in self.findings_for(section)
         ).strip()
 
-    def section_localized_markdown(self, section: str, lang: str = "en") -> str:
+    def section_localized_markdown(
+        self, section: str, lang: str = "en",
+        display_map: EvidenceDisplayMap | None = None,
+    ) -> str:
         return "\n\n".join(
-            finding.to_localized_markdown(lang)
+            finding.to_localized_markdown(lang, display_map)
             for finding in self.findings_for(section)
         ).strip()

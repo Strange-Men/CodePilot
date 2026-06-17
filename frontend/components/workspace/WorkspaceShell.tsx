@@ -38,6 +38,7 @@ export function WorkspaceShell() {
   const [llmMode, setLlmMode] = useState<"mock" | "mimo">("mock");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [findings, setFindings] = useState<ReviewFindingItem[]>([]);
+  const [evidenceDisplayMap, setEvidenceDisplayMap] = useState<Record<string, string>>({});
   const [agents, setAgents] = useState<ReviewAgentStateItem[]>([]);
   const [structuredLoading, setStructuredLoading] = useState(false);
   const [structuredError, setStructuredError] = useState<string | null>(null);
@@ -95,6 +96,7 @@ export function WorkspaceShell() {
       .then(([findingData, agentData]) => {
         if (!cancelled) {
           setFindings(findingData.findings);
+          setEvidenceDisplayMap(findingData.evidence_display_map || {});
           setAgents(agentData.agents);
         }
       })
@@ -274,6 +276,7 @@ export function WorkspaceShell() {
           activeTab={activeTab}
           agents={agents}
           findings={findings}
+          evidenceDisplayMap={evidenceDisplayMap}
           isRunning={isRunning}
           language={language}
           onRetryStructuredData={() => setStructuredReloadKey((key) => key + 1)}

@@ -7,6 +7,7 @@ No LLM calls — all logic is deterministic based on finding metadata.
 from __future__ import annotations
 
 from backend.models.structured_review import ReviewFinding
+from backend.reviewers.evidence_display import EvidenceDisplayMap
 
 SEVERITY_WEIGHT = {
     "critical": 4,
@@ -85,11 +86,11 @@ def _suggested_first_action(finding: ReviewFinding) -> str:
     return "建议先收集更多证据，再制定修复方案。"
 
 
-def _evidence_citation(finding: ReviewFinding) -> str:
-    """Format evidence IDs for display."""
+def _evidence_citation(finding: ReviewFinding, display_map: EvidenceDisplayMap) -> str:
+    """Format evidence IDs for display using short refs."""
     if not finding.evidence_ids:
         return "暂无证据引用"
-    return ", ".join(f"`{eid}`" for eid in finding.evidence_ids[:3])
+    return " ".join(display_map.ref_bracket(eid) for eid in finding.evidence_ids[:3])
 
 
 def _files_involved(finding: ReviewFinding) -> str:
@@ -102,13 +103,19 @@ def _files_involved(finding: ReviewFinding) -> str:
     return visible
 
 
-def generate_priority_section(findings: list[ReviewFinding]) -> str:
+def generate_priority_section(
+    findings: list[ReviewFinding],
+    display_map: EvidenceDisplayMap | None = None,
+) -> str:
     """Generate the 优先处理建议 section for Chinese reports.
 
     Returns empty string if no findings exist.
     """
     if not findings:
         return ""
+
+    if display_map is None:
+        display_map = EvidenceDisplayMap.from_findings(findings)
 
     # Assign priorities and group
     grouped: dict[str, list[tuple[ReviewFinding, float]]] = {
@@ -138,7 +145,7 @@ def generate_priority_section(findings: list[ReviewFinding]) -> str:
             lines.append(f"  * 为什么重要：{_why_important(finding)}")
             lines.append(f"  * 建议先做：{_suggested_first_action(finding)}")
             lines.append(f"  * 涉及文件：{_files_involved(finding)}")
-            lines.append(f"  * 证据引用：{_evidence_citation(finding)}")
+            lines.append(f"  * 证据引用：{_evidence_citation(finding, display_map)}")
     else:
         lines.append("")
         lines.append("本次未发现需要立即处理的 P1 问题。")
@@ -154,7 +161,7 @@ def generate_priority_section(findings: list[ReviewFinding]) -> str:
             lines.append(f"  * 为什么重要：{_why_important(finding)}")
             lines.append(f"  * 建议先做：{_suggested_first_action(finding)}")
             lines.append(f"  * 涉及文件：{_files_involved(finding)}")
-            lines.append(f"  * 证据引用：{_evidence_citation(finding)}")
+            lines.append(f"  * 证据引用：{_evidence_citation(finding, display_map)}")
 
     # P3
     if grouped["P3"]:

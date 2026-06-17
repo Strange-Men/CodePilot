@@ -122,6 +122,7 @@ class ReviewFindingResponse(BaseModel):
 class ReviewFindingsResponse(BaseModel):
     task_id: str
     findings: list[ReviewFindingResponse] = Field(default_factory=list)
+    evidence_display_map: dict[str, str] = Field(default_factory=dict)
 
 
 class ReviewAgentStateResponse(BaseModel):

@@ -14,7 +14,7 @@ def test_v3_4_deterministic_report_quality_suite_passes() -> None:
         "actionable_recommendations",
         "evidence_grounding",
         "readable_and_bounded",
-        "no_snippet_leakage",
+        "self_contained_evidence_appendix",
     }
     assert all(check.details for check in evaluation.checks)
 

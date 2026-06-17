@@ -10,6 +10,7 @@ import type { ReviewEvidenceRefItem, ReviewFindingItem } from "@/lib/types";
 type EvidencePanelProps = {
   error: string | null;
   findings: ReviewFindingItem[];
+  evidenceDisplayMap?: Record<string, string>;
   language: Language;
   loading: boolean;
   onRetry: () => void;
@@ -20,7 +21,7 @@ type FindingEvidenceGroup = {
   evidence: ReviewEvidenceRefItem[];
 };
 
-export function EvidencePanel({ error, findings, language, loading, onRetry }: EvidencePanelProps) {
+export function EvidencePanel({ error, findings, evidenceDisplayMap = {}, language, loading, onRetry }: EvidencePanelProps) {
   if (loading) {
     return (
       <div className="grid gap-4 lg:grid-cols-2" role="status">
@@ -77,6 +78,7 @@ export function EvidencePanel({ error, findings, language, loading, onRetry }: E
           <FindingEvidenceCard
             finding={group.finding}
             evidence={group.evidence}
+            evidenceDisplayMap={evidenceDisplayMap}
             language={language}
             key={group.finding.finding_id}
           />
@@ -88,7 +90,7 @@ export function EvidencePanel({ error, findings, language, loading, onRetry }: E
             </h3>
             <div className="mt-3 space-y-3">
               {unlinked.map((item) => (
-                <EvidenceItemCard item={item} language={language} key={item.evidence_id} />
+                <EvidenceItemCard item={item} evidenceDisplayMap={evidenceDisplayMap} language={language} key={item.evidence_id} />
               ))}
             </div>
           </section>
@@ -101,10 +103,12 @@ export function EvidencePanel({ error, findings, language, loading, onRetry }: E
 function FindingEvidenceCard({
   finding,
   evidence,
+  evidenceDisplayMap,
   language,
 }: {
   finding: ReviewFindingItem;
   evidence: ReviewEvidenceRefItem[];
+  evidenceDisplayMap: Record<string, string>;
   language: Language;
 }) {
   return (
@@ -128,14 +132,14 @@ function FindingEvidenceCard({
       {/* Evidence items */}
       <div className="divide-y divide-border">
         {evidence.map((item) => (
-          <EvidenceItemCard item={item} language={language} key={item.evidence_id} />
+          <EvidenceItemCard item={item} evidenceDisplayMap={evidenceDisplayMap} language={language} key={item.evidence_id} />
         ))}
       </div>
     </section>
   );
 }
 
-function EvidenceItemCard({ item, language }: { item: ReviewEvidenceRefItem; language: Language }) {
+function EvidenceItemCard({ item, evidenceDisplayMap, language }: { item: ReviewEvidenceRefItem; evidenceDisplayMap: Record<string, string>; language: Language }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -148,11 +152,13 @@ function EvidenceItemCard({ item, language }: { item: ReviewEvidenceRefItem; lan
     }
   };
 
+  const displayRef = evidenceDisplayMap[item.evidence_id] || item.evidence_id;
+
   return (
     <div className="px-5 py-4" data-evidence-id={item.evidence_id}>
       <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary">
-          <Braces className="h-3.5 w-3.5" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary font-mono text-xs font-bold">
+          {displayRef}
         </div>
         <div className="min-w-0 flex-1">
           {/* Code location */}

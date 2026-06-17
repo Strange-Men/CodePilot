@@ -403,7 +403,10 @@ def test_get_review_findings_returns_empty_list_for_legacy_review(
     response = client.get("/api/reviews/task-1/findings")
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-1", "findings": []}
+    data = response.json()
+    assert data["task_id"] == "task-1"
+    assert data["findings"] == []
+    assert data["evidence_display_map"] == {}
 
 
 def test_get_review_findings_returns_404_for_missing_review(

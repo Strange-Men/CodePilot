@@ -69,6 +69,7 @@ export type ReviewFindingItem = {
 export type ReviewFindingsResponse = {
   task_id: string;
   findings: ReviewFindingItem[];
+  evidence_display_map: Record<string, string>;
 };
 
 export type SeverityMix = {

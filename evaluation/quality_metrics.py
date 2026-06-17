@@ -218,13 +218,14 @@ def _grounding_checks(
         and all(str(evidence_id) in evidence_ids for evidence_id in finding.get("evidence_ids") or [])
         for finding in findings
     )
-    snippet_like = bool(
+    secret_like = bool(
         re.search(
-            r"```|(?:password|secret|api[_-]?key)\s*=|^\s*(?:def|class|function)\s+\w+",
+            r"(?:password|secret|api[_-]?key)\s*=\s*['\"][^'\"]{8,}",
             evidence_appendix,
-            flags=re.IGNORECASE | re.MULTILINE,
+            flags=re.IGNORECASE,
         )
     )
+    has_display_refs = bool(re.search(r"## E\d+ ·", evidence_appendix))
     return [
         QualityCheck(
             "findings_include_evidence_ids",
@@ -245,10 +246,10 @@ def _grounding_checks(
             "The report must contain a safe evidence appendix.",
         ),
         QualityCheck(
-            "no_raw_snippet_leakage",
+            "self_contained_evidence_appendix",
             "grounding",
-            not snippet_like,
-            "Evidence appendix contains references only, with no code or secret-like assignment.",
+            has_display_refs and not secret_like,
+            "Evidence appendix uses E1/E2 display refs and contains no leaked secrets.",
         ),
     ]
 

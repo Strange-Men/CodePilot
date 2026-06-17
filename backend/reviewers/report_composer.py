@@ -3,10 +3,15 @@ from __future__ import annotations
 from collections import Counter
 
 from backend.core.report_contract import REPORT_SECTIONS
-from backend.models.context import EvidenceRecord, ReviewContext
+from backend.models.context import ReviewContext
 from backend.models.review_state import AgentExecutionState
 from backend.models.structured_review import ReviewFinding, StructuredReviewDraft
 from backend.reviewers.constants import DEFAULT_SECTION_CONTENT, format_cycle_group
+from backend.reviewers.evidence_display import (
+    EvidenceDisplayMap,
+    build_evidence_appendix,
+    format_evidence_ref,
+)
 from backend.services.prioritization import is_test_path
 
 SEVERITY_ORDER = {
@@ -26,19 +31,22 @@ class HumanReadableReportComposer:
         context: ReviewContext,
         draft: StructuredReviewDraft | None,
         agent_states: list[AgentExecutionState] | None = None,
+        *,
+        lang: str = "en",
     ) -> str:
         findings = self._unique_findings(draft.findings if draft is not None else [])
         agent_states = agent_states or []
+        display_map = EvidenceDisplayMap.from_findings(findings)
         sections = [
-            self._executive_summary(context, findings),
+            self._executive_summary(context, findings, display_map),
             self._repository_identity(context),
             self._how_it_works(context),
             self._architecture_map(context),
             self._agent_summary(agent_states),
-            self._agent_findings(agent_states, findings),
-            self._contract_sections(findings),
-            self._action_plan(context, findings),
-            self._evidence_appendix(context, findings),
+            self._agent_findings(agent_states, findings, display_map),
+            self._contract_sections(findings, display_map, lang),
+            self._action_plan(context, findings, display_map),
+            self._evidence_appendix(context, findings, display_map, lang),
         ]
         return "\n\n".join(section for section in sections if section).rstrip() + "\n"
 
@@ -46,6 +54,7 @@ class HumanReadableReportComposer:
         self,
         context: ReviewContext,
         findings: list[ReviewFinding],
+        display_map: EvidenceDisplayMap,
     ) -> str:
         severity_mix = Counter(self._severity(finding) for finding in findings)
         severity_text = ", ".join(
@@ -65,7 +74,7 @@ class HumanReadableReportComposer:
             "## Top Risks",
         ]
         if top_risks:
-            lines.extend(self._compact_finding_line(finding) for finding in top_risks)
+            lines.extend(self._compact_finding_line(finding, display_map) for finding in top_risks)
         else:
             lines.append(
                 "- No validated evidence-grounded risk was produced. Treat this as limited evidence, "
@@ -201,6 +210,7 @@ class HumanReadableReportComposer:
     def _agent_findings(
         agent_states: list[AgentExecutionState],
         findings: list[ReviewFinding],
+        display_map: EvidenceDisplayMap,
     ) -> str:
         lines = [
             "# Agent Findings",
@@ -213,7 +223,10 @@ class HumanReadableReportComposer:
             if not findings:
                 lines.append("- No validated finding was produced.")
             else:
-                lines.extend(HumanReadableReportComposer._compact_finding_line(finding) for finding in findings[:12])
+                lines.extend(
+                    HumanReadableReportComposer._compact_finding_line(finding, display_map)
+                    for finding in findings[:12]
+                )
             return "\n".join(lines)
         for state in agent_states:
             lines.extend(
@@ -234,25 +247,31 @@ class HumanReadableReportComposer:
                     "| --- | --- | ---: | --- | --- |",
                 ]
             )
-            lines.extend(HumanReadableReportComposer._agent_finding_row(finding) for finding in state.findings[:8])
+            lines.extend(
+                HumanReadableReportComposer._agent_finding_row(finding, display_map)
+                for finding in state.findings[:8]
+            )
         return "\n".join(lines)
 
     @staticmethod
-    def _agent_finding_row(finding: ReviewFinding) -> str:
+    def _agent_finding_row(finding: ReviewFinding, display_map: EvidenceDisplayMap) -> str:
         title = HumanReadableReportComposer._table_cell(finding.title or finding.description)
         files = HumanReadableReportComposer._path_list(finding.files, 3)
-        evidence = ", ".join(f"`{item}`" for item in finding.evidence_ids[:3]) or "none"
+        evidence = format_evidence_ref(display_map, finding.evidence_ids[:3]) or "none"
         return (
             f"| {HumanReadableReportComposer._severity(finding)} | {title} | "
             f"{(finding.confidence or 0.0):.2f} | {files} | {evidence} |"
         )
 
     @staticmethod
-    def _contract_sections(findings: list[ReviewFinding]) -> str:
+    def _contract_sections(findings: list[ReviewFinding], display_map: EvidenceDisplayMap, lang: str = "en") -> str:
         rendered: list[str] = []
         for section in REPORT_SECTIONS:
             section_findings = [finding for finding in findings if finding.section == section]
-            body = "\n\n".join(finding.to_markdown() for finding in section_findings)
+            if lang == "zh":
+                body = "\n\n".join(finding.to_localized_markdown("zh", display_map) for finding in section_findings)
+            else:
+                body = "\n\n".join(finding.to_markdown(display_map) for finding in section_findings)
             rendered.append(f"# {section}\n{body or DEFAULT_SECTION_CONTENT}")
         return "\n\n".join(rendered)
 
@@ -260,6 +279,7 @@ class HumanReadableReportComposer:
         self,
         context: ReviewContext,
         findings: list[ReviewFinding],
+        display_map: EvidenceDisplayMap,
     ) -> str:
         actionable = [finding for finding in self._ranked_findings(findings) if finding.recommendation]
         lines = ["# Action Plan"]
@@ -270,7 +290,7 @@ class HumanReadableReportComposer:
             return "\n".join(lines)
         for index, finding in enumerate(actionable[:5], start=1):
             files = self._path_list(finding.files, 4)
-            evidence = ", ".join(f"`{evidence_id}`" for evidence_id in finding.evidence_ids[:3])
+            evidence = format_evidence_ref(display_map, finding.evidence_ids[:3])
             symbols = self._finding_symbols(context, finding)
             responsibility = (
                 f"validated symbols {self._code_list(symbols, 5)}"
@@ -390,46 +410,25 @@ class HumanReadableReportComposer:
     def _evidence_appendix(
         context: ReviewContext,
         findings: list[ReviewFinding],
+        display_map: EvidenceDisplayMap,
+        lang: str = "en",
     ) -> str:
-        used_ids = {
-            evidence_id
-            for finding in findings
-            for evidence_id in finding.evidence_ids
-        }
-        records = [
-            record
-            for record in context.evidence
-            if record.evidence_id in used_ids
-        ]
-        lines = [
-            "# Evidence Appendix",
-            "Only validated references are shown. Source snippets are intentionally omitted.",
-            "",
-            "| Evidence ID | Location | Kind | Symbols |",
-            "| --- | --- | --- | --- |",
-        ]
-        if not records:
-            lines.append("| None | No validated evidence was cited | n/a | n/a |")
-        else:
-            lines.extend(HumanReadableReportComposer._evidence_row(record) for record in records[:30])
-        lines.extend(
-            [
-                "",
-                "## Repository Metrics",
-                f"- Supported source files: {context.total_source_files}",
-                f"- Analyzed files: {context.analyzed_files}",
-                f"- Skipped files: {context.skipped_files}",
-                f"- Total lines: {context.total_lines}",
-                f"- Average complexity estimate: {context.avg_complexity:.2f}",
-            ]
+        evidence_section = build_evidence_appendix(
+            findings, context.evidence, display_map, lang=lang,
         )
-        return "\n".join(lines)
-
-    @staticmethod
-    def _evidence_row(record: EvidenceRecord) -> str:
-        location = f"`{record.file_path}:{record.start_line}-{record.end_line}`"
-        symbols = ", ".join(f"`{symbol}`" for symbol in record.symbols[:5]) or "n/a"
-        return f"| `{record.evidence_id}` | {location} | {record.kind} | {symbols} |"
+        if lang == "zh":
+            metrics_title = "## 仓库指标"
+        else:
+            metrics_title = "## Repository Metrics"
+        metrics_lines = [
+            metrics_title,
+            f"- {'源文件总数' if lang == 'zh' else 'Supported source files'}: {context.total_source_files}",
+            f"- {'已分析文件' if lang == 'zh' else 'Analyzed files'}: {context.analyzed_files}",
+            f"- {'已跳过文件' if lang == 'zh' else 'Skipped files'}: {context.skipped_files}",
+            f"- {'总行数' if lang == 'zh' else 'Total lines'}: {context.total_lines}",
+            f"- {'平均复杂度' if lang == 'zh' else 'Average complexity estimate'}: {context.avg_complexity:.2f}",
+        ]
+        return evidence_section + "\n\n" + "\n".join(metrics_lines)
 
     @staticmethod
     def _ranked_findings(findings: list[ReviewFinding]) -> list[ReviewFinding]:
@@ -449,10 +448,10 @@ class HumanReadableReportComposer:
         return severity if severity in SEVERITY_ORDER else "informational"
 
     @staticmethod
-    def _compact_finding_line(finding: ReviewFinding) -> str:
+    def _compact_finding_line(finding: ReviewFinding, display_map: EvidenceDisplayMap) -> str:
         title = finding.title or finding.description
         files = HumanReadableReportComposer._path_list(finding.files, 3)
-        evidence = ", ".join(f"`{item}`" for item in finding.evidence_ids[:2]) or "none"
+        evidence = format_evidence_ref(display_map, finding.evidence_ids[:2]) or "none"
         return (
             f"- **{title}** ({HumanReadableReportComposer._severity(finding)}, "
             f"confidence {(finding.confidence or 0.0):.2f}) in {files}; evidence: {evidence}."

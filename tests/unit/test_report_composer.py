@@ -68,9 +68,13 @@ def test_composer_builds_readable_report_without_exposing_snippets(sample_contex
     ]:
         assert heading in report
     assert list(MarkdownReviewAdapter.extract_sections(report)) == REPORT_SECTIONS
-    assert evidence_id in report
+    assert evidence_id not in report  # raw ev_* replaced by display ref
+    assert "[E1]" in report
     assert "services/review.py:10-14" in report
-    assert "SECRET_VALUE" not in report
+    # Snippet is now included in the self-contained evidence appendix
+    assert "SECRET_VALUE" in report
+    assert "# Evidence Appendix" in report
+    assert "## E1 · services/review.py:10-14" in report
     assert "**Why it matters:**" in report
     assert "**First step:**" in report
     assert "**Likely responsibility area:** validated symbols `review`." in report

@@ -102,51 +102,80 @@ def build_reviews_router(
         progress = get_progress(task_id) if callable(get_progress) else None
 
         report_markdown = row["report_markdown"]
-        if normalized_lang == "zh" and report_markdown:
+        if report_markdown:
             raw_findings = store.get_structured_findings(task_id)
-            if _all_findings_bilingual(raw_findings):
-                # New bilingual reviews: render zh report from stored display fields
-                from backend.models.structured_review import DisplayFields, ReviewFinding
+            from backend.models.structured_review import ReviewFinding as _RF
+            from backend.reviewers.evidence_display import EvidenceDisplayMap as _EDM
 
-                findings_with_display = []
-                for f in raw_findings:
-                    display_data = f.get("display")
-                    display = DisplayFields.model_validate(display_data) if display_data else None
-                    finding = ReviewFinding(
-                        section=f["section"],
-                        description=f["description"],
-                        title=f.get("title"),
-                        severity=f.get("severity", "informational"),
-                        category=f.get("category"),
-                        confidence=f.get("confidence"),
-                        files=f.get("files", []),
-                        recommendation=f.get("recommendation"),
-                        evidence_ids=f.get("evidence_ids", []),
-                        evidence=f.get("evidence", []),
-                        impact=f.get("impact"),
-                        first_step=f.get("first_step"),
-                        validation_tests=f.get("validation_tests", []),
-                        confidence_rationale=f.get("confidence_rationale"),
-                        caveat=f.get("caveat"),
-                        display=display,
+            _finding_objs = [
+                _RF(
+                    section=f["section"],
+                    description=f["description"],
+                    title=f.get("title"),
+                    severity=f.get("severity", "informational"),
+                    category=f.get("category"),
+                    confidence=f.get("confidence"),
+                    files=f.get("files", []),
+                    recommendation=f.get("recommendation"),
+                    evidence_ids=f.get("evidence_ids", []),
+                    evidence=f.get("evidence", []),
+                    impact=f.get("impact"),
+                    first_step=f.get("first_step"),
+                    validation_tests=f.get("validation_tests", []),
+                    confidence_rationale=f.get("confidence_rationale"),
+                    caveat=f.get("caveat"),
+                )
+                for f in raw_findings
+            ]
+            _display_map = _EDM.from_findings(_finding_objs)
+
+            if normalized_lang == "zh":
+                if _all_findings_bilingual(raw_findings):
+                    # New bilingual reviews: render zh report from stored display fields
+                    from backend.models.structured_review import DisplayFields, ReviewFinding
+
+                    findings_with_display = []
+                    for f in raw_findings:
+                        display_data = f.get("display")
+                        display = DisplayFields.model_validate(display_data) if display_data else None
+                        finding = ReviewFinding(
+                            section=f["section"],
+                            description=f["description"],
+                            title=f.get("title"),
+                            severity=f.get("severity", "informational"),
+                            category=f.get("category"),
+                            confidence=f.get("confidence"),
+                            files=f.get("files", []),
+                            recommendation=f.get("recommendation"),
+                            evidence_ids=f.get("evidence_ids", []),
+                            evidence=f.get("evidence", []),
+                            impact=f.get("impact"),
+                            first_step=f.get("first_step"),
+                            validation_tests=f.get("validation_tests", []),
+                            confidence_rationale=f.get("confidence_rationale"),
+                            caveat=f.get("caveat"),
+                            display=display,
+                        )
+                        findings_with_display.append(finding)
+                    from backend.models.structured_review import StructuredReviewDraft
+
+                    draft = StructuredReviewDraft(findings=findings_with_display)
+                    report_markdown = render_localized_report(
+                        report_markdown, normalized_lang, findings=findings_with_display,
                     )
-                    findings_with_display.append(finding)
-                from backend.models.structured_review import StructuredReviewDraft
-
-                draft = StructuredReviewDraft(findings=findings_with_display)
-                report_markdown = render_localized_report(
-                    report_markdown, normalized_lang, findings=findings_with_display,
-                )
-                # Replace English finding prose with zh display fields in the report
-                report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
-            elif localization_service is not None:
-                # Legacy reviews: use localization service as fallback
-                source_updated_at = row.get("updated_at", "")
-                report_markdown = localization_service.get_localized_report(
-                    task_id, normalized_lang, source_updated_at, report_markdown, raw_findings,
-                )
+                    # Replace English finding prose with zh display fields in the report
+                    report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
+                elif localization_service is not None:
+                    # Legacy reviews: use localization service as fallback
+                    source_updated_at = row.get("updated_at", "")
+                    report_markdown = localization_service.get_localized_report(
+                        task_id, normalized_lang, source_updated_at, report_markdown, raw_findings,
+                    )
+                else:
+                    report_markdown = render_localized_report(report_markdown, normalized_lang)
             else:
-                report_markdown = render_localized_report(report_markdown, normalized_lang)
+                # English view: replace raw ev_* with [E1]/[E2]
+                report_markdown = _display_map.replace_in_text(report_markdown)
 
         return _review_response(row, progress=progress, report_markdown=report_markdown)
 
@@ -175,12 +204,32 @@ def build_reviews_router(
         else:
             localized_findings = raw_findings
 
+        # Build evidence display map (E1/E2) for frontend
+        from backend.models.structured_review import ReviewFinding as _RF2
+        from backend.reviewers.evidence_display import EvidenceDisplayMap as _EDM2
+
+        _finding_objs2 = [
+            _RF2(
+                section=f["section"],
+                description=f["description"],
+                title=f.get("title"),
+                severity=f.get("severity", "informational"),
+                category=f.get("category"),
+                confidence=f.get("confidence"),
+                files=f.get("files", []),
+                evidence_ids=f.get("evidence_ids", []),
+            )
+            for f in raw_findings
+        ]
+        _display_map2 = _EDM2.from_findings(_finding_objs2)
+
         return ReviewFindingsResponse(
             task_id=task_id,
             findings=[
                 _finding_response(row, evidence_by_id, lang=normalized_lang)
                 for row in localized_findings
             ],
+            evidence_display_map={raw: _display_map2.ref(raw) for raw in _display_map2.all_mapped_ids},
         )
 
     @router.get("/{task_id}/agent-states", response_model=ReviewAgentStatesResponse)
@@ -220,8 +269,34 @@ def build_reviews_router(
                 "The review must complete before its Markdown report can be exported.",
             )
         content = row["report_markdown"]
+        # Apply evidence display mapping (E1/E2) for all exports
+        raw_findings = store.get_structured_findings(task_id)
+        from backend.models.structured_review import ReviewFinding as _RF
+        from backend.reviewers.evidence_display import EvidenceDisplayMap as _EDM
+
+        _finding_objs = [
+            _RF(
+                section=f["section"],
+                description=f["description"],
+                title=f.get("title"),
+                severity=f.get("severity", "informational"),
+                category=f.get("category"),
+                confidence=f.get("confidence"),
+                files=f.get("files", []),
+                recommendation=f.get("recommendation"),
+                evidence_ids=f.get("evidence_ids", []),
+                evidence=f.get("evidence", []),
+                impact=f.get("impact"),
+                first_step=f.get("first_step"),
+                validation_tests=f.get("validation_tests", []),
+                confidence_rationale=f.get("confidence_rationale"),
+                caveat=f.get("caveat"),
+            )
+            for f in raw_findings
+        ]
+        _display_map = _EDM.from_findings(_finding_objs)
+
         if normalized_lang == "zh":
-            raw_findings = store.get_structured_findings(task_id)
             if _all_findings_bilingual(raw_findings):
                 # New bilingual reviews: render from stored display fields
                 from backend.models.structured_review import DisplayFields, ReviewFinding
@@ -263,6 +338,9 @@ def build_reviews_router(
                 )
             else:
                 content = render_localized_report(content, normalized_lang)
+        else:
+            # English export: replace raw ev_* with [E1]/[E2]
+            content = _display_map.replace_in_text(content)
         suffix = "-zh" if normalized_lang == "zh" else ""
         filename = f"codepilot-review-{task_id}{suffix}.md"
         return Response(

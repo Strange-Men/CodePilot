@@ -11,12 +11,13 @@ import { cn } from "@/lib/utils";
 type FindingsPanelProps = {
   error: string | null;
   findings: ReviewFindingItem[];
+  evidenceDisplayMap?: Record<string, string>;
   language: Language;
   loading: boolean;
   onRetry: () => void;
 };
 
-export function FindingsPanel({ error, findings, language, loading, onRetry }: FindingsPanelProps) {
+export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, language, loading, onRetry }: FindingsPanelProps) {
   if (loading) return <PanelSkeleton language={language} rows={3} />;
   if (error) {
     return (
@@ -134,7 +135,7 @@ export function FindingsPanel({ error, findings, language, loading, onRetry }: F
                   className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono font-semibold text-primary"
                   key={evidenceId}
                 >
-                  {evidenceId}
+                  {evidenceDisplayMap[evidenceId] || evidenceId}
                 </code>
               ))}
             </div>

@@ -11,6 +11,7 @@ import re
 
 from backend.models.structured_review import ReviewFinding
 from backend.reviewers.constants import DEFAULT_SECTION_CONTENT, DEFAULT_SECTION_CONTENT_ZH
+from backend.reviewers.evidence_display import EvidenceDisplayMap
 from backend.reviewers.localization import (
     Language,
     translate_enum_values,
@@ -44,6 +45,9 @@ def render_localized_report(
     if lang != "zh":
         return report_markdown
 
+    # Build evidence display map for E1/E2 refs
+    display_map = EvidenceDisplayMap.from_findings(findings or [])
+
     # Step 1: Translate section headings
     translated = translate_report_headings(report_markdown, lang)
 
@@ -64,7 +68,7 @@ def render_localized_report(
 
     # Step 7: Inject priority section after Executive Summary
     if findings:
-        priority_section = generate_priority_section(findings)
+        priority_section = generate_priority_section(findings, display_map)
         if priority_section:
             translated = _inject_after_heading(
                 translated, "执行摘要", priority_section,
@@ -72,6 +76,9 @@ def render_localized_report(
 
     # Step 8: Strip backticks from Chinese natural language text
     translated = _fix_chinese_validation_backticks(translated)
+
+    # Step 9: Replace raw ev_* IDs with [E1]/[E2] display refs
+    translated = display_map.replace_in_text(translated)
 
     return translated
 
@@ -102,6 +109,9 @@ def render_localized_report_with_prose(
     """
     if lang != "zh":
         return report_markdown
+
+    # Build evidence display map for E1/E2 refs
+    display_map = EvidenceDisplayMap.from_findings(findings or [])
 
     # Step 1: Translate section headings and labels
     translated = translate_report_headings(report_markdown, lang)
@@ -156,7 +166,7 @@ def render_localized_report_with_prose(
 
     # Step 6: Inject priority section after Executive Summary
     if findings:
-        priority_section = generate_priority_section(findings)
+        priority_section = generate_priority_section(findings, display_map)
         if priority_section:
             translated = _inject_after_heading(
                 translated, "执行摘要", priority_section,
@@ -164,6 +174,9 @@ def render_localized_report_with_prose(
 
     # Step 7: Strip backticks from Chinese natural language validation text
     translated = _fix_chinese_validation_backticks(translated)
+
+    # Step 8: Replace raw ev_* IDs with [E1]/[E2] display refs
+    translated = display_map.replace_in_text(translated)
 
     return translated
 
