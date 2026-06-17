@@ -108,49 +108,128 @@ def _is_test_command(text: str) -> bool:
     return any(lower.startswith(prefix) for prefix in _TEST_COMMAND_PREFIXES)
 
 
+# ---------------------------------------------------------------------------
+# Mixed Chinese+English prose detection
+# ---------------------------------------------------------------------------
+
+# Consecutive common-English-word threshold for mixed-line detection
+_MIXED_PROSE_THRESHOLD = 3
+
+
+def _strip_allowed_tokens(text: str) -> str:
+    """Remove allowed English tokens from text, leaving only prose.
+
+    Strips: inline code, evidence refs, file paths, tech names, code symbols.
+    Plain lowercase English words (prose) are preserved so they can be
+    counted by the consecutive-word detector.
+    """
+    result = text
+    # 1. Remove inline code spans
+    result = re.sub(r"`[^`]+`", "", result)
+    # 2. Remove evidence refs [E1], [E2], etc.
+    result = _EVIDENCE_REF_RE.sub("", result)
+    # 3. Remove file paths (tokens containing / or \)
+    result = re.sub(r"\S*[/\\]\S*", "", result)
+    # 4. Remove tech names (longest first, word boundary)
+    for name in sorted(_TECH_NAMES, key=len, reverse=True):
+        result = re.sub(
+            rf"(?<![a-zA-Z0-9_]){re.escape(name)}(?![a-zA-Z0-9_])",
+            "",
+            result,
+            flags=re.IGNORECASE,
+        )
+    # 5. Remove code symbols — but keep plain lowercase words (prose).
+    #    Strip: snake_case (has _), camelCase/PascalCase (has uppercase
+    #    after first char), UPPER_SNAKE (all uppercase, len > 1).
+    def _strip_code_sym(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if "_" in token:  # snake_case
+            return ""
+        if any(c.isupper() for c in token[1:]):  # camelCase / PascalCase
+            return ""
+        if token.isupper() and len(token) > 1:  # UPPER_SNAKE
+            return ""
+        return token  # plain lowercase word — keep as potential prose
+
+    result = re.sub(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", _strip_code_sym, result)
+    return result
+
+
+def _has_english_prose(text: str) -> bool:
+    """Check if text contains English natural-language prose.
+
+    Returns True if, after stripping allowed tokens (tech names, code
+    symbols, paths, evidence refs, inline code), the text still contains
+    3+ consecutive common English words.
+
+    This catches mixed Chinese+English sentences like:
+      "以下证据指出 a repository concern that should be reviewed"
+    where the English portion is prose, not code.
+    """
+    cleaned = _strip_allowed_tokens(text)
+    words = re.findall(r"[a-zA-Z]+", cleaned)
+    consecutive = 0
+    for w in words:
+        if w.lower() in _COMMON_ENGLISH_WORDS:
+            consecutive += 1
+            if consecutive >= _MIXED_PROSE_THRESHOLD:
+                return True
+        else:
+            consecutive = 0
+    return False
+
+
 def is_english_leakage(text: str | None) -> bool:
     """Check if a zh field contains English natural-language leakage.
 
-    Returns True if the field has no Chinese characters and is not
-    a pure code/path/command/tech-name/evidence-ref field.
+    Returns True if the field contains English prose — even when mixed
+    with Chinese characters.  Pure code/path/command/tech-name/evidence-ref
+    fields are never flagged.
 
-    Heuristic: a zh field with no Chinese characters and multiple
-    English words is likely English leakage that should be repaired.
+    Detection has two paths:
+    1. Pure English (no Chinese chars): multi-word text that is not a
+       code symbol, path, command, tech name, or evidence ref.
+    2. Mixed Chinese+English: text with Chinese chars that also contains
+       3+ consecutive common English words after stripping allowed tokens.
     """
     if not text or not text.strip():
-        return False
-    if _has_chinese(text):
         return False
 
     stripped = text.strip()
 
-    # File path (contains separator)
-    if "/" in stripped or "\\" in stripped:
-        return False
+    # --- Path 1: pure English (no Chinese chars) ---
+    if not _has_chinese(stripped):
+        # File path (contains separator)
+        if "/" in stripped or "\\" in stripped:
+            return False
 
-    # Code symbol (snake_case, camelCase, PascalCase, UPPER_SNAKE)
-    if _CODE_SYMBOL_RE.match(stripped):
-        return False
+        # Code symbol (snake_case, camelCase, PascalCase, UPPER_SNAKE)
+        if _CODE_SYMBOL_RE.match(stripped):
+            return False
 
-    # Command (starts with known tool)
-    if _is_test_command(stripped):
-        return False
+        # Command (starts with known tool)
+        if _is_test_command(stripped):
+            return False
 
-    # Evidence ref ([E1], [E2], etc.)
-    if _EVIDENCE_REF_RE.match(stripped):
-        return False
+        # Evidence ref ([E1], [E2], etc.)
+        if _EVIDENCE_REF_RE.match(stripped):
+            return False
 
-    # Tech name (Flask, FastAPI, API, etc.)
-    if stripped.lower() in _TECH_NAMES:
-        return False
+        # Tech name (Flask, FastAPI, API, etc.)
+        if stripped.lower() in _TECH_NAMES:
+            return False
 
-    # Single word: check if it's a common English word
-    words = stripped.split()
-    if len(words) <= 1:
-        return stripped.lower() in _COMMON_ENGLISH_WORDS
+        # Single word: check if it's a common English word
+        words = stripped.split()
+        if len(words) <= 1:
+            return stripped.lower() in _COMMON_ENGLISH_WORDS
 
-    # Multiple words, no Chinese — likely English leakage
-    return True
+        # Multiple words, no Chinese — likely English leakage
+        return True
+
+    # --- Path 2: mixed Chinese+English ---
+    # Even with Chinese present, check for English prose leakage
+    return _has_english_prose(stripped)
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +375,150 @@ def repair_zh_findings(findings: list[ReviewFinding]) -> list[ReviewFinding]:
 
 
 # ---------------------------------------------------------------------------
+# Final zh markdown gate
+# ---------------------------------------------------------------------------
+
+
+def assert_no_english_natural_language_zh(markdown: str) -> list[str]:
+    """Final gate: detect English natural-language leakage in zh markdown.
+
+    Ignores code blocks, inline code, file paths, code symbols, tech names,
+    and evidence refs.  Catches English prose even when mixed with Chinese.
+
+    Returns a list of detected leak fragments.  Empty list = clean.
+    Useful for testing and post-render validation.
+    """
+    leaks: list[str] = []
+
+    # Split into code blocks and non-code segments
+    code_block_re = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
+    segments: list[tuple[str, bool]] = []
+    last_end = 0
+    for match in code_block_re.finditer(markdown):
+        if match.start() > last_end:
+            segments.append((markdown[last_end:match.start()], False))
+        segments.append((match.group(0), True))
+        last_end = match.end()
+    if last_end < len(markdown):
+        segments.append((markdown[last_end:], False))
+
+    for segment_text, is_code in segments:
+        if is_code:
+            continue
+
+        # Replace inline code with placeholders
+        cleaned = re.sub(r"`[^`]+`", "", segment_text)
+
+        for line in cleaned.split("\n"):
+            line_s = line.strip()
+            if not line_s:
+                continue
+
+            # Skip markdown headings
+            if re.match(r"^#{1,6}\s", line_s):
+                continue
+
+            # Skip table rows
+            if line_s.startswith("|"):
+                continue
+
+            # Check for English prose using the mixed-text detector
+            if _has_english_prose(line_s):
+                leaks.append(line_s[:120])
+
+            # Also check for known English sentence starters
+            english_starters = (
+                "The selected evidence",
+                "This evidence was derived",
+                "If this boundary",
+                "shared dependencies",
+                "This finding is based",
+                "Evidence-grounded",
+                "Execution begins",
+                "The analysis identified",
+            )
+            for starter in english_starters:
+                if line_s.startswith(starter):
+                    if line_s[:120] not in leaks:
+                        leaks.append(line_s[:120])
+                    break
+
+    return leaks
+
+
+# ---------------------------------------------------------------------------
+# Mixed-line repair helpers
+# ---------------------------------------------------------------------------
+
+
+def _repair_mixed_zh_line(line: str) -> str | None:
+    """Repair a single line that mixes Chinese and English prose.
+
+    Returns the repaired line, or None if no repair is needed.
+    Strategy: remove common English prose words, keep Chinese, tech terms,
+    code symbols, paths, evidence refs, and non-common English words.
+    """
+    if not _has_chinese(line) or not _has_english_prose(line):
+        return None
+
+    # Split into tokens, preserving spacing
+    tokens = re.findall(r"\S+|\s+", line)
+    kept: list[str] = []
+    for token in tokens:
+        if token.isspace():
+            kept.append(token)
+            continue
+
+        # Extract the alphabetic core of the token
+        bare = re.sub(r"[^a-zA-Z]", "", token)
+        if not bare:
+            kept.append(token)
+            continue
+
+        # Keep tokens that are allowed English
+        lower = bare.lower()
+
+        # Tech names — keep
+        if lower in _TECH_NAMES:
+            kept.append(token)
+            continue
+
+        # Evidence refs — keep
+        if _EVIDENCE_REF_RE.match(token.strip()):
+            kept.append(token)
+            continue
+
+        # File paths — keep
+        if "/" in token or "\\" in token:
+            kept.append(token)
+            continue
+
+        # Code symbols — keep
+        if _CODE_SYMBOL_RE.match(bare):
+            kept.append(token)
+            continue
+
+        # Common English prose word — drop
+        if lower in _COMMON_ENGLISH_WORDS:
+            continue
+
+        # Unknown English word — keep (might be a proper noun or domain term)
+        if re.match(r"[a-zA-Z]", bare):
+            kept.append(token)
+            continue
+
+        # Non-English token (Chinese, punctuation, numbers) — keep
+        kept.append(token)
+
+    repaired = "".join(kept)
+    # Clean up double spaces
+    repaired = re.sub(r"[ \t]{2,}", " ", repaired).strip()
+    if repaired and repaired != line.strip():
+        return repaired
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Metadata repair (post-render)
 # ---------------------------------------------------------------------------
 
@@ -307,9 +530,58 @@ def repair_zh_metadata(markdown: str) -> str:
     other English fragments that the rendering pipeline produces
     but doesn't translate.
 
-    This is a targeted cleanup — not a blanket phrase replacement.
+    Three-layer approach:
+    1. Full-sentence replacements (before partial matches corrupt them)
+    2. Phrase-level targeted replacements
+    3. Generic mixed-line sweep (catch-all for remaining English prose)
     """
     result = markdown
+
+    # === Layer 1: full-sentence replacements (longest first) ===
+
+    result = result.replace(
+        "This evidence was derived from parsed code symbols or structured repository context.",
+        "该证据来自已解析的代码符号或结构化仓库上下文。",
+    )
+    result = result.replace(
+        "Source snippet was not persisted; only file location and symbol info are available.",
+        "源码片段未持久化，仅保留文件位置和符号信息。",
+    )
+    result = result.replace(
+        "Remaining evidence entries were omitted. Re-run the review to see full context.",
+        "其余证据已省略，可在重新运行审查后查看完整上下文。",
+    )
+    # Catch "The selected evidence highlights <anything>." — full sentence
+    result = re.sub(
+        r"The selected evidence highlights[^。\n]*?(?:\.)",
+        "以下证据指出需要关注的仓库问题。",
+        result,
+    )
+    # Catch "This evidence was derived <anything>." — partial after full above
+    result = re.sub(
+        r"This evidence was derived[^。\n]*?(?:\.)",
+        "该证据来自已解析的代码符号或结构化仓库上下文。",
+        result,
+    )
+    # Catch mixed "以下证据指出 a repository concern..." (from prior partial fix)
+    result = re.sub(
+        r"以下证据指出\s+(?:a\s+)?(?:repository\s+)?concern[^。\n]*?(?:入口文件|文件|。|$)",
+        "以下证据指出需要在变更入口文件前审查的仓库问题。",
+        result,
+    )
+    # Catch "If this boundary is part of a 公共 API, changing it may break..."
+    result = re.sub(
+        r"If this boundary is part of[^。\n]*?(?:consumers|下游)[^。\n]*?(?:\.|。|$)",
+        "如果该边界属于公共 API，变更可能影响下游使用方。",
+        result,
+    )
+    # Catch "shared dependencies, or refactoring boundaries"
+    result = result.replace(
+        "shared dependencies, or refactoring boundaries",
+        "共享依赖或重构边界",
+    )
+
+    # === Layer 2: phrase-level targeted replacements ===
 
     # Evidence appendix labels (from evidence_display.build_evidence_appendix)
     result = result.replace("* Type：", "* 类型：")
@@ -328,25 +600,45 @@ def repair_zh_metadata(markdown: str) -> str:
         "以下证据指出",
     )
     result = result.replace(
-        "This evidence was derived from parsed code symbols or structured repository context.",
-        "该证据来自已解析的代码符号或结构化仓库上下文。",
-    )
-    result = result.replace(
         "This evidence was derived",
         "该证据来自",
     )
 
-    # Evidence appendix description/snippet patterns
-    result = result.replace(
-        "Source snippet was not persisted; only file location and symbol info are available.",
-        "源码片段未持久化，仅保留文件位置和符号信息。",
-    )
-    result = result.replace(
-        "Remaining evidence entries were omitted. Re-run the review to see full context.",
-        "其余证据已省略，可在重新运行审查后查看完整上下文。",
-    )
+    # === Layer 3: generic mixed-line sweep ===
+    # After targeted fixes, catch any remaining mixed Chinese+English prose lines.
 
-    return result
+    code_block_re = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
+    segments: list[tuple[str, bool]] = []
+    last_end = 0
+    for match in code_block_re.finditer(result):
+        if match.start() > last_end:
+            segments.append((result[last_end:match.start()], False))
+        segments.append((match.group(0), True))
+        last_end = match.end()
+    if last_end < len(result):
+        segments.append((result[last_end:], False))
+
+    rebuilt_parts: list[str] = []
+    for segment_text, is_code in segments:
+        if is_code:
+            rebuilt_parts.append(segment_text)
+            continue
+
+        lines = segment_text.split("\n")
+        repaired_lines: list[str] = []
+        for line in lines:
+            # Skip table rows and headings (structural, not prose)
+            stripped = line.strip()
+            if stripped.startswith("|") or re.match(r"^#{1,6}\s", stripped):
+                repaired_lines.append(line)
+                continue
+
+            repaired = _repair_mixed_zh_line(line)
+            repaired_lines.append(repaired if repaired is not None else line)
+
+        rebuilt_parts.append("\n".join(repaired_lines))
+
+    return "".join(rebuilt_parts)
 
 
 # ---------------------------------------------------------------------------

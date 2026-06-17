@@ -417,6 +417,24 @@ def _count_common_english_words(text: str) -> int:
     return sum(1 for w in words if w in _COMMON_ENGLISH_WORDS)
 
 
+def _has_consecutive_english_prose(text: str, threshold: int = 3) -> bool:
+    """Check if text contains N+ consecutive common English words.
+
+    Used to detect English prose in mixed Chinese+English lines.
+    Only counts words that are in _COMMON_ENGLISH_WORDS.
+    """
+    words = re.findall(r"[a-zA-Z]+", text)
+    consecutive = 0
+    for w in words:
+        if w.lower() in _COMMON_ENGLISH_WORDS:
+            consecutive += 1
+            if consecutive >= threshold:
+                return True
+        else:
+            consecutive = 0
+    return False
+
+
 def detect_english_natural_language_leak(text: str) -> list[str]:
     """Detect English natural-language fragments in Chinese report text.
 
@@ -425,7 +443,8 @@ def detect_english_natural_language_leak(text: str) -> list[str]:
     analysis.
 
     Heuristic: a fragment with 4+ common English words (outside code blocks
-    and inline code) is likely English natural language.
+    and inline code) is likely English natural language.  Mixed Chinese+English
+    lines with 3+ consecutive common English words are also flagged.
     """
     leaks: list[str] = []
     segments = _strip_code_blocks(text)
@@ -464,11 +483,13 @@ def detect_english_natural_language_leak(text: str) -> list[str]:
                 # Check word count
                 word_count = _count_common_english_words(line_stripped)
                 if word_count >= _LEAK_WORD_THRESHOLD:
-                    # Verify it's mostly English (not a mixed Chinese+English line)
                     chinese_chars = len(re.findall(r"[一-鿿]", line_stripped))
                     total_alpha = len(re.findall(r"[a-zA-Z]", line_stripped))
-                    # If there are Chinese chars, it's likely intentional bilingual content
                     if chinese_chars == 0 and total_alpha > 10:
+                        # Pure English line — flag as leak
+                        leaks.append(line_stripped[:100])
+                    elif chinese_chars > 0 and _has_consecutive_english_prose(line_stripped):
+                        # Mixed Chinese+English line with English prose — flag
                         leaks.append(line_stripped[:100])
 
     return leaks
