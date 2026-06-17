@@ -430,12 +430,14 @@ def detect_english_natural_language_leak(text: str) -> list[str]:
     return leaks
 
 
-def normalize_zh_text(text: str) -> str:
+def normalize_zh_text(text: str | None) -> str | None:
     """Normalize a single text field for Chinese display.
 
     Applies phrase and label replacements. Does NOT modify code blocks
-    or inline code spans.
+    or inline code spans. Returns None unchanged.
     """
+    if text is None:
+        return None
     result = text
 
     # Apply phrase replacements (longest first)

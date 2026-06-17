@@ -336,6 +336,8 @@ def build_reviews_router(
                 content = _render_bilingual_report(content, draft, normalized_lang)
                 # Final quality guard: normalize remaining English leakage from display.zh
                 content = normalize_zh_markdown(content)
+                # Replace raw ev_* IDs with [E1]/[E2] display refs
+                content = _display_map.replace_in_text(content)
             elif localization_service is not None:
                 source_updated_at = row.get("updated_at", "")
                 content = localization_service.get_localized_report(
