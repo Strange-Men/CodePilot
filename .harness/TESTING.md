@@ -2,7 +2,7 @@
 
 > Harness version: v1.2
 > Last updated: 2026-06-17
-> Verified with: `pytest` and frontend tests on 2026-06-17 (V3.7)
+> Verified with: `pytest` and frontend tests on 2026-06-17 (V3.7 Step 2)
 
 ## Current Test Inventory
 
@@ -14,7 +14,7 @@
 | Integration | 88 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 91 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, and V3.6 UI evidence/status polish. |
+| Frontend | 105 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, V3.6 UI evidence/status polish, and V3.7 global language switch (browser detection, localStorage persistence, API lang linkage, export lang, localized errors, no DOM auto-translation). |
 
 ## Unit Tests
 

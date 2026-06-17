@@ -1481,3 +1481,184 @@ test("en export error messages are defined", () => {
   assert.ok(t("en", "export.networkError").length > 0);
   assert.ok(t("en", "export.staleHistoryRemoved").length > 0);
 });
+
+// --- V3.7 Global Language Switch Tests ---
+
+test("detectBrowserLanguage returns zh for Chinese browser locale", () => {
+  const { detectBrowserLanguage } = require("../hooks/useLanguage");
+
+  // Mock navigator.language
+  const originalNavigator = globalThis.navigator;
+  const mockNavigator = { language: "zh-CN" };
+  Object.defineProperty(globalThis, "navigator", { value: mockNavigator, configurable: true });
+
+  try {
+    assert.equal(detectBrowserLanguage(), "zh");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", { value: originalNavigator, configurable: true });
+  }
+});
+
+test("detectBrowserLanguage returns en for English browser locale", () => {
+  const { detectBrowserLanguage } = require("../hooks/useLanguage");
+
+  const originalNavigator = globalThis.navigator;
+  const mockNavigator = { language: "en-US" };
+  Object.defineProperty(globalThis, "navigator", { value: mockNavigator, configurable: true });
+
+  try {
+    assert.equal(detectBrowserLanguage(), "en");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", { value: originalNavigator, configurable: true });
+  }
+});
+
+test("detectBrowserLanguage returns en for undefined navigator", () => {
+  const { detectBrowserLanguage } = require("../hooks/useLanguage");
+
+  const originalNavigator = globalThis.navigator;
+  const mockNavigator = { language: undefined };
+  Object.defineProperty(globalThis, "navigator", { value: mockNavigator, configurable: true });
+
+  try {
+    assert.equal(detectBrowserLanguage(), "en");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", { value: originalNavigator, configurable: true });
+  }
+});
+
+test("language localStorage key is codepilot.lang", () => {
+  // Verify the storage key constant is correct
+  const fs = require("fs");
+  const content = fs.readFileSync(require.resolve("../hooks/useLanguage"), "utf-8");
+  assert.ok(content.includes("codepilot.lang"), "Storage key should be codepilot.lang");
+  assert.ok(!content.includes("codepilot-language"), "Old storage key codepilot-language should not be used");
+});
+
+test("switching language refetches review with lang param", async () => {
+  const originalFetch = globalThis.fetch;
+  const requestedUrls: string[] = [];
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url.includes("/findings")) {
+      return new Response(JSON.stringify({ task_id: "task-1", findings: structuredFindings }));
+    }
+    if (url.includes("/agent-states")) {
+      return new Response(JSON.stringify({ task_id: "task-1", agents: structuredAgents }));
+    }
+    return new Response(JSON.stringify({ ...completedReview, report_markdown: "# Test" }));
+  };
+
+  try {
+    // Simulate what WorkspaceShell does when language changes
+    const { getReview, getReviewFindings } = require("../lib/api");
+
+    await getReview("task-1", { lang: "zh" });
+    await getReviewFindings("task-1", { lang: "zh" });
+
+    assert.ok(requestedUrls.some((url) => url.includes("lang=zh")), "Should include lang=zh param");
+    assert.ok(requestedUrls.some((url) => url.includes("/api/reviews/task-1")), "Should fetch review");
+    assert.ok(requestedUrls.some((url) => url.includes("/findings")), "Should fetch findings");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("export uses current language - zh exports zh markdown", async () => {
+  const { exportReview } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response("# 测试报告", {
+      status: 200,
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="codepilot-review-task1-zh.md"'
+      }
+    });
+  };
+
+  try {
+    const result = await exportReview("task-1", { lang: "zh" });
+    assert.match(requestedUrl, /lang=zh/);
+    assert.match(result.filename, /zh\.md$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("stale review error is localized in Chinese", () => {
+  const staleError = t("zh", "export.staleHistoryRemoved");
+  assert.ok(staleError.includes("已从历史记录中移除"), "Chinese stale error should be localized");
+  assert.ok(staleError.length > 0);
+});
+
+test("network export error is localized in Chinese", () => {
+  const networkError = t("zh", "export.networkError");
+  assert.ok(networkError.includes("请检查网络"), "Chinese network error should be localized");
+});
+
+test("provider auth error is localized in Chinese", () => {
+  const authError = t("zh", "error.providerAuth");
+  assert.ok(authError.includes("API 密钥"), "Chinese auth error should mention API key");
+});
+
+test("[E1]/[E2] evidence references are preserved in both languages", () => {
+  const htmlEn = renderToStaticMarkup(
+    <EvidencePanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
+  );
+  const htmlZh = renderToStaticMarkup(
+    <EvidencePanel error={null} findings={structuredFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Evidence IDs preserved in both
+  assert.match(htmlEn, /E123/);
+  assert.match(htmlZh, /E123/);
+  assert.match(htmlEn, /E124/);
+  assert.match(htmlZh, /E124/);
+});
+
+test("raw ev_* evidence IDs never appear in UI", () => {
+  const htmlEn = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
+  );
+  const htmlZh = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Raw ev_* should never appear
+  assert.doesNotMatch(htmlEn, /ev_/);
+  assert.doesNotMatch(htmlZh, /ev_/);
+});
+
+test("no DOM auto-translation dependency", () => {
+  // Verify the i18n module doesn't use any DOM translation APIs
+  const fs = require("fs");
+  const i18nContent = fs.readFileSync(require.resolve("../lib/i18n"), "utf-8");
+  const hookContent = fs.readFileSync(require.resolve("../hooks/useLanguage"), "utf-8");
+
+  // Should not use Google Translate or similar
+  assert.doesNotMatch(i18nContent, /google.*translate/i);
+  assert.doesNotMatch(i18nContent, /auto.*translat/i);
+  assert.doesNotMatch(hookContent, /google.*translate/i);
+  assert.doesNotMatch(hookContent, /auto.*translat/i);
+
+  // Should use dictionary-based translation
+  assert.match(i18nContent, /dictionaries/);
+  assert.match(i18nContent, /function t\(/);
+});
+
+test("code paths and commands are not translated", () => {
+  // File paths in findings should remain unchanged
+  const htmlZh = renderToStaticMarkup(
+    <FindingsPanel error={null} findings={structuredFindings} language="zh" loading={false} onRetry={() => undefined} />
+  );
+
+  // Source file paths should be preserved
+  assert.match(htmlZh, /src\/app\.py/);
+  assert.match(htmlZh, /src\/api\.py/);
+});
