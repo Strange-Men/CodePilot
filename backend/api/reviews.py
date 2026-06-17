@@ -22,7 +22,8 @@ from backend.reviewers.localized_report_renderer import (
     render_localized_finding_text,
     render_localized_report,
 )
-from backend.reviewers.zh_quality import normalize_zh_markdown, normalize_zh_text
+from backend.reviewers.zh_presentation import finalize_zh_report, repair_zh_findings
+from backend.reviewers.zh_quality import normalize_zh_text
 from backend.services.localization_service import LocalizationService
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import PLANNED_AGENTS, ReviewTaskRunner
@@ -158,6 +159,8 @@ def build_reviews_router(
                             display=display,
                         )
                         findings_with_display.append(finding)
+                    # Repair display.zh fields before rendering (centralized zh pipeline)
+                    findings_with_display = repair_zh_findings(findings_with_display)
                     from backend.models.structured_review import StructuredReviewDraft
 
                     draft = StructuredReviewDraft(findings=findings_with_display)
@@ -166,8 +169,8 @@ def build_reviews_router(
                     )
                     # Replace English finding prose with zh display fields in the report
                     report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
-                    # Final quality guard: normalize remaining English leakage from display.zh
-                    report_markdown = normalize_zh_markdown(report_markdown)
+                    # Final quality guard: metadata repair + normalize remaining English leakage
+                    report_markdown = finalize_zh_report(report_markdown)
                 elif localization_service is not None:
                     # Legacy reviews: use localization service as fallback
                     source_updated_at = row.get("updated_at", "")
@@ -327,6 +330,8 @@ def build_reviews_router(
                         display=display,
                     )
                     findings_with_display.append(finding)
+                # Repair display.zh fields before rendering (centralized zh pipeline)
+                findings_with_display = repair_zh_findings(findings_with_display)
                 from backend.models.structured_review import StructuredReviewDraft
 
                 draft = StructuredReviewDraft(findings=findings_with_display)
@@ -334,8 +339,8 @@ def build_reviews_router(
                     content, normalized_lang, findings=findings_with_display,
                 )
                 content = _render_bilingual_report(content, draft, normalized_lang)
-                # Final quality guard: normalize remaining English leakage from display.zh
-                content = normalize_zh_markdown(content)
+                # Final quality guard: metadata repair + normalize remaining English leakage
+                content = finalize_zh_report(content)
                 # Replace raw ev_* IDs with [E1]/[E2] display refs
                 content = _display_map.replace_in_text(content)
             elif localization_service is not None:

@@ -2,15 +2,15 @@
 
 > Harness version: v1.2
 > Last updated: 2026-06-17
-> Verified with: `pytest` and frontend tests on 2026-06-17
+> Verified with: `pytest` and frontend tests on 2026-06-17 (V3.7)
 
 ## Current Test Inventory
 
-`pytest` collected 834 tests: 833 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 911 tests: 910 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 721 | 48 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, finding title generation, V3.5.7 inline patterns, prose replacements, validation backticks, orchestrator concurrency, benchmark preflight auth, pipeline provider label resolution, V3.5.9 finding quality, no_findings_reason parsing, prompt guidance, validator severity preservation, Chinese prompt rules, code fence stripping, CodeSmellAgent schema guidance, timing attribution parsing, bilingual code_smell validation, V3.5.9 priority layer, V3.5.9 Chinese report quality, V3.5.10 grouped agent mode defensive parsing, pipeline all-agent failure status handling, code fence extraction with surrounding text, provider resolution/MiMo key handling, llm_mode routing/error visibility, and V3.5.12 Chinese quality guard. |
+| Unit | 798 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, v3 multi-agent default engine behavior, configurable LLM timeouts, timeout retry, failed-agent persistence, useful finding fields, report localization, V3.5.5 terminology, prose replacement, finding title generation, V3.5.7 inline patterns, prose replacements, validation backticks, orchestrator concurrency, benchmark preflight auth, pipeline provider label resolution, V3.5.9 finding quality, no_findings_reason parsing, prompt guidance, validator severity preservation, Chinese prompt rules, code fence stripping, CodeSmellAgent schema guidance, timing attribution parsing, bilingual code_smell validation, V3.5.9 priority layer, V3.5.9 Chinese report quality, V3.5.10 grouped agent mode defensive parsing, pipeline all-agent failure status handling, code fence extraction with surrounding text, provider resolution/MiMo key handling, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, and V3.7 centralized Chinese presentation pipeline. |
 | Integration | 88 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
@@ -60,6 +60,7 @@
 | `tests/unit/test_v3_evaluation_metrics.py` | 4 | Hallucination, quality, per-agent, and deterministic retrieval evaluation metrics. |
 | `tests/unit/test_v3_hardening_matrix.py` | 48 | Secret redaction, sandbox boundaries, evidence stability, structured validation, real LLM opt-in, and deduplication matrix coverage. |
 | `tests/unit/test_structured_review.py` | 6 | Markdown parsing, structured findings, contract ordering, cycle compression, and lossless context-aware round trips. |
+| `tests/unit/test_zh_presentation.py` | 77 | V3.7 centralized Chinese presentation pipeline: English leakage detection, zh field repair with category templates, validation_tests repair, metadata repair (evidence labels, repo summary), allowed English preservation, en report unchanged, old reviews still render, no secrets, and V3.6 regression coverage. |
 
 ## Integration Tests
 
