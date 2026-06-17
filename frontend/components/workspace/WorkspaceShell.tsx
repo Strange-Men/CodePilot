@@ -12,6 +12,7 @@ import { type WorkspaceTab, WorkspaceTabs } from "@/components/workspace/Workspa
 import { useLanguage } from "@/hooks/useLanguage";
 import { useReviewPolling } from "@/hooks/useReviewPolling";
 import {
+  CodePilotApiError,
   createReview,
   deleteReview,
   getReview,
@@ -99,7 +100,11 @@ export function WorkspaceShell() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setStructuredError(err instanceof Error ? err.message : "Unable to load structured review data.");
+          if (err instanceof CodePilotApiError && err.code === "review_not_found") {
+            handleStaleReview(review.task_id);
+          } else {
+            setStructuredError(err instanceof Error ? err.message : "Unable to load structured review data.");
+          }
         }
       })
       .finally(() => {
@@ -125,8 +130,11 @@ export function WorkspaceShell() {
           );
         }
       })
-      .catch(() => {
-        // Silent fallback — the existing report remains visible
+      .catch((err) => {
+        if (!cancelled && err instanceof CodePilotApiError && err.code === "review_not_found") {
+          handleStaleReview(review.task_id);
+        }
+        // Other errors: silent fallback — the existing report remains visible
       });
     return () => {
       cancelled = true;
@@ -192,6 +200,17 @@ export function WorkspaceShell() {
     }
   }
 
+  function handleStaleReview(staleTaskId: string) {
+    setHistory((current) => current.filter((item) => item.task_id !== staleTaskId));
+    if (review?.task_id === staleTaskId) {
+      setReview(null);
+      setTaskId(null);
+      setFindings([]);
+      setAgents([]);
+      setActiveTab("overview");
+    }
+  }
+
   return (
     <main className="min-h-dvh bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
@@ -243,6 +262,7 @@ export function WorkspaceShell() {
           onLlmModeChange={setLlmMode}
           onRepoUrlChange={changeRepoUrl}
           onSelectReview={selectHistoricalReview}
+          onStaleReview={handleStaleReview}
           onSubmit={submitReview}
           repoUrl={repoUrl}
           review={review}

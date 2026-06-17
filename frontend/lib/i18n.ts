@@ -170,6 +170,12 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "history.loadingReviews": "Loading previous reviews",
     "history.confirm": "Confirm",
 
+    // Export errors
+    "export.reviewNotFound": "Report not found. The backend may have been redeployed and temporary data cleared. Please re-run the review.",
+    "export.notReady": "This report is not yet available for export. Please wait for the review to complete or re-run it.",
+    "export.networkError": "Export failed. Please check your network connection or try again later.",
+    "export.staleHistoryRemoved": "This review no longer exists and has been removed from history.",
+
     // Error page
     "error.title": "CodePilot could not render this page",
     "error.description": "Your review data is safe. Retry the page, or reload a previous report from history.",
@@ -365,6 +371,12 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "history.deleteReview": "删除审查",
     "history.loadingReviews": "加载历史审查",
     "history.confirm": "确认",
+
+    // Export errors
+    "export.reviewNotFound": "报告不存在，可能是后端重新部署后临时数据已清空。请重新运行审查。",
+    "export.notReady": "当前报告尚不可导出，请等待审查完成或重新运行。",
+    "export.networkError": "导出失败，请检查网络或稍后重试。",
+    "export.staleHistoryRemoved": "该审查已不存在，已从历史记录中移除。",
 
     // Error page
     "error.title": "CodePilot 无法渲染此页面",

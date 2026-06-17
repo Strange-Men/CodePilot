@@ -1337,3 +1337,144 @@ test("English mode remains unchanged after zh fixes", () => {
   assert.match(html, /Evidence/);
   assert.match(html, /confidence/);
 });
+
+// --- V3.5.12 Export and stale history tests ---
+
+test("export URL includes lang=zh when language is zh", () => {
+  const { getReviewExportUrl } = require("../lib/api");
+  const url = getReviewExportUrl("task-1", { lang: "zh" });
+  assert.match(url, /lang=zh/);
+  assert.match(url, /\/export/);
+});
+
+test("export URL has no lang param for English", () => {
+  const { getReviewExportUrl } = require("../lib/api");
+  const url = getReviewExportUrl("task-1", { lang: "en" });
+  assert.doesNotMatch(url, /lang=/);
+});
+
+test("exportReview uses fetch and returns Blob on success", async () => {
+  const { exportReview } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  const mdContent = "# Test Report";
+
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(mdContent, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="codepilot-review-abc123-zh.md"'
+      }
+    });
+  };
+
+  try {
+    const result = await exportReview("task-1", { lang: "zh" });
+    assert.match(requestedUrl, /lang=zh/);
+    assert.ok(result.blob instanceof Blob);
+    assert.equal(result.filename, "codepilot-review-abc123-zh.md");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("exportReview uses fallback filename when Content-Disposition is missing", async () => {
+  const { exportReview } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => {
+    return new Response("# Report", {
+      status: 200,
+      headers: { "Content-Type": "text/markdown; charset=utf-8" }
+    });
+  };
+
+  try {
+    const result = await exportReview("task-1", { lang: "en" });
+    assert.match(result.filename, /codepilot-review-/);
+    assert.match(result.filename, /\.md$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("exportReview throws CodePilotApiError on 404 review_not_found", async () => {
+  const { exportReview, CodePilotApiError } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({ error: "Review not found", code: "review_not_found", detail: "Not found" }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    await exportReview("stale-task", { lang: "en" });
+    assert.fail("Should have thrown");
+  } catch (err) {
+    assert.ok(err instanceof CodePilotApiError);
+    assert.equal(err.code, "review_not_found");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("exportReview throws CodePilotApiError on 409 review_not_ready", async () => {
+  const { exportReview, CodePilotApiError } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({ error: "Review not ready", code: "review_not_ready", detail: "Not ready" }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    await exportReview("task-1", { lang: "en" });
+    assert.fail("Should have thrown");
+  } catch (err) {
+    assert.ok(err instanceof CodePilotApiError);
+    assert.equal(err.code, "review_not_ready");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("exportReview calls lang=en without query param", async () => {
+  const { exportReview } = require("../lib/api");
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response("# Report", {
+      status: 200,
+      headers: { "Content-Type": "text/markdown" }
+    });
+  };
+
+  try {
+    await exportReview("task-1", { lang: "en" });
+    assert.doesNotMatch(requestedUrl, /lang=/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("zh export error messages are defined", () => {
+  assert.ok(t("zh", "export.reviewNotFound").length > 0);
+  assert.ok(t("zh", "export.notReady").length > 0);
+  assert.ok(t("zh", "export.networkError").length > 0);
+  assert.ok(t("zh", "export.staleHistoryRemoved").length > 0);
+});
+
+test("en export error messages are defined", () => {
+  assert.ok(t("en", "export.reviewNotFound").length > 0);
+  assert.ok(t("en", "export.notReady").length > 0);
+  assert.ok(t("en", "export.networkError").length > 0);
+  assert.ok(t("en", "export.staleHistoryRemoved").length > 0);
+});

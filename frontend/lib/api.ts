@@ -61,6 +61,33 @@ export function getReviewExportUrl(taskId: string, opts?: { lang?: string }): st
   return `${API_BASE}/api/reviews/${taskId}/export${langParam}`;
 }
 
+export type ExportResult = {
+  blob: Blob;
+  filename: string;
+};
+
+export async function exportReview(taskId: string, opts?: { lang?: string }): Promise<ExportResult> {
+  const langParam = opts?.lang && opts.lang !== "en" ? `?lang=${encodeURIComponent(opts.lang)}` : "";
+  const response = await fetch(`${API_BASE}/api/reviews/${taskId}/export${langParam}`);
+
+  if (!response.ok) {
+    throw await createApiError(response);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition");
+  let filename = `codepilot-review-${taskId.slice(0, 8)}-${opts?.lang || "en"}.md`;
+
+  if (disposition) {
+    const match = disposition.match(/filename="?([^";\n]+)"?/);
+    if (match?.[1]) {
+      filename = match[1];
+    }
+  }
+
+  return { blob, filename };
+}
+
 export class CodePilotApiError extends Error {
   code: string;
   detail: string;

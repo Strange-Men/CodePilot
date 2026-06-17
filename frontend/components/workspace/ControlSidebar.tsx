@@ -1,11 +1,11 @@
 import { Download, ExternalLink, LoaderCircle, Radio } from "lucide-react";
 import type { FormEvent } from "react";
-import React from "react";
+import React, { useCallback, useState } from "react";
 
 import { ReviewSubmissionForm } from "@/components/ReviewSubmissionForm";
 import { Button } from "@/components/ui/button";
 import { ReviewHistoryPanel } from "@/components/workspace/ReviewHistoryPanel";
-import { getReviewExportUrl } from "@/lib/api";
+import { exportReview, CodePilotApiError } from "@/lib/api";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedStatusLabels, t } from "@/lib/i18n";
 import type { ReviewResponse } from "@/lib/types";
@@ -24,6 +24,7 @@ type ControlSidebarProps = {
   onLlmModeChange: (mode: "mock" | "mimo") => void;
   onRepoUrlChange: (repoUrl: string) => void;
   onSelectReview: (review: ReviewResponse) => void;
+  onStaleReview: (taskId: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   repoUrl: string;
   review: ReviewResponse | null;
@@ -46,6 +47,7 @@ export function ControlSidebar({
   onLlmModeChange,
   onRepoUrlChange,
   onSelectReview,
+  onStaleReview,
   onSubmit,
   repoUrl,
   review,
@@ -55,6 +57,40 @@ export function ControlSidebar({
 }: ControlSidebarProps) {
   const currentTaskId = review?.task_id || taskId;
   const statusLabels = getLocalizedStatusLabels(language);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = useCallback(async () => {
+    if (!review || review.status !== "completed") return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { blob, filename } = await exportReview(review.task_id, { lang: language });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      if (err instanceof CodePilotApiError) {
+        if (err.code === "review_not_found") {
+          setExportError(t(language, "export.reviewNotFound"));
+          onStaleReview(review.task_id);
+        } else if (err.code === "review_not_ready") {
+          setExportError(t(language, "export.notReady"));
+        } else {
+          setExportError(err.detail || t(language, "export.networkError"));
+        }
+      } else {
+        setExportError(t(language, "export.networkError"));
+      }
+    } finally {
+      setExporting(false);
+    }
+  }, [review, language, onStaleReview]);
 
   return (
     <aside className="rounded-xl border border-border bg-card p-5 shadow-panel lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
@@ -124,13 +160,26 @@ export function ControlSidebar({
       ) : null}
 
       {review?.status === "completed" ? (
-        <Button asChild className="mt-4 w-full" variant="outline">
-          <a href={getReviewExportUrl(review.task_id, { lang: language })}>
-            <Download className="h-4 w-4" />
+        <>
+          <Button
+            className="mt-4 w-full"
+            disabled={exporting}
+            onClick={() => void handleExport()}
+            variant="outline"
+          >
+            {exporting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             {t(language, "sidebar.exportMarkdown")}
-            <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
-          </a>
-        </Button>
+          </Button>
+          {exportError ? (
+            <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive" role="alert">
+              {exportError}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       <ReviewHistoryPanel
