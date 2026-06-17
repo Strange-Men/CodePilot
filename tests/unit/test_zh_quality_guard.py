@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from backend.reviewers.localized_report_renderer import render_localized_report
 from backend.reviewers.zh_quality import (
     _RAW_EV_RE,
     _SEVERITY_REPLACEMENTS,
@@ -222,6 +223,9 @@ def changes_require_updates():
 class TestNormalizeZhText:
     """Test text field normalization."""
 
+    def test_none_is_safe(self):
+        assert normalize_zh_text(None) is None
+
     def test_phrase_replacement(self):
         text = "Changes require updates in multiple locations, increasing bug risk and maintenance effort."
         result = normalize_zh_text(text)
@@ -271,6 +275,122 @@ class TestNormalizeZhText:
 
     def test_empty_text(self):
         assert normalize_zh_text("") == ""
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.5.12 final zh metadata cleanup
+# ---------------------------------------------------------------------------
+
+
+class TestV3512FinalZhMetadataCleanup:
+    """Regression tests for final Chinese report/export metadata cleanup."""
+
+    def test_summary_metadata_cleanup(self):
+        md = (
+            "CodePilot 审查了 83 Python source files；"
+            "analyzed 83 and skipped 0；"
+            "83 of 83 supported source files。"
+        )
+        result = normalize_zh_markdown(md)
+
+        assert "83 个 Python 源文件" in result
+        assert "已分析 83 个，已跳过 0 个" in result
+        assert "已分析 83 / 83 个支持的源文件" in result
+        assert "Python source files" not in result
+        assert "supported source files" not in result
+
+    def test_repo_overview_label_cleanup(self):
+        md = """| Area | Files | Why |
+| --- | --- | --- |
+| Entry points | `app.py` | startup |
+| Core modules | `core.py` | central |
+| Dependency hubs | `hub.py` | fan-in |
+
+## Cycle group 1
+- Python repository
+- source files
+- analyzed files
+- skipped files
+"""
+        result = normalize_zh_markdown(md)
+
+        assert "入口文件" in result
+        assert "核心模块" in result
+        assert "依赖枢纽" in result
+        assert "循环依赖组 1" in result
+        assert "Python 仓库" in result
+        assert "源文件" in result
+        assert "已分析文件" in result
+        assert "已跳过文件" in result
+
+    def test_severity_status_and_display_values_cleanup(self):
+        md = """| Agent | Status | Severity |
+| --- | --- | --- |
+| A1 | completed | high |
+| A2 | validated | medium |
+| A3 | running | low |
+| A4 | failed | info |
+
+状态：completed；严重性：medium；Confidence: n/a；validated symbols `foo`；no findings。
+"""
+        result = normalize_zh_markdown(md)
+
+        assert "状态" in result
+        assert "| 已完成 | 高 |" in result
+        assert "| 已验证 | 中 |" in result
+        assert "| 运行中 | 低 |" in result
+        assert "| 失败 | 信息 |" in result
+        assert "状态：已完成" in result
+        assert "严重性：中" in result
+        assert "置信度 不适用" in result
+        assert "已验证符号 `foo`" in result
+        assert "暂未发现明确问题" in result
+
+    def test_mixed_count_phrases(self):
+        result = normalize_zh_text("4 medium; 2 medium, 2 low; 1 high, 3 info")
+
+        assert result == "4 个中风险; 2 个中风险，2 个低风险; 1 个高风险，3 个信息项"
+
+    def test_allowed_tech_tokens_preserved(self):
+        md = "Python/Flask/API/URL/JSON/HTTP/CLI/UI/DB/SQL 与 MiMo/OpenAI 均应保留。"
+        result = normalize_zh_markdown(md)
+
+        for token in ["Python", "Flask", "API", "URL", "JSON", "HTTP", "CLI", "UI", "DB", "SQL", "MiMo", "OpenAI"]:
+            assert token in result
+
+    def test_file_paths_inline_code_and_code_blocks_preserved(self):
+        md = """路径 backend/reviewers/zh_quality.py 保留；`source files` 和 `completed` 保留。
+
+```text
+Recommendation: keep source files and completed unchanged in code.
+```
+"""
+        result = normalize_zh_markdown(md)
+
+        assert "backend/reviewers/zh_quality.py" in result
+        assert "`source files`" in result
+        assert "`completed`" in result
+        assert "Recommendation: keep source files and completed unchanged in code." in result
+
+    def test_e1_e2_refs_preserved_and_raw_ev_hidden(self):
+        md = "证据 [E1] [E2] raw ev_aabbccddeeff00112233"
+        result = normalize_zh_markdown(md)
+
+        assert "[E1]" in result
+        assert "[E2]" in result
+        assert "ev_aabbccddeeff00112233" not in result
+        assert "[E?]" in result
+
+    def test_hyphenated_english_fallback_title_not_mangled(self):
+        result = normalize_zh_text("Evidence-grounded architecture boundary; Evidence: [E1]")
+
+        assert "Evidence-grounded architecture boundary" in result
+        assert "证据引用 [E1]" in result
+
+    def test_english_renderer_unchanged(self):
+        report = "CodePilot analyzed 83 Python source files and produced 4 medium findings."
+
+        assert render_localized_report(report, "en") == report
 
 
 # ---------------------------------------------------------------------------
