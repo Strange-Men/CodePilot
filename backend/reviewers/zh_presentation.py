@@ -82,6 +82,13 @@ _TITLE_TEMPLATES: dict[str, str] = {
 
 _DESCRIPTION_TEMPLATE = "该问题需要关注和审查。"
 
+_DESCRIPTION_TEMPLATES: dict[str, str] = {
+    "architecture": "相关证据显示该区域涉及模块发现、入口识别或公共边界，变更前需要确认现有行为。",
+    "code_smell": "相关证据显示该区域存在重复逻辑、复杂职责或维护风险。",
+    "maintainability": "相关证据显示该区域后续维护成本较高，建议优先补充测试和边界说明。",
+    "refactor": "相关证据显示该区域存在可简化的结构或路径处理逻辑，适合在测试保护下小步重构。",
+}
+
 _CONFIDENCE_RATIONALE_TEMPLATE = "基于提示上下文中提供的证据记录。"
 
 _GENERIC_IMPACT = "该问题可能影响代码质量和后续维护。"
@@ -90,6 +97,118 @@ _GENERIC_FIRST_STEP = "为引用的边界添加针对性测试，然后审查依
 _GENERIC_CAVEAT = "该发现基于结构化信号；行动前请结合生产行为确认。"
 
 _VALIDATION_TEST_REPLACEMENT = "运行测试套件，确认没有新增警告或失败。"
+
+# ---------------------------------------------------------------------------
+# Indexer metadata English→Chinese repairs (post-render)
+# ---------------------------------------------------------------------------
+
+_INDEXER_METADATA_REPAIRS: list[tuple[str, str]] = [
+    # Full phrase patterns from indexer.py (longest first)
+    (
+        r"resolved internal relationships",
+        "已解析内部依赖关系",
+    ),
+    (
+        r"modules participate in cycles",
+        "个模块参与循环依赖",
+    ),
+    (
+        r"hubs:",
+        "依赖枢纽：",
+    ),
+    (
+        r"Entry points:",
+        "入口文件：",
+    ),
+    (
+        r"Core modules:",
+        "核心模块：",
+    ),
+    (
+        r"Supporting modules:",
+        "支撑模块：",
+    ),
+    (
+        r"Dependency structure:",
+        "依赖结构：",
+    ),
+    # "analyzed X and skipped Y" pattern
+    (
+        r"analyzed\s+(\d+)\s+and\s+skipped\s+(\d+)",
+        r"已分析 \1 个，已跳过 \2 个",
+    ),
+    # "Python repository with N Python files"
+    (
+        r"Python repository with\s+(\d+)\s+Python files",
+        r"Python 仓库，包含 \1 个 Python 源文件",
+    ),
+    # Standalone "Python files" after the above has run
+    (
+        r"Python files",
+        "Python 源文件",
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# MiMo English sentence starters (final gate)
+# ---------------------------------------------------------------------------
+
+_MIMO_ENGLISH_SENTENCE_STARTERS: tuple[str, ...] = (
+    "The test cases",
+    "The tests",
+    "Consider simplifying",
+    "Consider rewriting",
+    "Consider refactoring",
+    "May lead to",
+    "Might lead to",
+    "Could lead to",
+    "Future changes to",
+    "Future modifications",
+    "Need to ensure",
+    "Needs to ensure",
+    "This is an established",
+    "The current implementation",
+    "The selected evidence",
+    "This evidence was derived",
+    "If this boundary",
+    "shared dependencies",
+    "This finding is based",
+    "Evidence-grounded",
+    "Execution begins",
+    "The analysis identified",
+    "This pattern",
+    "This approach",
+    "This code",
+    "These changes",
+    "This refactor",
+    "The codebase",
+    "The module",
+    "The function",
+    "The class",
+    "Note that",
+    "Please note",
+    "It is important",
+    "It should be",
+    "It is recommended",
+    "You should",
+    "We recommend",
+    "We suggest",
+    "One option",
+    "One approach",
+    "A possible",
+    "A potential",
+    "An alternative",
+    "Instead of",
+    "Rather than",
+    "In order to",
+    "As a result",
+    "Due to the",
+    "Because of",
+    "In the future",
+    "Going forward",
+    "For example",
+    "For instance",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +392,7 @@ def repair_zh_field(
     elif field_name == "title":
         return _TITLE_TEMPLATES.get(cat, text)
     elif field_name == "description":
-        return _DESCRIPTION_TEMPLATE
+        return _DESCRIPTION_TEMPLATES.get(cat, _DESCRIPTION_TEMPLATE)
     else:
         return text
 
@@ -427,17 +546,7 @@ def assert_no_english_natural_language_zh(markdown: str) -> list[str]:
                 leaks.append(line_s[:120])
 
             # Also check for known English sentence starters
-            english_starters = (
-                "The selected evidence",
-                "This evidence was derived",
-                "If this boundary",
-                "shared dependencies",
-                "This finding is based",
-                "Evidence-grounded",
-                "Execution begins",
-                "The analysis identified",
-            )
-            for starter in english_starters:
+            for starter in _MIMO_ENGLISH_SENTENCE_STARTERS:
                 if line_s.startswith(starter):
                     if line_s[:120] not in leaks:
                         leaks.append(line_s[:120])
@@ -530,12 +639,19 @@ def repair_zh_metadata(markdown: str) -> str:
     other English fragments that the rendering pipeline produces
     but doesn't translate.
 
-    Three-layer approach:
+    Four-layer approach:
     1. Full-sentence replacements (before partial matches corrupt them)
-    2. Phrase-level targeted replacements
-    3. Generic mixed-line sweep (catch-all for remaining English prose)
+    2. Indexer metadata repairs (resolved relationships, hubs, cycles)
+    3. Phrase-level targeted replacements
+    4. Generic mixed-line sweep (catch-all for remaining English prose)
     """
     result = markdown
+
+    # === Layer 0: [[E?]] double-bracket cleanup ===
+    # MiMo may produce [[E?]] instead of [E?]; normalize to [E?]
+    result = result.replace("[[E?]]", "[E?]")
+    # Also fix any other double-bracket evidence refs like [[E1]]
+    result = re.sub(r"\[\[E(\d+)\]\]", r"[E\1]", result)
 
     # === Layer 1: full-sentence replacements (longest first) ===
 
@@ -581,6 +697,12 @@ def repair_zh_metadata(markdown: str) -> str:
         "共享依赖或重构边界",
     )
 
+    # === Layer 1.5: indexer metadata repairs ===
+    # The indexer generates English metadata strings that leak into zh reports.
+    # Apply regex replacements in order (longest/most-specific first).
+    for pattern, replacement in _INDEXER_METADATA_REPAIRS:
+        result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
+
     # === Layer 2: phrase-level targeted replacements ===
 
     # Evidence appendix labels (from evidence_display.build_evidence_appendix)
@@ -589,7 +711,7 @@ def repair_zh_metadata(markdown: str) -> str:
     result = result.replace("* Description：", "* 说明：")
     result = result.replace("* Related findings：", "* 关联问题：")
 
-    # Repo summary metadata
+    # Repo summary metadata (remaining after indexer repairs)
     result = result.replace("Python 仓库 with", "Python 仓库，包含")
     result = result.replace("Python source files", "Python 源文件")
     result = result.replace("Python files", "Python 源文件")

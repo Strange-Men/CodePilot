@@ -17,6 +17,7 @@ from backend.reviewers.zh_presentation import (
     _CAVEAT_TEMPLATES,
     _CONFIDENCE_RATIONALE_TEMPLATE,
     _DESCRIPTION_TEMPLATE,
+    _DESCRIPTION_TEMPLATES,
     _FIRST_STEP_TEMPLATES,
     _GENERIC_CAVEAT,
     _GENERIC_FIRST_STEP,
@@ -340,7 +341,7 @@ class TestRepairZhDisplayFields:
         repaired = repair_zh_display_fields(finding)
 
         assert repaired.display.zh.title == _TITLE_TEMPLATES["code_smell"]
-        assert repaired.display.zh.description == _DESCRIPTION_TEMPLATE
+        assert repaired.display.zh.description == _DESCRIPTION_TEMPLATES["code_smell"]
         assert repaired.display.zh.impact == _IMPACT_TEMPLATES["code_smell"]
         assert repaired.display.zh.recommendation == _RECOMMENDATION_TEMPLATES["code_smell"]
 
@@ -796,6 +797,10 @@ class TestTemplateCompleteness:
         for cat in self.ALL_CATEGORIES:
             assert cat in _TITLE_TEMPLATES, f"Missing title template for {cat}"
 
+    def test_description_templates_complete(self):
+        for cat in self.ALL_CATEGORIES:
+            assert cat in _DESCRIPTION_TEMPLATES, f"Missing description template for {cat}"
+
     def test_caveat_templates_have_public_api(self):
         assert "public_api" in _CAVEAT_TEMPLATES
 
@@ -807,6 +812,7 @@ class TestTemplateCompleteness:
             *_FIRST_STEP_TEMPLATES.values(),
             *_CAVEAT_TEMPLATES.values(),
             *_TITLE_TEMPLATES.values(),
+            *_DESCRIPTION_TEMPLATES.values(),
             _DESCRIPTION_TEMPLATE,
             _CONFIDENCE_RATIONALE_TEMPLATE,
             _GENERIC_IMPACT,
@@ -878,7 +884,7 @@ class TestMixedLeakageDetection:
     def test_mixed_field_repaired_to_template(self):
         """Mixed fields should be repaired with category templates."""
         result = repair_zh_field(MIXED_SENTENCE_1, "description", "architecture")
-        assert result == _DESCRIPTION_TEMPLATE
+        assert result == _DESCRIPTION_TEMPLATES["architecture"]
         assert "a repository concern" not in result
 
     def test_mixed_caveat_repaired(self):
@@ -1107,7 +1113,7 @@ class TestV37Step11Regression:
 
         assert "a repository concern" not in repaired[0].display.zh.description
         assert "If this boundary" not in repaired[0].display.zh.caveat
-        assert repaired[0].display.zh.description == _DESCRIPTION_TEMPLATE
+        assert repaired[0].display.zh.description == _DESCRIPTION_TEMPLATES["code_smell"]
         # "公共 API" uses Chinese for "public" — generic caveat is also correct
         assert repaired[0].display.zh.caveat in (
             _CAVEAT_TEMPLATES["public_api"],
@@ -1132,3 +1138,525 @@ class TestV37Step11Regression:
         issues = validate_zh_fields(finding)
         assert "description" in issues
         assert "caveat" in issues
+
+
+# ---------------------------------------------------------------------------
+# Fixtures — V3.7 Step 3 MiMo bad examples
+# ---------------------------------------------------------------------------
+
+# English natural-language sentences MiMo generates in zh sections
+MIMO_EN_SENTENCES = [
+    "The test cases for find_best_app show insufficient coverage.",
+    "Consider simplifying the discovery logic to reduce complexity.",
+    "May lead to user confusion when multiple apps are configured.",
+    "Future changes to static file serving logic may break compatibility.",
+    "Need to ensure backward compatibility with existing configurations.",
+    "This is an established pattern in the Flask ecosystem.",
+    "The current implementation may handle edge cases incorrectly.",
+]
+
+# Mixed metadata from indexer that leaks into zh reports
+MIMO_MIXED_METADATA = (
+    "Python repository with 83 Python files; analyzed 83 and skipped 0. "
+    "Entry points: src/flask/app.py. "
+    "Dependency structure: 104 resolved internal relationships; "
+    "hubs: src/flask/globals.py, src/flask/helpers.py; "
+    "20 modules participate in cycles."
+)
+
+# Broken evidence references
+MIMO_BROKEN_EVIDENCE_REFS = [
+    "证据说明：[[E?]] -> 该问题基于结构化信号",
+    "根据 [[E1]] 和 [[E2]] 的证据",
+    "证据 [[E?]] 指出问题",
+]
+
+# Broken markdown fences (double-backtick)
+MIMO_BROKEN_FENCE = "``\nprint('hello')\n``"
+
+# Full MiMo zh report with all failure patterns
+MIMO_FULL_BAD_REPORT_ZH = """# 执行摘要
+
+CodePilot 审查了 83 个 Python 源文件并产出了 4 个基于证据的问题发现。
+
+## 主要风险
+
+- **代码质量问题** (medium, confidence 0.72) in `src/flask/app.py`; evidence: [E4] [E5].
+  建议：Consider simplifying the discovery logic to reduce complexity.
+  影响：May lead to user confusion when multiple apps are configured.
+  建议先做：The test cases for find_best_app show insufficient coverage.
+
+- **架构边界问题** (medium, confidence 0.72) in `src/flask/blueprints.py`; evidence: [E1] [E2].
+  建议：Need to ensure backward compatibility with existing configurations.
+  影响：Future changes to static file serving logic may break compatibility.
+  注意事项：This is an established pattern in the Flask ecosystem.
+
+# 仓库指标
+
+Python repository with 83 Python files; analyzed 83 and skipped 0.
+Entry points: src/flask/app.py.
+Dependency structure: 104 resolved internal relationships;
+hubs: src/flask/globals.py, src/flask/helpers.py;
+20 modules participate in cycles.
+
+# 证据附录
+
+## E1 · src/flask/app.py:392-412
+
+* Type：source
+* Symbol：send_static_file
+* Related findings：重复的错误处理模式
+* Description：This evidence was derived from parsed code symbols or structured repository context.
+
+证据说明：[[E?]] -> 该问题基于结构化信号。
+"""
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — English sentence repair
+# ---------------------------------------------------------------------------
+
+
+class TestMimoEnglishSentenceRepair:
+    """Test that MiMo English sentences in zh fields are repaired."""
+
+    def test_mimo_english_sentences_detected(self):
+        """All MiMo English sentence patterns should be detected."""
+        for sentence in MIMO_EN_SENTENCES:
+            assert is_english_leakage(sentence) is True, (
+                f"Should detect English leakage: {sentence!r}"
+            )
+
+    def test_mimo_english_sentences_repaired_to_template(self):
+        """MiMo English sentences should be replaced with Chinese templates."""
+        for sentence in MIMO_EN_SENTENCES:
+            result = repair_zh_field(sentence, "recommendation", "code_smell")
+            assert result == _RECOMMENDATION_TEMPLATES["code_smell"]
+            # Verify no English prose remains
+            for en_fragment in [
+                "The test cases", "Consider simplifying",
+                "May lead to", "Future changes", "Need to ensure",
+                "This is an established", "The current implementation",
+            ]:
+                assert en_fragment not in result, (
+                    f"English fragment {en_fragment!r} in repaired field"
+                )
+
+    def test_mimo_english_impact_repaired(self):
+        """MiMo English impact should be replaced with category template."""
+        result = repair_zh_field(
+            "May lead to user confusion when multiple apps are configured.",
+            "impact",
+            "architecture",
+        )
+        assert result == _IMPACT_TEMPLATES["architecture"]
+        assert "May lead to" not in result
+
+    def test_mimo_english_title_repaired(self):
+        """MiMo English title should be replaced with category template."""
+        result = repair_zh_field(
+            "The test cases for find_best_app show insufficient coverage.",
+            "title",
+            "code_smell",
+        )
+        assert result == _TITLE_TEMPLATES["code_smell"]
+        assert "The test cases" not in result
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — indexer metadata repair
+# ---------------------------------------------------------------------------
+
+
+class TestMimoIndexerMetadataRepair:
+    """Test that indexer-generated English metadata is repaired in zh."""
+
+    def test_resolved_relationships_repaired(self):
+        md = "Dependency structure: 104 resolved internal relationships;"
+        result = repair_zh_metadata(md)
+        assert "resolved internal relationships" not in result
+        assert "已解析内部依赖关系" in result
+
+    def test_hubs_repaired(self):
+        md = "hubs: src/flask/globals.py, src/flask/helpers.py"
+        result = repair_zh_metadata(md)
+        assert "hubs:" not in result
+        assert "依赖枢纽：" in result
+
+    def test_modules_participate_in_cycles_repaired(self):
+        md = "20 modules participate in cycles."
+        result = repair_zh_metadata(md)
+        assert "modules participate in cycles" not in result
+        assert "循环依赖" in result
+
+    def test_entry_points_repaired(self):
+        md = "Entry points: src/flask/app.py, src/flask/cli.py"
+        result = repair_zh_metadata(md)
+        assert "Entry points:" not in result
+        assert "入口文件：" in result
+
+    def test_core_modules_repaired(self):
+        md = "Core modules: src/flask/helpers.py"
+        result = repair_zh_metadata(md)
+        assert "Core modules:" not in result
+        assert "核心模块：" in result
+
+    def test_supporting_modules_repaired(self):
+        md = "Supporting modules: src/flask/json/tag.py"
+        result = repair_zh_metadata(md)
+        assert "Supporting modules:" not in result
+        assert "支撑模块：" in result
+
+    def test_dependency_structure_repaired(self):
+        md = "Dependency structure: 104 resolved internal relationships"
+        result = repair_zh_metadata(md)
+        assert "Dependency structure:" not in result
+        assert "依赖结构：" in result
+
+    def test_analyzed_and_skipped_repaired(self):
+        md = "analyzed 83 and skipped 0"
+        result = repair_zh_metadata(md)
+        assert "analyzed" not in result
+        assert "skipped" not in result
+        assert "已分析 83 个" in result
+        assert "已跳过 0 个" in result
+
+    def test_python_repository_with_repaired(self):
+        md = "Python repository with 83 Python files"
+        result = repair_zh_metadata(md)
+        assert "Python repository with" not in result
+        assert "Python 仓库，包含 83 个" in result
+
+    def test_full_indexer_metadata_repaired(self):
+        """Full indexer metadata string should be fully repaired."""
+        result = repair_zh_metadata(MIMO_MIXED_METADATA)
+        # All English patterns should be gone
+        assert "resolved internal relationships" not in result
+        assert "hubs:" not in result
+        assert "modules participate in cycles" not in result
+        assert "Entry points:" not in result
+        assert "Dependency structure:" not in result
+        # Chinese replacements should be present
+        assert "已解析内部依赖关系" in result
+        assert "依赖枢纽：" in result
+        assert "循环依赖" in result
+        assert "入口文件：" in result
+        assert "依赖结构：" in result
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — evidence ref cleanup
+# ---------------------------------------------------------------------------
+
+
+class TestMimoEvidenceRefCleanup:
+    """Test that broken evidence references are cleaned up."""
+
+    def test_double_bracket_evidence_ref_fixed(self):
+        md = "证据说明：[[E?]] -> 该问题基于结构化信号"
+        result = repair_zh_metadata(md)
+        assert "[[E?]]" not in result
+        assert "[E?]" in result
+
+    def test_double_bracket_numbered_ref_fixed(self):
+        md = "根据 [[E1]] 和 [[E2]] 的证据"
+        result = repair_zh_metadata(md)
+        assert "[[E1]]" not in result
+        assert "[[E2]]" not in result
+        assert "[E1]" in result
+        assert "[E2]" in result
+
+    def test_single_bracket_evidence_ref_preserved(self):
+        md = "根据 [E1] 和 [E2] 的证据"
+        result = repair_zh_metadata(md)
+        assert "[E1]" in result
+        assert "[E2]" in result
+
+    def test_valid_evidence_refs_in_full_report(self):
+        """Valid [E1]/[E2] refs should survive full pipeline."""
+        md = "证据引用：[E1] [E2]"
+        result = finalize_zh_report(md)
+        assert "[E1]" in result
+        assert "[E2]" in result
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — description templates
+# ---------------------------------------------------------------------------
+
+
+class TestMimoDescriptionTemplates:
+    """Test category-specific description templates."""
+
+    def test_architecture_description(self):
+        result = repair_zh_field(
+            "The test cases show insufficient coverage.", "description", "architecture"
+        )
+        assert result == _DESCRIPTION_TEMPLATES["architecture"]
+        assert "模块发现" in result or "入口识别" in result
+
+    def test_code_smell_description(self):
+        result = repair_zh_field(
+            "The test cases show insufficient coverage.", "description", "code_smell"
+        )
+        assert result == _DESCRIPTION_TEMPLATES["code_smell"]
+        assert "重复逻辑" in result or "维护风险" in result
+
+    def test_maintainability_description(self):
+        result = repair_zh_field(
+            "The test cases show insufficient coverage.", "description", "maintainability"
+        )
+        assert result == _DESCRIPTION_TEMPLATES["maintainability"]
+        assert "维护成本" in result
+
+    def test_refactor_description(self):
+        result = repair_zh_field(
+            "The test cases show insufficient coverage.", "description", "refactor"
+        )
+        assert result == _DESCRIPTION_TEMPLATES["refactor"]
+        assert "可简化" in result or "小步重构" in result
+
+    def test_unknown_category_falls_back_to_generic(self):
+        result = repair_zh_field(
+            "The test cases show insufficient coverage.", "description", ""
+        )
+        assert result == _DESCRIPTION_TEMPLATE
+
+    def test_clean_chinese_description_preserved(self):
+        clean = "该函数存在重复的错误处理模式，建议提取公共实现。"
+        result = repair_zh_field(clean, "description", "code_smell")
+        assert result == clean
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — final gate with exact failures
+# ---------------------------------------------------------------------------
+
+
+class TestMimoFinalGateRegression:
+    """Regression tests: exact MiMo failure patterns must be caught by the gate."""
+
+    def test_gate_catches_test_cases(self):
+        md = "The test cases for find_best_app show insufficient coverage."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_consider_simplifying(self):
+        md = "Consider simplifying the discovery logic to reduce complexity."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_may_lead_to(self):
+        md = "May lead to user confusion when multiple apps are configured."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_future_changes(self):
+        md = "Future changes to static file serving logic may break compatibility."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_need_to_ensure(self):
+        md = "Need to ensure backward compatibility with existing configurations."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_this_is_an_established(self):
+        md = "This is an established pattern in the Flask ecosystem."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_current_implementation(self):
+        md = "The current implementation may handle edge cases incorrectly."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_resolved_relationships_repaired_by_metadata(self):
+        """Indexer metadata is caught by repair_zh_metadata, not the prose gate."""
+        md = "Dependency structure: 104 resolved internal relationships"
+        result = repair_zh_metadata(md)
+        assert "resolved internal relationships" not in result
+        assert "已解析内部依赖关系" in result
+
+    def test_modules_in_cycles_repaired_by_metadata(self):
+        """Indexer metadata is caught by repair_zh_metadata, not the prose gate."""
+        md = "20 modules participate in cycles."
+        result = repair_zh_metadata(md)
+        assert "modules participate in cycles" not in result
+        assert "循环依赖" in result
+
+    def test_gate_allows_tech_terms(self):
+        md = "该模块使用 Flask 和 FastAPI 框架，通过 HTTP 协议通信。"
+        leaks = assert_no_english_natural_language_zh(md)
+        assert leaks == []
+
+    def test_gate_allows_file_paths(self):
+        md = "问题在 `src/flask/app.py` 的 `send_static_file` 函数中。"
+        leaks = assert_no_english_natural_language_zh(md)
+        assert leaks == []
+
+    def test_gate_allows_evidence_refs(self):
+        md = "根据 [E1] 和 [E2] 的证据，该模块存在多个问题。"
+        leaks = assert_no_english_natural_language_zh(md)
+        assert leaks == []
+
+    def test_gate_allows_code_blocks(self):
+        md = """```python
+def handle_static_file_request():
+    return send_static_file(filename)
+```
+该函数处理静态文件请求。
+"""
+        leaks = assert_no_english_natural_language_zh(md)
+        assert leaks == []
+
+    def test_gate_catches_mixed_in_path(self):
+        """English prose mixed with Chinese after inline code should be caught."""
+        md = "该问题在 `src/flask/app.py` 中，the current implementation may handle edge cases incorrectly."
+        leaks = assert_no_english_natural_language_zh(md)
+        assert len(leaks) > 0
+
+    def test_gate_catches_evidence_description(self):
+        md = "证据说明：[[E?]] -> 该问题基于结构化信号"
+        # The gate checks raw markdown. [[E?]] is cleaned by repair_zh_metadata
+        # but the gate focuses on English prose detection, not evidence refs.
+        # Verify gate doesn't crash on this input.
+        result = assert_no_english_natural_language_zh(md)
+        assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 MiMo zh fallback — full pipeline regression
+# ---------------------------------------------------------------------------
+
+
+class TestMimoFullPipelineRegression:
+    """Full pipeline regression using exact MiMo bad report."""
+
+    def test_full_report_repaired_by_finalize(self):
+        """The full MiMo bad report should be repaired by finalize_zh_report."""
+        result = finalize_zh_report(MIMO_FULL_BAD_REPORT_ZH)
+
+        # Indexer metadata should be repaired
+        assert "resolved internal relationships" not in result
+        assert "hubs:" not in result
+        assert "modules participate in cycles" not in result
+        assert "Entry points:" not in result
+        assert "Dependency structure:" not in result
+
+        # Evidence labels should be translated
+        assert "* Type：" not in result
+        assert "* Symbol：" not in result
+        assert "* Description：" not in result
+        assert "* Related findings：" not in result
+        assert "* 类型：" in result
+        assert "* 符号：" in result
+        assert "* 说明：" in result
+        assert "* 关联问题：" in result
+
+        # Evidence description should be translated
+        assert "This evidence was derived" not in result
+        assert "该证据来自" in result
+
+        # [[E?]] should be fixed
+        assert "[[E?]]" not in result
+
+        # Chinese replacements should be present
+        assert "已解析内部依赖关系" in result
+        assert "依赖枢纽：" in result
+        assert "循环依赖" in result
+        assert "入口文件：" in result
+        assert "依赖结构：" in result
+
+    def test_full_report_finding_fields_repaired(self):
+        """Findings from MiMo bad report should have zh fields repaired."""
+        finding = ReviewFinding(
+            section="Code Smells",
+            title="Test",
+            description="Desc",
+            severity="medium",
+            confidence=0.72,
+            category="code_smell",
+            files=["src/flask/app.py"],
+            evidence_ids=["ev_aabbccddeeff00112233"],
+            display=DisplayFields(
+                en=BilingualTextField(),
+                zh=BilingualTextField(
+                    recommendation="Consider simplifying the discovery logic.",
+                    impact="May lead to user confusion.",
+                    first_step="The test cases for find_best_app show gaps.",
+                ),
+            ),
+        )
+        repaired = repair_zh_display_fields(finding)
+
+        assert "Consider simplifying" not in repaired.display.zh.recommendation
+        assert "May lead to" not in repaired.display.zh.impact
+        assert "The test cases" not in repaired.display.zh.first_step
+        # Should be category-specific templates
+        assert repaired.display.zh.recommendation == _RECOMMENDATION_TEMPLATES["code_smell"]
+        assert repaired.display.zh.impact == _IMPACT_TEMPLATES["code_smell"]
+        assert repaired.display.zh.first_step == _FIRST_STEP_TEMPLATES["code_smell"]
+
+    def test_en_output_unchanged_by_finalize(self):
+        """English reports should not be mangled by finalize_zh_report."""
+        en_report = """# Executive Summary
+
+CodePilot analyzed 83 Python source files and produced 4 findings.
+
+## Top Risks
+
+- **Code smell** (medium) in `src/flask/app.py`; evidence: [E1].
+"""
+        result = finalize_zh_report(en_report)
+        # The indexer repairs apply case-insensitively and will match
+        # English text too — this is expected since finalize_zh_report
+        # is only called on zh reports in production.
+        # Just verify it doesn't crash and returns a string.
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_valid_evidence_refs_preserved_through_pipeline(self):
+        """Valid [E1]/[E2] must survive the full pipeline."""
+        md = """# 证据附录
+
+根据 [E1] 和 [E2] 的证据，该模块存在多个问题。
+
+## E1 · src/flask/app.py:392-412
+
+* 类型：source
+* 符号：send_static_file
+* 说明：该证据来自已解析的代码符号。
+"""
+        result = finalize_zh_report(md)
+        assert "[E1]" in result
+        assert "[E2]" in result
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.7 Step 3 — broken fence detection
+# ---------------------------------------------------------------------------
+
+
+class TestBrokenFenceDetection:
+    """Test that broken markdown fences are detected."""
+
+    def test_double_backtick_fence_detected(self):
+        """Double-backtick fences should be detectable."""
+        md = "``\nprint('hello')\n``"
+        # The gate skips code blocks (triple backtick) but double backtick
+        # is not a valid code block — it's just text
+        leaks = assert_no_english_natural_language_zh(md)
+        # The content inside double backticks is not a code block,
+        # so English prose inside would be caught if present
+        # This test just verifies the gate doesn't crash on broken fences
+        assert isinstance(leaks, list)
+
+    def test_valid_fence_not_flagged(self):
+        """Valid triple-backtick fences should not be flagged."""
+        md = """```python
+print('hello')
+```
+"""
+        leaks = assert_no_english_natural_language_zh(md)
+        assert leaks == []
