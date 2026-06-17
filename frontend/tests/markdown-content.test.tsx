@@ -20,6 +20,19 @@ test("renders GFM tables and highlighted fenced code", () => {
   assert.match(html, /class="hljs-keyword"/);
 });
 
+test("renders evidence references as report links outside code", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownContent>
+      {"Finding cites [E1] and inline `literal [E2]`.\n\n```text\nraw [E3]\n```"}
+    </MarkdownContent>
+  );
+
+  assert.match(html, /href="#report-evidence-appendix"/);
+  assert.match(html, /class="evidence-ref"/);
+  assert.match(html, /literal \[E2\]/);
+  assert.match(html, /raw \[E3\]/);
+});
+
 test("parses optional repository intelligence appendices separately", () => {
   const sections = parseReport(
     "# Repository Insights\nInsights.\n\n# Repository Metrics\nMetrics.\n\n"

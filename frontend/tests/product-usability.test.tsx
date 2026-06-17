@@ -320,10 +320,10 @@ test("switching language does not change evidence IDs", () => {
   );
 
   // Evidence IDs should be identical regardless of language
-  assert.match(htmlEn, /data-evidence-id="E123"/);
-  assert.match(htmlZh, /data-evidence-id="E123"/);
-  assert.match(htmlEn, /data-evidence-id="E124"/);
-  assert.match(htmlZh, /data-evidence-id="E124"/);
+  assert.match(htmlEn, /data-evidence-ref="\[E123\]"/);
+  assert.match(htmlZh, /data-evidence-ref="\[E123\]"/);
+  assert.match(htmlEn, /data-evidence-ref="\[E124\]"/);
+  assert.match(htmlZh, /data-evidence-ref="\[E124\]"/);
 });
 
 test("switching language does not change findings count", () => {
@@ -650,7 +650,7 @@ test("evidence IDs render from structured finding evidence references", () => {
   );
 
   assert.match(html, /data-structured-evidence/);
-  assert.match(html, /data-evidence-id="E123"/);
+  assert.match(html, /data-evidence-ref="\[E123\]"/);
   assert.match(html, /src\/app\.py:10-24/);
   assert.match(html, /build_app/);
 });
@@ -891,8 +891,9 @@ test("Chinese findings render localized prose when API returns it", () => {
   assert.match(html, /依赖方/);
   assert.match(html, /表征测试/);
   assert.match(html, /公共 API/);
-  // Evidence IDs preserved
-  assert.match(html, /ev_abc123/);
+  // Raw evidence IDs are hidden in favor of display refs
+  assert.match(html, /\[E\?\]/);
+  assert.doesNotMatch(html, /ev_abc123/);
   // Files preserved
   assert.match(html, /backend\/api\/reviews\.py/);
   // Severity preserved
@@ -907,9 +908,11 @@ test("Chinese findings preserve evidence IDs regardless of prose language", () =
     <FindingsPanel error={null} findings={zhFindings} language="zh" loading={false} onRetry={() => undefined} />
   );
 
-  // Evidence IDs appear in both
-  assert.match(htmlEn, /E123/);
-  assert.match(htmlZh, /ev_abc123/);
+  // Evidence refs appear in both without raw ev_* leakage
+  assert.match(htmlEn, /\[E123\]/);
+  assert.match(htmlZh, /\[E\?\]/);
+  assert.doesNotMatch(htmlEn, /ev_abc123/);
+  assert.doesNotMatch(htmlZh, /ev_abc123/);
   // Both have severity badges
   assert.match(htmlEn, /data-severity="high"/);
   assert.match(htmlZh, /data-severity="high"/);

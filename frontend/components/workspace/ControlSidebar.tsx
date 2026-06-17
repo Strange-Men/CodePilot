@@ -1,9 +1,10 @@
-import { Download, ExternalLink, LoaderCircle, Radio } from "lucide-react";
+import { Download, LoaderCircle, Radio } from "lucide-react";
 import type { FormEvent } from "react";
 import React, { useCallback, useState } from "react";
 
 import { ReviewSubmissionForm } from "@/components/ReviewSubmissionForm";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ReviewHistoryPanel } from "@/components/workspace/ReviewHistoryPanel";
 import { exportReview, CodePilotApiError } from "@/lib/api";
 import type { Language } from "@/lib/i18n";
@@ -57,6 +58,8 @@ export function ControlSidebar({
 }: ControlSidebarProps) {
   const currentTaskId = review?.task_id || taskId;
   const statusLabels = getLocalizedStatusLabels(language);
+  const currentStatus = review?.status || (taskId ? "queued" : "idle");
+  const currentStatusLabel = review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "sidebar.notStarted");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -95,7 +98,7 @@ export function ControlSidebar({
   return (
     <aside className="rounded-xl border border-border bg-card p-5 shadow-panel lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
       <div>
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+        <p className="eyebrow text-primary">
           {t(language, "sidebar.controlPanel")}
         </p>
         <h2 className="mt-1 text-lg font-semibold tracking-tight">{t(language, "sidebar.repositoryReview")}</h2>
@@ -120,12 +123,12 @@ export function ControlSidebar({
 
       <section aria-label={t(language, "sidebar.currentStatus")} className="mt-5 rounded-xl border border-border bg-panel p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted-foreground">{t(language, "sidebar.currentStatus")}</span>
+          <span className="eyebrow">{t(language, "sidebar.currentStatus")}</span>
           {isRunning ? <LoaderCircle className="h-4 w-4 animate-spin text-primary" /> : <Radio className="h-4 w-4 text-muted-foreground" />}
         </div>
-        <p className="mt-2 text-sm font-semibold">
-          {review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "sidebar.notStarted")}
-        </p>
+        <div className="mt-3">
+          <StatusBadge label={currentStatusLabel} pulse={isRunning} status={currentStatus} />
+        </div>
         {currentTaskId ? (
           <code className="mt-2 block truncate font-mono text-[11px] text-muted-foreground" title={currentTaskId}>
             {currentTaskId}
@@ -134,7 +137,7 @@ export function ControlSidebar({
         {review?.progress ? (
           <div className="mt-3">
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>{review.progress.current_phase}</span>
+              <span className="truncate">{review.progress.current_phase}</span>
               <span className="font-mono">
                 {review.progress.completed_agents}/{review.progress.total_agents}
               </span>
@@ -161,8 +164,16 @@ export function ControlSidebar({
 
       {review?.status === "completed" ? (
         <>
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-start gap-2">
+              <Download className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t(language, "sidebar.exportHint")}
+              </p>
+            </div>
+          </div>
           <Button
-            className="mt-4 w-full"
+            className="mt-3 w-full"
             disabled={exporting}
             onClick={() => void handleExport()}
             variant="outline"

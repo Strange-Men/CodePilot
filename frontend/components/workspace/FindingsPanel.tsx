@@ -3,6 +3,7 @@ import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/workspace/EmptyState";
+import { formatEvidenceDisplayRef } from "@/lib/evidence";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedSeverity, t } from "@/lib/i18n";
 import type { ReviewFindingItem } from "@/lib/types";
@@ -56,7 +57,7 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
 
       {findings.map((finding) => (
         <article
-          className="rounded-xl border border-border bg-card p-5 shadow-panel"
+          className="rounded-xl border border-border bg-card p-5 shadow-panel transition-colors duration-200 hover:border-primary/25 sm:p-6"
           data-finding-id={finding.finding_id}
           key={finding.finding_id}
         >
@@ -135,7 +136,7 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
                   className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 font-mono font-semibold text-primary"
                   key={evidenceId}
                 >
-                  {evidenceDisplayMap[evidenceId] || evidenceId}
+                  {formatEvidenceDisplayRef(evidenceId, evidenceDisplayMap)}
                 </code>
               ))}
             </div>

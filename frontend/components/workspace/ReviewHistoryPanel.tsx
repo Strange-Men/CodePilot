@@ -5,6 +5,7 @@ import React from "react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedStatusLabels, t } from "@/lib/i18n";
 import { terminalStatuses } from "@/lib/report";
@@ -109,9 +110,8 @@ export function ReviewHistoryPanel({
                 type="button"
               >
                 <span className="block truncate text-xs font-semibold">{repositoryName(review.repo_url)}</span>
-                <span className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className={`h-1.5 w-1.5 rounded-full ${statusDot(review.status)}`} />
-                  {statusLabels[review.status]}
+                <span className="mt-1 block">
+                  <StatusBadge label={statusLabels[review.status]} size="sm" status={review.status} />
                 </span>
               </button>
               {canDelete ? (
@@ -151,10 +151,4 @@ function repositoryName(repoUrl: string): string {
   } catch {
     return repoUrl;
   }
-}
-
-function statusDot(status: ReviewResponse["status"]): string {
-  if (status === "completed") return "bg-emerald-500";
-  if (status === "failed") return "bg-destructive";
-  return "animate-pulse bg-primary";
 }

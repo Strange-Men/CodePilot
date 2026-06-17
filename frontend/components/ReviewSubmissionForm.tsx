@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import React from "react";
-import { Github, Loader2, Play } from "lucide-react";
+import { FlaskConical, Github, KeyRound, Loader2, Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,19 +60,29 @@ export function ReviewSubmissionForm({
         </p>
       ) : null}
       <div className="space-y-2">
-        <label className="text-xs font-semibold text-foreground" htmlFor="llm-mode-select">
+        <span className="text-xs font-semibold text-foreground" id="llm-mode-label">
           {t(language, "form.llmMode")}
-        </label>
-        <select
-          className="flex h-11 w-full cursor-pointer rounded-lg border border-input bg-card px-3 py-2 text-base transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-          id="llm-mode-select"
-          value={llmMode}
-          onChange={(event) => onLlmModeChange(event.target.value as "mock" | "mimo")}
-          disabled={submitting || isRunning}
+        </span>
+        <div
+          aria-labelledby="llm-mode-label"
+          className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-panel p-1"
+          role="radiogroup"
         >
-          <option value="mock">{t(language, "form.mockLlm")}</option>
-          <option value="mimo">{t(language, "form.mimoRealLlm")}</option>
-        </select>
+          <ModeButton
+            active={llmMode === "mock"}
+            disabled={submitting || isRunning}
+            icon={FlaskConical}
+            label={t(language, "form.mockLlm")}
+            onClick={() => onLlmModeChange("mock")}
+          />
+          <ModeButton
+            active={llmMode === "mimo"}
+            disabled={submitting || isRunning}
+            icon={KeyRound}
+            label={t(language, "form.mimoRealLlm")}
+            onClick={() => onLlmModeChange("mimo")}
+          />
+        </div>
         <p className="text-xs leading-5 text-muted-foreground">
           {llmMode === "mock"
             ? t(language, "form.mockDescription")
@@ -84,5 +94,37 @@ export function ReviewSubmissionForm({
         {isRunning ? t(language, "form.reviewInProgress") : t(language, "form.startReview")}
       </Button>
     </form>
+  );
+}
+
+function ModeButton({
+  active,
+  disabled,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  disabled: boolean;
+  icon: typeof FlaskConical;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-checked={active}
+      className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        active
+          ? "bg-card text-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+      disabled={disabled}
+      onClick={onClick}
+      role="radio"
+      type="button"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
   );
 }

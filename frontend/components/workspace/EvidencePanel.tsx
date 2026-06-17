@@ -1,8 +1,9 @@
-import { Braces, ChevronDown, ChevronRight, Copy, FileSearch, RefreshCcw } from "lucide-react";
-import React, { useState } from "react";
+import { FileSearch, MapPin, RefreshCcw } from "lucide-react";
+import React from "react";
 
 import { EmptyState } from "@/components/workspace/EmptyState";
 import { SeverityBadge } from "@/components/workspace/FindingsPanel";
+import { formatEvidenceDisplayRef } from "@/lib/evidence";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import type { ReviewEvidenceRefItem, ReviewFindingItem } from "@/lib/types";
@@ -140,30 +141,19 @@ function FindingEvidenceCard({
 }
 
 function EvidenceItemCard({ item, evidenceDisplayMap, language }: { item: ReviewEvidenceRefItem; evidenceDisplayMap: Record<string, string>; language: Language }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(item.evidence_id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API may not be available
-    }
-  };
-
-  const displayRef = evidenceDisplayMap[item.evidence_id] || item.evidence_id;
+  const displayRef = formatEvidenceDisplayRef(item.evidence_id, evidenceDisplayMap);
 
   return (
-    <div className="px-5 py-4" data-evidence-id={item.evidence_id}>
+    <div className="border-l-2 border-primary/55 px-5 py-4" data-evidence-ref={displayRef}>
       <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary font-mono text-xs font-bold">
+        <div className="flex h-9 min-w-11 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/5 px-2 font-mono text-xs font-bold text-primary">
           {displayRef}
         </div>
         <div className="min-w-0 flex-1">
           {/* Code location */}
-          <p className="font-mono text-xs text-muted-foreground">
-            {t(language, "evidence.codeLocation")}：
+          <p className="flex items-start gap-1.5 font-mono text-xs text-muted-foreground">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+            <span>{t(language, "evidence.codeLocation")}：</span>
             <span className="text-foreground">{formatLocation(item, language)}</span>
           </p>
 
@@ -182,24 +172,9 @@ function EvidenceItemCard({ item, evidenceDisplayMap, language }: { item: Review
             {t(language, "evidence.supportingFinding")}
           </p>
 
-          {/* Evidence ID — secondary, copyable */}
-          <div className="mt-2 flex items-center gap-2">
-            <span className="font-mono text-[10px] text-muted-foreground/70">
-              {t(language, "evidence.evidenceId")}:
-            </span>
-            <code className="rounded border border-border bg-panel px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {item.evidence_id}
-            </code>
-            <button
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={handleCopy}
-              title={t(language, "evidence.evidenceId")}
-              type="button"
-            >
-              <Copy className="h-3 w-3" />
-              {copied ? "✓" : ""}
-            </button>
-          </div>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            {t(language, "evidence.evidenceId")}: {displayRef}
+          </p>
         </div>
       </div>
     </div>

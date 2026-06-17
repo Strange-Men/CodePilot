@@ -62,6 +62,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body::before {
+  pointer-events: none;
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.035), transparent 280px),
+    hsl(var(--background));
+}
+
 button,
 input,
 select {
@@ -92,12 +103,15 @@ button,
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3 {
-  margin: 1.25rem 0 0.5rem;
+  margin: 1.5rem 0 0.6rem;
   font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+  scroll-margin-top: 6rem;
 }
 
 .markdown-body h2 {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
 }
 
 .markdown-body h3 {
@@ -110,7 +124,12 @@ button,
 .markdown-body pre,
 .markdown-body table,
 .markdown-body blockquote {
-  margin: 0.75rem 0;
+  margin: 0.85rem 0;
+}
+
+.markdown-body p,
+.markdown-body li {
+  line-height: 1.7;
 }
 
 .markdown-body ul,
@@ -131,40 +150,88 @@ button,
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
 }
 
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid hsl(var(--border));
-  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0.55rem 0.75rem;
   text-align: left;
   white-space: nowrap;
 }
 
+.markdown-body tr:last-child td {
+  border-bottom: 0;
+}
+
 .markdown-body th {
-  background: hsl(var(--muted));
+  background: hsl(var(--panel));
+  color: hsl(var(--muted-foreground));
   font-weight: 600;
 }
 
 .markdown-body code:not(pre code) {
   border-radius: 0.25rem;
   background: hsl(var(--muted));
-  padding: 0.1rem 0.3rem;
+  color: hsl(var(--primary));
+  padding: 0.1rem 0.35rem;
   font-size: 0.85em;
 }
 
 .markdown-body pre {
   overflow-x: auto;
   border: 1px solid hsl(var(--border));
-  border-radius: 0.65rem;
+  border-radius: 0.75rem;
   background: hsl(var(--panel));
-  padding: 1rem;
+  padding: 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.65;
 }
 
 .markdown-body blockquote {
-  border-left: 3px solid hsl(var(--border));
+  border-left: 3px solid hsl(var(--primary) / 0.65);
   color: hsl(var(--muted-foreground));
   padding-left: 0.85rem;
+}
+
+.markdown-body a {
+  color: hsl(var(--primary));
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.evidence-ref {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid hsl(var(--primary) / 0.28);
+  border-radius: 9999px;
+  background: hsl(var(--primary) / 0.08);
+  padding: 0.05rem 0.45rem;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+.eyebrow {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.cockpit-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-panel);
 }
 
 .workspace-grid {

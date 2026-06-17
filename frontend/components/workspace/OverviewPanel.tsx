@@ -2,6 +2,7 @@ import { CheckCircle2, Clock3, GitBranch, ShieldAlert } from "lucide-react";
 import React from "react";
 
 import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { AgentTimeline } from "@/components/workspace/AgentTimeline";
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
@@ -53,10 +54,7 @@ export function OverviewPanel({ agents, findings, language, review, structuredLo
                   {overviewMessage(review, language)}
                 </p>
               </div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-semibold">
-                <span className={`h-2 w-2 rounded-full ${statusDot(review.status)}`} />
-                {statusLabels[review.status]}
-              </span>
+              <StatusBadge label={statusLabels[review.status]} status={review.status} />
             </div>
           </div>
         </div>
@@ -97,7 +95,7 @@ function SummaryCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-panel">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-panel transition-colors duration-200 hover:border-primary/25">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <Icon className="h-4 w-4 text-primary" />
@@ -123,10 +121,4 @@ function overviewMessage(review: ReviewResponse, language: Language): string {
     return t(language, "overview.reviewFailed");
   }
   return review.progress?.current_phase || "Preparing the review pipeline.";
-}
-
-function statusDot(status: ReviewResponse["status"]): string {
-  if (status === "completed") return "bg-emerald-500";
-  if (status === "failed") return "bg-destructive";
-  return "animate-pulse bg-primary";
 }

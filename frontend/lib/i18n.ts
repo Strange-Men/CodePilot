@@ -24,6 +24,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "sidebar.currentStatus": "Current status",
     "sidebar.notStarted": "Not started",
     "sidebar.exportMarkdown": "Export Markdown",
+    "sidebar.exportHint": "Download the current language as a self-contained Markdown report with E1/E2 evidence refs.",
 
     // Review submission form
     "form.githubRepo": "GitHub repository",
@@ -53,6 +54,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "tabs.loadingAgentStates": "Loading persisted agent states",
     "tabs.retryAgentStates": "Retry agent states",
     "tabs.agentSummariesLoadError": "Agent summaries could not be loaded",
+    "tabs.structuredDataLoadError": "Structured review data could not be loaded.",
     "tabs.findingsBeingValidated": "Findings are being validated",
     "tabs.findingsValidatedDesc": "Findings appear here after the agents finish validation and the review reaches a terminal state.",
     "tabs.evidenceBeingCollected": "Evidence is being collected",
@@ -165,6 +167,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "history.heading": "Review history",
     "history.emptyDesc": "Completed and in-progress reviews will appear here.",
     "history.retryHistory": "Retry history",
+    "history.loadError": "Review history could not be loaded.",
     "history.confirmDelete": "Confirm delete",
     "history.deleteReview": "Delete review",
     "history.loadingReviews": "Loading previous reviews",
@@ -180,6 +183,13 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.title": "CodePilot could not render this page",
     "error.description": "Your review data is safe. Retry the page, or reload a previous report from history.",
     "error.retry": "Retry",
+    "error.providerAuth": "MiMo authentication is not ready. Check the backend API key configuration, then re-run the review.",
+    "error.providerNetwork": "The provider or network timed out. The workspace is still usable; wait a moment and re-run the review.",
+    "error.providerRateLimit": "The provider rate limit was reached. Please wait a moment before trying again.",
+    "error.reviewNoLongerAvailable": "This review is no longer available on the server. It may have been cleared after a restart; re-run the repository review.",
+    "error.startReviewFailed": "CodePilot could not start this review. Check the repository URL and try again.",
+    "error.deleteReviewFailed": "CodePilot could not delete this review. Try again from history.",
+    "error.generic": "Something went wrong. Please try again.",
 
     // Loading page
     "loading.workspace": "Loading CodePilot workspace",
@@ -226,6 +236,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "sidebar.currentStatus": "当前状态",
     "sidebar.notStarted": "未开始",
     "sidebar.exportMarkdown": "导出 Markdown",
+    "sidebar.exportHint": "按当前语言导出自包含 Markdown 报告，保留 E1/E2 证据引用。",
 
     // Review submission form
     "form.githubRepo": "GitHub 仓库",
@@ -255,6 +266,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "tabs.loadingAgentStates": "加载持久化 Agent 状态",
     "tabs.retryAgentStates": "重试 Agent 状态",
     "tabs.agentSummariesLoadError": "无法加载 Agent 摘要",
+    "tabs.structuredDataLoadError": "无法加载结构化审查数据。",
     "tabs.findingsBeingValidated": "正在验证问题发现",
     "tabs.findingsValidatedDesc": "Agent 完成验证且审查到达终态后，问题发现将显示在此处。",
     "tabs.evidenceBeingCollected": "正在收集证据",
@@ -367,6 +379,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "history.heading": "审查历史",
     "history.emptyDesc": "已完成和进行中的审查将显示在此处。",
     "history.retryHistory": "重试历史",
+    "history.loadError": "无法加载审查历史。",
     "history.confirmDelete": "确认删除",
     "history.deleteReview": "删除审查",
     "history.loadingReviews": "加载历史审查",
@@ -382,6 +395,13 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.title": "CodePilot 无法渲染此页面",
     "error.description": "您的审查数据是安全的。请重试页面，或从历史记录中重新加载之前的报告。",
     "error.retry": "重试",
+    "error.providerAuth": "MiMo 认证尚未就绪。请检查后端 API 密钥配置，然后重新运行审查。",
+    "error.providerNetwork": "提供方或网络请求超时。工作台仍可继续使用，请稍后重新运行审查。",
+    "error.providerRateLimit": "已触发提供方速率限制。请稍候再试。",
+    "error.reviewNoLongerAvailable": "该审查已不在服务器上，可能在重启后被清理。请重新运行仓库审查。",
+    "error.startReviewFailed": "CodePilot 无法启动此审查。请检查仓库 URL 后重试。",
+    "error.deleteReviewFailed": "CodePilot 无法删除此审查。请在历史记录中重试。",
+    "error.generic": "出现异常，请重试。",
 
     // Loading page
     "loading.workspace": "加载 CodePilot 工作台",

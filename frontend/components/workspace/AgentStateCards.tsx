@@ -1,11 +1,11 @@
-import { Activity, AlertTriangle, CheckCircle2, Database } from "lucide-react";
+import { Activity } from "lucide-react";
 import React from "react";
 
+import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedSeverity, t } from "@/lib/i18n";
 import type { ReviewAgentStateItem } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 export function AgentStateCards({ agents, language }: { agents: ReviewAgentStateItem[]; language: Language }) {
   if (!agents.length) {
@@ -31,21 +31,7 @@ export function AgentStateCards({ agents, language }: { agents: ReviewAgentState
               <p className="font-mono text-xs font-semibold text-primary">A{agent.order}</p>
               <h3 className="mt-1 text-base font-semibold">{agent.agent_id}</h3>
             </div>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold capitalize",
-                agent.status === "failed"
-                  ? "border-destructive/40 bg-destructive/10 text-destructive"
-                  : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-              )}
-            >
-              {agent.status === "failed" ? (
-                <AlertTriangle className="h-3.5 w-3.5" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              {t(language, `agentStatus.${agent.status}`)}
-            </span>
+            <StatusBadge label={t(language, `agentStatus.${agent.status}`)} status={agent.status} />
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-3">

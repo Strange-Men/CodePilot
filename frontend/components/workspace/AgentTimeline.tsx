@@ -1,6 +1,7 @@
 import { Check, Circle, LoaderCircle, Minus, X } from "lucide-react";
 import React from "react";
 
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import type {
@@ -48,9 +49,18 @@ export function AgentTimeline({ agents, language, loading, progress }: AgentTime
           </h2>
         </div>
         {progress ? (
-          <span className="font-mono text-xs text-muted-foreground">
-            {progress.completed_agents}/{progress.total_agents} {t(language, "timeline.complete")}
-          </span>
+          <div className="min-w-40">
+            <div className="flex items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
+              <span>{progress.completed_agents}/{progress.total_agents}</span>
+              <span>{t(language, "timeline.complete")}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300"
+                style={{ width: `${progress.total_agents ? (progress.completed_agents / progress.total_agents) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
         ) : null}
       </div>
 
@@ -94,7 +104,7 @@ export function AgentTimeline({ agents, language, loading, progress }: AgentTime
                 <p className="mt-0.5 text-xs text-muted-foreground">{agentDescKeys[agent.agent_id] || agent.agent_id}</p>
               ) : null}
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="text-xs capitalize text-muted-foreground">{t(language, `agentStatus.${agent.status}`)}</span>
+                <StatusBadge label={t(language, `agentStatus.${agent.status}`)} size="sm" status={agent.status} />
                 {agent.findings_count !== null ? (
                   <span className="font-mono text-xs text-muted-foreground">
                     {agent.findings_count} {t(language, "timeline.findings")}

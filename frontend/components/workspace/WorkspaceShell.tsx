@@ -1,11 +1,12 @@
 "use client";
 
-import { Code2, Cpu, Radio } from "lucide-react";
+import { Code2, Cpu } from "lucide-react";
 import type { FormEvent } from "react";
 import React from "react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ControlSidebar } from "@/components/workspace/ControlSidebar";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { LanguageToggle } from "@/components/workspace/LanguageToggle";
 import { ThemeToggle } from "@/components/workspace/ThemeToggle";
 import { type WorkspaceTab, WorkspaceTabs } from "@/components/workspace/WorkspaceTabs";
@@ -20,7 +21,7 @@ import {
   getReviewFindings,
   listReviews
 } from "@/lib/api";
-import { getLocalizedStatusLabels, t } from "@/lib/i18n";
+import { getLocalizedStatusLabels, type Language, t } from "@/lib/i18n";
 import { terminalStatuses } from "@/lib/report";
 import type { ReviewAgentStateItem, ReviewFindingItem, ReviewResponse } from "@/lib/types";
 import { validateGitHubRepositoryUrl } from "@/lib/validation";
@@ -47,6 +48,8 @@ export function WorkspaceShell() {
 
   const statusLabels = getLocalizedStatusLabels(language);
   const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
+  const headerStatus = review?.status || (taskId ? "queued" : "idle");
+  const headerStatusLabel = review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "header.idle");
 
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -54,11 +57,11 @@ export function WorkspaceShell() {
     try {
       setHistory(await listReviews());
     } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : "Unable to load review history.");
+      setHistoryError(friendlyErrorMessage(err, language, t(language, "history.loadError")));
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     const repoFromQuery = new URLSearchParams(window.location.search).get("repo_url");
@@ -72,8 +75,8 @@ export function WorkspaceShell() {
   }, [refreshHistory]);
 
   const handlePollingError = useCallback((message: string) => {
-    setError(message || null);
-  }, []);
+    setError(message ? friendlyErrorMessage(message, language) : null);
+  }, [language]);
 
   useReviewPolling({ taskId, onReview: handleReview, onError: handlePollingError });
 
@@ -105,7 +108,7 @@ export function WorkspaceShell() {
           if (err instanceof CodePilotApiError && err.code === "review_not_found") {
             handleStaleReview(review.task_id);
           } else {
-            setStructuredError(err instanceof Error ? err.message : "Unable to load structured review data.");
+            setStructuredError(friendlyErrorMessage(err, language, t(language, "tabs.structuredDataLoadError")));
           }
         }
       })
@@ -162,7 +165,7 @@ export function WorkspaceShell() {
       setTaskId(data.task_id);
       void refreshHistory();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start review.");
+      setError(friendlyErrorMessage(err, language, t(language, "error.startReviewFailed")));
     } finally {
       setSubmitting(false);
     }
@@ -198,7 +201,7 @@ export function WorkspaceShell() {
         setActiveTab("overview");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete review.");
+      setError(friendlyErrorMessage(err, language, t(language, "error.deleteReviewFailed")));
     }
   }
 
@@ -218,7 +221,7 @@ export function WorkspaceShell() {
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
         <div className="mx-auto flex min-h-16 max-w-[1600px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-background shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary shadow-sm">
               <Code2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -235,14 +238,11 @@ export function WorkspaceShell() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-xs font-semibold sm:px-3">
+            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-xs font-semibold sm:px-3">
               <Cpu className="h-3.5 w-3.5 text-primary" />
               {llmMode === "mimo" ? "MiMo" : "Mock"}
             </span>
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-xs font-semibold sm:px-3">
-              <Radio className={`h-3.5 w-3.5 ${isRunning ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
-              {review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "header.idle")}
-            </span>
+            <StatusBadge label={headerStatusLabel} pulse={isRunning} status={headerStatus} />
             <LanguageToggle language={language} onLanguageChange={setLanguage} />
             <ThemeToggle />
           </div>
@@ -288,4 +288,23 @@ export function WorkspaceShell() {
       </div>
     </main>
   );
+}
+
+function friendlyErrorMessage(error: unknown, language: Language, fallback?: string): string {
+  const code = error instanceof CodePilotApiError ? error.code : undefined;
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : fallback || "";
+  const lower = raw.toLowerCase();
+
+  if (code === "review_not_found") return t(language, "error.reviewNoLongerAvailable");
+  if (code === "review_not_ready") return t(language, "export.notReady");
+  if (code === "llm_config_error" || lower.includes("api key") || lower.includes("unauthorized")) {
+    return t(language, "error.providerAuth");
+  }
+  if (lower.includes("timeout") || lower.includes("network") || lower.includes("econnrefused")) {
+    return t(language, "error.providerNetwork");
+  }
+  if (lower.includes("429") || lower.includes("rate limit")) {
+    return t(language, "error.providerRateLimit");
+  }
+  return fallback || raw || t(language, "error.generic");
 }

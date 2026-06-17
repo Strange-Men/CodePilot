@@ -57,35 +57,36 @@ export function ReportPanel({ isRunning, language, reportMarkdown }: ReportPanel
           <p className="px-2 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {t(language, "report.outline")}
           </p>
-          {sections.map(([title]) => (
+          {sections.map(([title], index) => (
             <a
-              className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
+              className="flex items-start gap-2 rounded-lg border-l-2 border-transparent px-2 py-2 text-sm text-muted-foreground transition-colors duration-200 hover:border-primary/60 hover:bg-muted hover:text-foreground"
               href={`#report-${slugify(title)}`}
               key={title}
             >
-              {title}
+              <span className="font-mono text-[11px] text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
+              <span>{title}</span>
             </a>
           ))}
         </nav>
       </aside>
       <div className="min-w-0 space-y-4">
-        {sections.map(([title, content]) => (
+        {sections.map(([title, content], index) => (
           <section
             className="scroll-mt-24 rounded-xl border border-border bg-card p-5 shadow-panel sm:p-7"
             id={`report-${slugify(title)}`}
             key={title}
           >
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
-              {t(language, "report.section")}
+              {t(language, "report.section")} {String(index + 1).padStart(2, "0")}
             </p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">{title}</h2>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">{title}</h2>
             <div className="mt-5">
               <MarkdownContent>{content}</MarkdownContent>
             </div>
           </section>
         ))}
         {appendices.length ? (
-          <details className="rounded-xl border border-border bg-card shadow-panel">
+          <details className="rounded-xl border border-border bg-card shadow-panel" id="report-evidence-appendix">
             <summary className="min-h-11 cursor-pointer px-5 py-3 text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:text-foreground sm:px-7">
               {t(language, "report.legacyAppendices")}
             </summary>
