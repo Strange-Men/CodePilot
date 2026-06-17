@@ -21,6 +21,7 @@ from backend.reviewers.localization import (
     translate_report_prose,
 )
 from backend.reviewers.priority_layer import generate_priority_section
+from backend.reviewers.zh_quality import normalize_zh_markdown
 
 
 def render_localized_report(
@@ -79,6 +80,9 @@ def render_localized_report(
 
     # Step 9: Replace raw ev_* IDs with [E1]/[E2] display refs
     translated = display_map.replace_in_text(translated)
+
+    # Step 10: Final Chinese quality guard — normalize remaining English leakage
+    translated = normalize_zh_markdown(translated)
 
     return translated
 
@@ -177,6 +181,9 @@ def render_localized_report_with_prose(
 
     # Step 8: Replace raw ev_* IDs with [E1]/[E2] display refs
     translated = display_map.replace_in_text(translated)
+
+    # Step 9: Final Chinese quality guard — normalize remaining English leakage
+    translated = normalize_zh_markdown(translated)
 
     return translated
 

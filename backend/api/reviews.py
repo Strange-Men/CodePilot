@@ -22,6 +22,7 @@ from backend.reviewers.localized_report_renderer import (
     render_localized_finding_text,
     render_localized_report,
 )
+from backend.reviewers.zh_quality import normalize_zh_markdown, normalize_zh_text
 from backend.services.localization_service import LocalizationService
 from backend.storage.sqlite import ReviewStore
 from backend.tasks.runner import PLANNED_AGENTS, ReviewTaskRunner
@@ -165,6 +166,8 @@ def build_reviews_router(
                     )
                     # Replace English finding prose with zh display fields in the report
                     report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
+                    # Final quality guard: normalize remaining English leakage from display.zh
+                    report_markdown = normalize_zh_markdown(report_markdown)
                 elif localization_service is not None:
                     # Legacy reviews: use localization service as fallback
                     source_updated_at = row.get("updated_at", "")
@@ -331,6 +334,8 @@ def build_reviews_router(
                     content, normalized_lang, findings=findings_with_display,
                 )
                 content = _render_bilingual_report(content, draft, normalized_lang)
+                # Final quality guard: normalize remaining English leakage from display.zh
+                content = normalize_zh_markdown(content)
             elif localization_service is not None:
                 source_updated_at = row.get("updated_at", "")
                 content = localization_service.get_localized_report(
@@ -417,28 +422,34 @@ def _finding_response(
     if lang == "zh" and display and isinstance(display, dict):
         zh = display.get("zh")
         if zh and isinstance(zh, dict):
-            title = zh.get("title") or title
-            description = zh.get("description") or description
-            recommendation = zh.get("recommendation") or recommendation
-            impact = zh.get("impact") or impact
-            first_step = zh.get("first_step") or first_step
-            caveat = zh.get("caveat") or caveat
-            confidence_rationale = zh.get("confidence_rationale") or confidence_rationale
+            title = normalize_zh_text(zh.get("title") or title)
+            description = normalize_zh_text(zh.get("description") or description)
+            recommendation = normalize_zh_text(zh.get("recommendation") or recommendation)
+            impact = normalize_zh_text(zh.get("impact") or impact)
+            first_step = normalize_zh_text(zh.get("first_step") or first_step)
+            caveat = normalize_zh_text(zh.get("caveat") or caveat)
+            confidence_rationale = normalize_zh_text(zh.get("confidence_rationale") or confidence_rationale)
             zh_tests = zh.get("validation_tests")
             if isinstance(zh_tests, list) and zh_tests:
-                validation_tests = zh_tests
+                validation_tests = [normalize_zh_text(t) for t in zh_tests]
     elif lang == "zh":
         # Legacy fallback: use *_zh keys from localization service
-        title = row.get("title_zh") or render_localized_finding_text(title, lang) or title
-        description = row.get("description_zh") or render_localized_finding_text(description, lang) or description
-        recommendation = row.get("recommendation_zh") or render_localized_finding_text(recommendation, lang)
-        impact = row.get("impact_zh") or render_localized_finding_text(impact, lang)
-        first_step = row.get("first_step_zh") or render_localized_finding_text(first_step, lang)
-        caveat = row.get("caveat_zh") or render_localized_finding_text(caveat, lang)
-        confidence_rationale = row.get("confidence_rationale_zh") or confidence_rationale
+        def _zh_legacy(field: str, fallback: str | None, default: str = "") -> str:
+            raw = row.get(f"{field}_zh") or render_localized_finding_text(fallback, lang)
+            return normalize_zh_text(raw or default)
+
+        title = _zh_legacy("title", title, title)
+        description = _zh_legacy("description", description, description)
+        recommendation = _zh_legacy("recommendation", recommendation)
+        impact = _zh_legacy("impact", impact)
+        first_step = _zh_legacy("first_step", first_step)
+        caveat = _zh_legacy("caveat", caveat)
+        confidence_rationale = normalize_zh_text(
+            row.get("confidence_rationale_zh") or confidence_rationale or "",
+        )
         zh_tests = row.get("validation_tests_zh")
         if isinstance(zh_tests, list) and len(zh_tests) == len(validation_tests):
-            validation_tests = zh_tests
+            validation_tests = [normalize_zh_text(t) for t in zh_tests]
 
     return ReviewFindingResponse(
         finding_id=str(row["id"]),
