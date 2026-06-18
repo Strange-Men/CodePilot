@@ -17,4 +17,4 @@ Still deferred:
 - Vector databases or full RAG until deterministic retrieval no longer meets measured quality needs.
 - GitHub App, auto-fix, auto-commit, private repositories, OAuth, SaaS, billing, RBAC, and enterprise features.
 
-The migration and stable compatibility boundaries are documented in `docs/V3_READINESS.md`.
+The migration and stable compatibility boundaries are documented in `docs/history/v3/V3_READINESS.md`.

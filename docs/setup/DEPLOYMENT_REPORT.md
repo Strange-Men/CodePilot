@@ -89,7 +89,7 @@ bd83f28 feat(v1.0): initial AI code review MVP
 
 ## Deployment Instructions
 
-See: `DEPLOYMENT.md` (updated with Render configuration)
+See: `docs/setup/DEPLOYMENT.md` (updated with Render configuration)
 
 ---
 

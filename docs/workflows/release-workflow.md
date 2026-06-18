@@ -47,4 +47,4 @@ Deployment requires explicit approval.
 - Update `.harness/PROJECT_CONTEXT.md` version and release notes.
 - Update `.harness/ROADMAP.md`.
 - Add release decision in `.harness/DECISION_LOG.md`.
-- Update `DEPLOYMENT_REPORT.md` if deployment validation was performed.
+- Update `docs/setup/DEPLOYMENT_REPORT.md` if deployment validation was performed.

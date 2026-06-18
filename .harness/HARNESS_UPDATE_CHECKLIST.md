@@ -57,7 +57,7 @@ Legend:
 | API contract | `backend/api/reviews.py`, `backend/models/review.py`, tests |
 | Test count | `pytest --collect-only -q` |
 | CI gates | `.github/workflows/ci.yml` |
-| Deployment | `DEPLOYMENT.md`, `docs/VERCEL_DEPLOYMENT.md`, Dockerfiles, `docker-compose.yml` |
+| Deployment | `docs/setup/DEPLOYMENT.md`, `docs/setup/VERCEL_DEPLOYMENT.md`, Dockerfiles, `docker-compose.yml` |
 | Architecture | Actual directory and module structure |
 
 ## Cross-Reference Checklist

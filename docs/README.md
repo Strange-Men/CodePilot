@@ -20,11 +20,14 @@ Documentation index for the CodePilot project — an AI Code Review & Refactor A
 
 | Document | Description |
 |----------|-------------|
-| [Setup Guide](SETUP.md) | Installation and environment configuration |
-| [Architecture](ARCHITECTURE.md) | System design, module map, data flow |
-| [Roadmap](ROADMAP.md) | Completed work, planned items, deferred scope |
-| [Resume Value](RESUME_VALUE.md) | What CodePilot demonstrates for resume/portfolio |
-| [Vercel Deployment](VERCEL_DEPLOYMENT.md) | Frontend deployment to Vercel |
+| [Setup Guide](setup/SETUP.md) | Installation and environment configuration |
+| [Architecture](architecture/ARCHITECTURE.md) | System design, module map, data flow |
+| [Roadmap](product/ROADMAP.md) | Completed work, planned items, deferred scope |
+| [Resume Value](product/RESUME_VALUE.md) | What CodePilot demonstrates for resume/portfolio |
+| [Design System](product/DESIGN.md) | Visual language and UI design system |
+| [Deployment Guide](setup/DEPLOYMENT.md) | Backend/frontend deployment to Render and Vercel |
+| [Deployment Report](setup/DEPLOYMENT_REPORT.md) | V1.1 deployment validation report |
+| [Vercel Deployment](setup/VERCEL_DEPLOYMENT.md) | Frontend deployment to Vercel |
 
 ---
 
@@ -127,7 +130,7 @@ Step-by-step implementation notes from V3.5 through V3.7. Archived for reference
 </details>
 
 <details>
-<summary>Earlier V3 architecture & planning (8 docs)</summary>
+<summary>Earlier V3 architecture & planning (9 docs)</summary>
 
 - [V3 Overview](history/v3/V3.md)
 - [V3 Architecture](history/v3/V3_ARCHITECTURE.md)
@@ -141,6 +144,13 @@ Step-by-step implementation notes from V3.5 through V3.7. Archived for reference
 
 </details>
 
+<details>
+<summary>V3.5.3 — Full project audit (1 doc)</summary>
+
+- [V3.5.3 Full Audit](history/v3/V3.5.3_FULL_AUDIT.md) — Comprehensive product, architecture, test, and deployment audit
+
+</details>
+
 ---
 
 ## Docs Useful for Resume/Demo
@@ -150,8 +160,8 @@ These are the most relevant documents for a resume reviewer or demo audience:
 1. **[../README.md](../README.md)** — Project overview, features, quick start, demo flow
 2. **[Release Notes](releases/v3.7/V3.7_RELEASE_NOTES.md)** — What V3.7 ships
 3. **[Project Closure](releases/v3.7/V3.7_PROJECT_CLOSURE.md)** — Verification results, resume-ready conclusion
-4. **[Architecture](ARCHITECTURE.md)** — System design and data flow
-5. **[Resume Value](RESUME_VALUE.md)** — What CodePilot demonstrates
+4. **[Architecture](architecture/ARCHITECTURE.md)** — System design and data flow
+5. **[Resume Value](product/RESUME_VALUE.md)** — What CodePilot demonstrates
 
 ---
 

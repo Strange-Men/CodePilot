@@ -98,5 +98,5 @@ It uses synthetic Flask-like, test-heavy, and circular-dependency signals with v
 checks classification, production-first recommendations, readable cycles, agent visibility, actionable next steps,
 evidence grounding, bounded output, and snippet leakage. It does not call a real LLM.
 
-See `docs/V3_5_EVALUATION.md` for the run registry, scoring rubric, pricing format, artifact contract, comparison
+See `docs/history/v3/V3_5_EVALUATION.md` for the run registry, scoring rubric, pricing format, artifact contract, comparison
 rules, and limitations.

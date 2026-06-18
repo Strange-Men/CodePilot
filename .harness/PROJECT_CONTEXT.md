@@ -117,8 +117,8 @@ Review status lifecycle: `pending -> cloning -> parsing -> summarizing -> review
 
 | Component | Platform | Method | Config Source |
 |-----------|----------|--------|---------------|
-| Frontend | Vercel Free | Git-connected Next.js deployment | Platform UI, `docs/VERCEL_DEPLOYMENT.md` |
-| Backend | Render Free | Docker deployment using `Dockerfile.backend` | Platform UI, `DEPLOYMENT.md` |
+| Frontend | Vercel Free | Git-connected Next.js deployment | Platform UI, `docs/setup/VERCEL_DEPLOYMENT.md` |
+| Backend | Render Free | Docker deployment using `Dockerfile.backend` | Platform UI, `docs/setup/DEPLOYMENT.md` |
 | Local full stack | Docker Compose | `docker-compose up` | `docker-compose.yml` |
 
 There is no `vercel.json` and no `render.yaml`; production deployment is configured in the hosting dashboards.
