@@ -149,7 +149,8 @@ Real LLM mode depends on provider availability, network, and API key validity. O
 For developers who want to run CodePilot locally:
 
 ```powershell
-cd D:\Claude_workfile\CodePilot
+git clone https://github.com/Strange-Men/CodePilot.git
+cd CodePilot
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1
 .\scripts\start-demo.ps1
@@ -157,10 +158,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Open [http://localhost:3000](http://localhost:3000).
 
-If `conda.exe` is not on PATH:
+If `conda.exe` is not on PATH, set it before running setup:
 
 ```powershell
-$env:CODEPILOT_CONDA = "D:\Miniconda3\Scripts\conda.exe"
+$env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 .\scripts\setup.ps1
 ```
 

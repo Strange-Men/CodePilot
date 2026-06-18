@@ -3,15 +3,16 @@
 CodePilot is Windows-first and expects Conda.
 
 ```powershell
-cd D:\Claude_workfile\CodePilot
+git clone https://github.com/Strange-Men/CodePilot.git
+cd CodePilot
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1
 ```
 
-If Conda is installed on D: but not discoverable, set:
+If Conda is not on PATH, set it before running setup:
 
 ```powershell
-$env:CODEPILOT_CONDA = "D:\Miniconda3\Scripts\conda.exe"
+$env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 ```
 
 The setup script creates the required environment:
