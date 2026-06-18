@@ -1,24 +1,45 @@
 # CodePilot
 
-CodePilot is a repository-intelligence tool for reviewing Python, JavaScript, TypeScript, and mixed GitHub repositories.
+**AI Code Review & Refactor Agent for Large Repositories**
 
-Workflow:
+CodePilot clones public GitHub repositories, analyzes source files, builds structured context, and generates actionable four-section review reports with evidence-backed findings. It runs a multi-agent pipeline that produces architecture summaries, code smells, maintainability issues, and refactoring suggestions — all with `[E1]`/`[E2]` evidence references traceable to specific source locations.
 
-`GitHub Repo URL -> Clone Repo -> Parse Source -> Build Review Context -> Generate Review Report -> Display Report -> Export Markdown`
+## Core Features
 
-Every report preserves these four compatible sections:
+- **Repository Intelligence** — tree-sitter parsing, AST extraction, and structured context building for Python, JavaScript, and TypeScript
+- **Multi-Agent Review** — parallel specialist agents (Architecture, CodeSmell, Maintainability, Refactor) produce structured findings
+- **Evidence System** — every finding links to `[E1]`/`[E2]` evidence references with file paths and line numbers; raw IDs are never exposed
+- **Bilingual Output** — global zh/en language switch with localStorage persistence; all reports, findings, UI labels, and error messages follow the active language
+- **Markdown Export** — one-click export of the full review report with evidence appendix
+- **Mock Demo Mode** — deterministic, credential-free demo path that runs out of the box
+- **Real LLM Mode** — optional MiMo/OpenAI-compatible provider for production use
 
-1. Architecture Summary
-2. Code Smells
-3. Maintainability Issues
-4. Refactoring Suggestions
+## Tech Stack
 
-V3.4 engines add a human-readable executive summary, repository and architecture map, agent summary, grouped findings,
-action plan, and snippet-free evidence appendix around those sections.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 15.5, React 19, TypeScript 5.7, Tailwind CSS 3.4 |
+| Backend | FastAPI, Python 3.11, SQLite (WAL), in-process ThreadPoolExecutor |
+| Parser | tree-sitter with AST fallback (Python, JS, TS) |
+| LLM | OpenAI-compatible chat completions or deterministic mock mode |
+| CI | GitHub Actions on windows-latest (ruff + pytest + npm build) |
+
+## Architecture
+
+```
+GitHub URL → Clone → Parse (tree-sitter) → Build Context → Multi-Agent Review → Compose Report → Display + Export
+                                                    ↓
+                                        Architecture Agent
+                                        CodeSmell Agent
+                                        Maintainability Agent
+                                        Refactor Agent
+                                                    ↓
+                                        Structured Findings + Evidence Map → [E1]/[E2] References
+```
+
+Each agent receives structured context (not raw source code) and returns bilingual findings with severity, category, and evidence links. The report composer merges agent outputs into a four-section report with executive summary, action plan, and self-contained evidence appendix.
 
 ## Quick Start
-
-Run in Windows PowerShell:
 
 ```powershell
 cd D:\Claude_workfile\CodePilot
@@ -29,20 +50,27 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Open [http://localhost:3000](http://localhost:3000).
 
-If `conda.exe` is not on PATH, point CodePilot at it before setup:
+If `conda.exe` is not on PATH:
 
 ```powershell
 $env:CODEPILOT_CONDA = "D:\Miniconda3\Scripts\conda.exe"
 .\scripts\setup.ps1
 ```
 
-Run the backend workflow smoke test:
+## Demo Flow
 
-```powershell
-.\scripts\smoke-backend.ps1
-```
+1. Enter a public GitHub repository URL (e.g. `https://github.com/pallets/flask`)
+2. Click **Run Review** — the default mock mode requires no API key
+3. View the structured report with executive summary, findings, and evidence
+4. Toggle **EN / zh** to switch the full UI and report language
+5. Click **Export** to download the report as Markdown
+6. Browse findings by severity, category, or agent — each links to `[E1]`/`[E2]` evidence
 
-The app runs in mock LLM mode by default. To use a real OpenAI-compatible API, edit `.env`:
+## Mock Mode vs Real LLM Mode
+
+**Mock mode** (default) is the stable demo path. It uses a deterministic `MockLLMClient` that returns pre-built bilingual findings without any API calls. No credentials needed. Use this for demos, resume review, and development.
+
+**Real LLM mode** uses MiMo or any OpenAI-compatible provider. Edit `.env`:
 
 ```text
 USE_MOCK_LLM=false
@@ -52,17 +80,17 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-The default review engine is `v3_multi_agent`. Override to use a different engine:
+For MiMo:
 
 ```text
-REVIEW_ENGINE=v2
-REVIEW_ENGINE=v3_single_agent
-REVIEW_ENGINE=v3_multi_agent
+MIMO_API_KEY=your-key
+MIMO_BASE_URL=https://api.mimo.ai/v1
+MIMO_MODEL=mimo-7b
 ```
 
-## Developer Workflows
+Real LLM mode depends on provider availability, network, and API key validity. Output quality varies by model.
 
-V3.3 adds CLI, CI, optional MCP, and diff-aware review wrappers around the existing pipeline:
+## CLI Workflows
 
 ```powershell
 python -m backend.cli review https://github.com/owner/repo --output reports/review.md --json-output reports/review.json
@@ -72,16 +100,38 @@ python -m backend.cli diff https://github.com/owner/repo --changed-file backend/
 
 See `docs/V3_3_WORKFLOWS.md` for details.
 
-V3.4 report design and deterministic quality checks are documented in `docs/V3_4_REPORT_QUALITY.md`.
+## Testing
 
-## Stack
+```powershell
+# Backend
+pytest                    # 995 tests passed, 1 skipped
+ruff check .              # All checks passed
 
-- Frontend: Next.js, TypeScript, Tailwind, shadcn/ui-style components
-- Backend: FastAPI, Python 3.11
-- Parser: registry-backed Python, JavaScript, and TypeScript analysis
-- Storage: SQLite
-- LLM: OpenAI-compatible chat completions or mock mode
+# Frontend
+cd frontend
+npm test                  # 104 tests passed
+npm run build             # Production build succeeds
 
-## Limits
+# Smoke test
+.\scripts\smoke-backend.ps1
+```
 
-CodePilot uses static, heuristic analysis and does not execute repository code. It analyzes at most 300 supported source files and skips files over 200KB.
+## Known Limitations
+
+- **MiMo Chinese output** — may still have occasional unnatural wording in zh reports; mock mode zh is deterministic and stable
+- **Ephemeral storage** — free Render/tmp SQLite may lose review history after restart; this is expected for demo deployments
+- **Real LLM dependency** — production-quality output requires a working API key and network access to the provider
+- **Language support** — analysis is strongest for Python; JavaScript and TypeScript support is functional but less deep
+- **No production workflow yet** — GitHub OAuth, PR bot, MCP integration, vector DB, and LangGraph workflows are not implemented
+- **Static analysis only** — CodePilot does not execute repository code; it uses heuristic and AST-based analysis
+- **File limits** — analyzes at most 300 supported source files, skips files over 200KB
+
+## Project Status
+
+**V3.7** — Stable demo release. CI green. 995 backend tests + 104 frontend tests passing. Mock mode is the recommended demo path. Real LLM mode is optional with known provider-dependent limitations.
+
+See `docs/V3.7_PROJECT_CLOSURE.md` for the full closure report and `docs/V3.7_RELEASE_NOTES.md` for release details.
+
+## License
+
+This project is for educational and portfolio purposes.
