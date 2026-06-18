@@ -4,6 +4,17 @@ Documentation index for the CodePilot project — an AI Code Review & Refactor A
 
 ---
 
+## Live Demo
+
+| Component | URL |
+|-----------|-----|
+| **Frontend** | [https://code-pilot-red.vercel.app](https://code-pilot-red.vercel.app) |
+| **Backend API** | `https://codepilot-i189.onrender.com` |
+
+Use **Mock mode** (default) for a stable demo — no API key required.
+
+---
+
 ## Current Release
 
 **V3.7** — Stable demo release. CI green. 995 backend + 104 frontend tests passing.
