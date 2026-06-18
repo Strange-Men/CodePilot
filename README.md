@@ -98,7 +98,7 @@ python -m backend.cli ci https://github.com/owner/repo --fail-on high --json-out
 python -m backend.cli diff https://github.com/owner/repo --changed-file backend/main.py --output reports/diff.md
 ```
 
-See `docs/V3_3_WORKFLOWS.md` for details.
+See `docs/history/v3/V3_3_WORKFLOWS.md` for details.
 
 ## Testing
 
@@ -130,7 +130,9 @@ npm run build             # Production build succeeds
 
 **V3.7** — Stable demo release. CI green. 995 backend tests + 104 frontend tests passing. Mock mode is the recommended demo path. Real LLM mode is optional with known provider-dependent limitations.
 
-See `docs/V3.7_PROJECT_CLOSURE.md` for the full closure report and `docs/V3.7_RELEASE_NOTES.md` for release details.
+See `docs/releases/v3.7/V3.7_PROJECT_CLOSURE.md` for the full closure report and `docs/releases/v3.7/V3.7_RELEASE_NOTES.md` for release details.
+
+Full documentation index: [`docs/README.md`](docs/README.md)
 
 ## License
 
