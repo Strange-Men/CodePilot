@@ -50,7 +50,7 @@ GitHub URL
   → 结构化仓库上下文（RepositoryContext）
   → 多 Agent 并行审查
        ├── Architecture Agent（架构分析）
-       ├── CodeQuality Agent（代码质量）
+       ├── CodeSmell Agent（代码质量）
        ├── Maintainability Agent（可维护性）
        └── Refactor Agent（重构建议）
   → Evidence Store（证据绑定）
