@@ -267,7 +267,7 @@ class OpenAICompatibleClient:
 ```
 
 - 需要 OPENAI_API_KEY 或 MIMO_API_KEY
-- 支持 OpenAI 和 MiMo 两种 provider
+- 支持 OpenAI 和 MiMo 两种模型服务商
 - 重试：408, 409, 429, 5xx → 最多 3 次指数退避
 - StructuredLLMClient 包装 JSON 解析和 Pydantic 校验
 

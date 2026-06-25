@@ -400,7 +400,10 @@ test("Mock and Real LLM selector states remain available", () => {
   assert.match(mockHtml, /Mock LLM/);
   assert.match(mockHtml, /No API key required/);
   assert.match(mimoHtml, /Real LLM/);
+  assert.match(mimoHtml, /Real LLM provider/);
   assert.doesNotMatch(mimoHtml, /MiMo Real LLM/);
+  assert.doesNotMatch(mimoHtml, /真实模型/);
+  assert.doesNotMatch(mimoHtml, /模型服务商/);
   assert.match(mimoHtml, /llm-provider/);
   assert.match(mimoHtml, /MiMo/);
   assert.match(mimoHtml, /豆包 \/ Doubao/);
@@ -451,10 +454,47 @@ test("ReviewSubmissionForm renders Chinese labels", () => {
   );
 
   assert.match(html, /GitHub 仓库/);
-  assert.match(html, /LLM 模式/);
-  assert.match(html, /真实 LLM/);
+  assert.match(html, /模型模式/);
+  assert.match(html, /Mock LLM/);
+  assert.match(html, /真实模型/);
+  assert.doesNotMatch(html, /真实 LLM provider/);
+  assert.doesNotMatch(html, /Real LLM provider/);
   assert.match(html, /开始审查/);
   assert.match(html, /仅支持公开的 HTTPS GitHub URL/);
+});
+
+test("Chinese Real LLM provider copy is localized without changing dropdown options", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="zh"
+      llmMode="mimo"
+      llmProvider="doubao"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: true },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
+      onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /真实模型/);
+  assert.match(html, /模型服务商/);
+  assert.match(html, /MiMo/);
+  assert.match(html, /豆包 \/ Doubao/);
+  assert.match(html, /DeepSeek/);
+  assert.match(html, /后端 \.env/);
+  assert.match(html, /Key、Base URL 和模型名称/);
+  assert.doesNotMatch(html, /真实 LLM provider/);
+  assert.doesNotMatch(html, /backend \.env/);
+  assert.doesNotMatch(html, /provider 需要/);
 });
 
 test("frontend API client surfaces structured error detail", async () => {
@@ -898,7 +938,9 @@ test("t() returns Chinese values for overview labels", () => {
 
 test("t() returns Chinese values for form labels", () => {
   assert.equal(t("zh", "form.githubRepo"), "GitHub 仓库");
-  assert.equal(t("zh", "form.llmMode"), "LLM 模式");
+  assert.equal(t("zh", "form.llmMode"), "模型模式");
+  assert.equal(t("zh", "form.realLlm"), "真实模型");
+  assert.equal(t("zh", "form.realLlmProvider"), "模型服务商");
   assert.equal(t("zh", "form.startReview"), "开始审查");
   assert.equal(t("zh", "form.reviewInProgress"), "审查中");
 });
@@ -1673,7 +1715,7 @@ test("network export error is localized in Chinese", () => {
 
 test("provider auth error is localized in Chinese", () => {
   const authError = t("zh", "error.providerAuth");
-  assert.ok(authError.includes("API 密钥"), "Chinese auth error should mention API key");
+  assert.ok(authError.includes("模型 Key"), "Chinese auth error should mention the model key");
 });
 
 test("[E1]/[E2] evidence references are preserved in both languages", () => {

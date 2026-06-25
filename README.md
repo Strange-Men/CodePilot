@@ -14,7 +14,7 @@ CodePilot 是一个面向 GitHub 开源仓库的 **AI 代码审查与仓库理�
 | 后端 API | `https://codepilot-i189.onrender.com` |
 | 健康检查 | [https://codepilot-i189.onrender.com/health](https://codepilot-i189.onrender.com/health) |
 
-> **演示建议：** 推荐使用 Mock 模式（默认），无需 API Key，输出稳定，支持中英文切换。真实 LLM / MiMo 模式为可选能力，受模型服务和网络影响。  
+> **演示建议：** 推荐使用 Mock 模式（默认），无需 API Key，输出稳定，支持中英文切换。真实模型模式为可选能力，受模型服务和网络影响。
 > **注意：** Render 免费环境为临时存储，历史审查记录可能因容器重启丢失，这在演示部署中属于预期行为。
 
 ---
@@ -36,7 +36,7 @@ CodePilot 是一个面向 GitHub 开源仓库的 **AI 代码审查与仓库理�
 - **证据追踪系统** — 每条审查结论绑定 evidence_id（如 `[E1]`/`[E2]`），关联文件路径、行号和代码片段，降低 LLM 幻觉风险
 - **中英文切换** — 全局 zh/en 语言切换，报告、发现、UI 标签和错误信息均跟随语言设置
 - **Markdown 报告导出** — 一键导出完整审查报告，含证据附录
-- **Mock / 真实 LLM 双模式** — Mock 模式确定性输出、无需凭据；真实 LLM 模式可选择 MiMo、豆包 / Doubao、DeepSeek
+- **Mock / 真实模型双模式** — Mock 模式确定性输出、无需凭据；真实模型模式可选择 MiMo、豆包 / Doubao、DeepSeek
 
 ---
 
@@ -79,7 +79,7 @@ GitHub URL
 | 后端 | FastAPI、Python 3.11、SQLite（WAL 模式）、ThreadPoolExecutor | Render Docker 部署 |
 | 代码解析 | Tree-sitter + AST fallback | Python 深度解析，JS/TS 基础解析 |
 | 数据校验 | Pydantic | 全链路结构化数据校验 |
-| LLM 接入 | MockLLMClient + OpenAI 兼容接口 / MiMo 可选 | Mock 模式默认，真实 LLM 可选 |
+| LLM 接入 | MockLLMClient + OpenAI 兼容接口 / MiMo 可选 | Mock 模式默认，真实模型可选 |
 | 部署 | Vercel（前端）+ Render（后端） | 免费层部署 |
 | 工程化 | GitHub Actions、pytest、ruff、npm test、npm run build | CI 全流程覆盖 |
 
@@ -99,15 +99,15 @@ GitHub URL
 
 本项目**没有**采用 embedding + 向量数据库的完整 RAG 路径。当前方案是通过 Tree-sitter / AST / 依赖图 / 符号摘要构建结构化仓库上下文（RepositoryContext），保留文件路径、符号关系、行号和依赖结构。这种方式更适合代码审查场景——审查需要精确的文件位置和结构信息，而不是语义相似度检索。
 
-### 4. Mock / 真实 LLM 双模式
+### 4. Mock / 真实模型双模式
 
 - **Mock 模式**：`MockLLMClient` 返回预构建的双语 findings，确定性输出，无需 API Key，用于稳定演示和 CI 测试
-- **真实 LLM 模式**：支持 MiMo、豆包 / Doubao、DeepSeek 的后端 OpenAI-compatible 配置，验证真实模型接入能力
+- **真实模型模式**：支持 MiMo、豆包 / Doubao、DeepSeek 的后端 OpenAI 兼容配置，验证真实模型接入能力
 - 两种模式走同一套报告生成、前端展示和导出链路
 
 ### 5. 中文展示与容错
 
-支持 zh/en 全局切换，localStorage 持久化语言偏好。对真实 LLM 的中文输出做了字段级校验和 fallback 处理，确保即使模型输出格式异常也能正常展示。MiMo 中文输出可能仍有少量不自然表达，Mock 模式的中文是确定性且稳定的。
+支持 zh/en 全局切换，localStorage 持久化语言偏好。对真实模型的中文输出做了字段级校验和兜底处理，确保即使模型输出格式异常也能正常展示。MiMo 中文输出可能仍有少量不自然表达，Mock 模式的中文是确定性且稳定的。
 
 ---
 
@@ -165,9 +165,9 @@ MAX_FILES=300
 MAX_FILE_SIZE_BYTES=204800
 ```
 
-### 真实 LLM 模式配置（可选）
+### 真实模型模式配置（可选）
 
-Real LLM provider 由前端选择并传给后端。API Key 只存放在后端 `.env`，前端不会保存任何 provider API Key。默认 provider 为 `mimo`。
+真实模型服务商由前端选择并传给后端。API Key 只存放在后端 `.env`，前端不会保存任何模型服务商的 API Key。默认服务商为 `mimo`。
 
 ```text
 USE_MOCK_LLM=false
@@ -230,7 +230,7 @@ CI 使用 GitHub Actions，运行环境为 `windows-latest`，覆盖 ruff、pyte
 - **语言支持差异** — Python 分析最深入，JavaScript / TypeScript 支持可用但分析深度较弱
 - **静态分析** — 不执行仓库代码，仅做静态分析和 LLM 审查
 - **文件数量限制** — 最多分析 300 个支持的源文件，跳过超过 200KB 的文件
-- **真实 LLM 输出质量** — 依赖模型服务可用性和 API Key，MiMo 中文可能有少量不自然表达
+- **真实模型输出质量** — 依赖模型服务可用性和 API Key，MiMo 中文可能有少量不自然表达
 
 ---
 
