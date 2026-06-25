@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 from scripts.metrics import run_quant_metrics as metrics
 
@@ -104,3 +105,50 @@ def test_json_schema_basic_fields_exist(tmp_path: Path, monkeypatch) -> None:
 
     for key in ("metadata", "repos", "aggregate", "mock", "real", "baseline", "quality", "resume_safe", "unsupported"):
         assert key in data
+
+
+def test_failed_baseline_artifact_is_rerun(tmp_path: Path, monkeypatch) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    (repo_path / "app.py").write_text("def main():\n    return 1\n", encoding="utf-8")
+    output = tmp_path / "out"
+    baseline_dir = output / "baseline_direct_llm_outputs"
+    baseline_dir.mkdir(parents=True)
+    stem = "repo_baseline_direct_llm"
+    (baseline_dir / f"{stem}.md").write_text("# failed\n", encoding="utf-8")
+    (baseline_dir / f"{stem}.json").write_text(
+        json.dumps({"review_success": False, "resume_status": "failed"}),
+        encoding="utf-8",
+    )
+
+    class FakeClient:
+        retry_count = 0
+        resolved = SimpleNamespace(model="test-model", base_url="https://example.test")
+        usage = {"real_llm_input_tokens": 1, "real_llm_output_tokens": 1, "real_llm_total_tokens": 2}
+
+        def __init__(self, settings, max_retries: int) -> None:
+            self.settings = settings
+            self.max_retries = max_retries
+
+        def generate_review(self, prompt: str) -> str:
+            assert "app.py" in prompt
+            return "# Summary\n\nok"
+
+    monkeypatch.setattr(metrics, "TrackingRealLLMClient", FakeClient)
+    monkeypatch.setattr(
+        metrics,
+        "review_quality_metrics",
+        lambda report, context: {
+            "evidence_binding_rate": 100.0,
+            "generic_suggestion_rate": 0.0,
+            "report_sections_complete": True,
+        },
+    )
+
+    repo = SimpleNamespace(spec=SimpleNamespace(name="repo"), path=repo_path)
+    context = SimpleNamespace(file_summaries=[SimpleNamespace(path="app.py")])
+
+    result = metrics.run_baseline(repo, context, metrics.Settings(), output, rerun=False)
+
+    assert result["review_success"] is True
+    assert result["resume_status"] == "completed"

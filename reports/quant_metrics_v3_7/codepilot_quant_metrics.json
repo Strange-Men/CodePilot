@@ -10,26 +10,29 @@
   },
   "baseline": {
     "attempted": 1,
-    "avg_duration_seconds": null,
-    "avg_evidence_binding_rate": null,
-    "avg_generic_suggestion_rate": null,
+    "avg_duration_seconds": 241.56,
+    "avg_evidence_binding_rate": 0.0,
+    "avg_generic_suggestion_rate": 0.0,
+    "evidence_binding_rate_delta": 100.0,
+    "format_completion_delta": 1,
+    "generic_suggestion_rate_delta": 0,
     "limitations": "Baseline runs only one small repo and is qualitative, not a large-scale controlled experiment.",
-    "succeeded": 0,
-    "success_rate": 0.0,
+    "succeeded": 1,
+    "success_rate": 100.0,
     "token_usage": {
-      "input": 0,
-      "output": 0,
-      "total": 0
+      "input": 137417,
+      "output": 3422,
+      "total": 140839
     }
   },
   "metadata": {
     "commands": {
-      "baseline": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode baseline --max-repos 1 --output reports/quant_metrics_v3_7",
+      "baseline": "python scripts/metrics/run_quant_metrics.py --repo-url https://github.com/encode/httpx.git --mode baseline --output reports/quant_metrics_v3_7",
       "both": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode both --max-repos 3 --output reports/quant_metrics_v3_7",
       "real": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode real --max-repos 1 --output reports/quant_metrics_v3_7"
     },
     "duration_seconds": 87.44,
-    "generated_at": "2026-06-25T07:33:33.400761+00:00",
+    "generated_at": "2026-06-25T08:15:41.774226+00:00",
     "mode": "both",
     "output_dir": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7",
     "project_root": "D:\\Claude_workfile\\CodePilot",
@@ -61,10 +64,10 @@
   },
   "quality": {
     "audit_harness": {
-      "duration_seconds": 6.4,
-      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\audit_harness.log",
-      "returncode": 1,
-      "status": "failed"
+      "duration_seconds": 5.82,
+      "log_path": "reports\\quant_metrics_v3_7\\raw_logs\\audit_harness.log",
+      "returncode": 0,
+      "status": "passed"
     },
     "frontend_build": {
       "reason": "frontend not changed",
@@ -75,14 +78,14 @@
       "status": "skipped"
     },
     "pytest_all": {
-      "duration_seconds": 21.58,
-      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\pytest_all.log",
+      "duration_seconds": 21.54,
+      "log_path": "reports\\quant_metrics_v3_7\\raw_logs\\pytest_all.log",
       "returncode": 0,
       "status": "passed"
     },
     "ruff": {
       "duration_seconds": 0.04,
-      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\ruff.log",
+      "log_path": "reports\\quant_metrics_v3_7\\raw_logs\\ruff.log",
       "returncode": 0,
       "status": "passed"
     }
@@ -103,17 +106,34 @@
   "repos": [
     {
       "baseline": {
-        "duration_seconds": 364.77,
-        "error_msg": "The read operation timed out",
-        "failure_reason_available": true,
-        "failure_stage": "baseline_direct_llm",
+        "base_url_host": "token-plan-cn.xiaomimimo.com",
+        "current_report_contract_complete": false,
+        "duration_seconds": 241.56,
+        "evidence_binding_rate": 0.0,
+        "evidence_bound_findings": 0,
+        "evidence_total": 1207,
+        "failure_reason_available": false,
+        "failure_stage": null,
+        "findings_by_agent": {},
+        "findings_by_severity": {},
+        "generic_suggestion_rate": 0.0,
+        "invalid_evidence_refs": 12,
         "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.json",
-        "limitations": "One small repo qualitative baseline; failed run is not used for deltas.",
+        "limitations": "One small repo qualitative baseline; not a large-scale controlled experiment.",
         "llm_retry_count": 1,
+        "markdown_export_available": true,
         "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.md",
         "mode": "baseline_direct_llm",
-        "resume_status": "skipped_existing",
-        "review_success": false
+        "model": "mimo-v2.5-pro",
+        "raw_internal_id_leak_count": 0,
+        "real_llm_input_tokens": 137417,
+        "real_llm_output_tokens": 3422,
+        "real_llm_total_tokens": 140839,
+        "report_sections_complete": false,
+        "resume_status": "completed",
+        "review_success": true,
+        "total_findings": 10,
+        "zh_en_supported": true
       },
       "benchmark_threshold": {
         "label": "upper_limit",
@@ -452,9 +472,9 @@
   ],
   "unsupported": [
     {
-      "metric": "baseline",
-      "reason": "The read operation timed out",
-      "scope": "httpx"
+      "metric": "real_call_token_compression_rate",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "click"
     },
     {
       "metric": "real_llm_input_tokens",
@@ -474,7 +494,7 @@
     {
       "metric": "real_call_token_compression_rate",
       "reason": "real mode not run or provider usage unavailable",
-      "scope": "click"
+      "scope": "uvicorn"
     },
     {
       "metric": "real_llm_input_tokens",
@@ -490,16 +510,6 @@
       "metric": "real_llm_total_tokens",
       "reason": "real mode not run or provider usage unavailable",
       "scope": "uvicorn"
-    },
-    {
-      "metric": "real_call_token_compression_rate",
-      "reason": "real mode not run or provider usage unavailable",
-      "scope": "uvicorn"
-    },
-    {
-      "metric": "audit_harness",
-      "reason": "failed",
-      "scope": "quality"
     },
     {
       "metric": "frontend_tests",

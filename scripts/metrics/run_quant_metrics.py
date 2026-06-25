@@ -618,8 +618,9 @@ def run_review_mode(
     json_path = out_dir / f"{stem}.json"
     if md_path.exists() and json_path.exists() and not rerun:
         data = json.loads(json_path.read_text(encoding="utf-8"))
-        data["resume_status"] = "skipped_existing"
-        return data
+        if data.get("review_success") is True:
+            data["resume_status"] = "skipped_existing"
+            return data
 
     started = time.perf_counter()
     client: Any = MockLLMClient() if mode == "mock" else TrackingRealLLMClient(settings, max_retries=1)
@@ -693,8 +694,9 @@ def run_baseline(
     json_path = out_dir / f"{stem}.json"
     if md_path.exists() and json_path.exists() and not rerun:
         data = json.loads(json_path.read_text(encoding="utf-8"))
-        data["resume_status"] = "skipped_existing"
-        return data
+        if data.get("review_success") is True:
+            data["resume_status"] = "skipped_existing"
+            return data
     started = time.perf_counter()
     client = TrackingRealLLMClient(settings, max_retries=1)
     raw_source = "\n\n".join(

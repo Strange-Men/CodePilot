@@ -1,7 +1,7 @@
 # CodePilot Quant Metrics Report
 
 ## Metadata
-- Generated at: 2026-06-25T07:33:33.400761+00:00
+- Generated at: 2026-06-25T08:15:41.774226+00:00
 - Mode: both
 - Token method: tiktoken
 
@@ -42,20 +42,23 @@
 | uvicorn | mock | True | 4 | 100.0% | 0.0% | True |
 
 ## Baseline
-- Attempted: 1; succeeded: 0.
+- Attempted: 1; succeeded: 1.
+- evidence_binding_rate_delta: 100.0
+- generic_suggestion_rate_delta: 0
+- format_completion_delta: 1
 - Limitation: Baseline runs only one small repo and is qualitative, not a large-scale controlled experiment.
 
 ## Performance
 | Repo | E2E | Clone | Context | Mock | Real | Baseline |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| httpx | 3.21s | 5.09s | 2.32s | 0.73s | 400.02s | 364.77s |
+| httpx | 3.21s | 5.09s | 2.32s | 0.73s | 400.02s | 241.56s |
 | click | 3.39s | 2.46s | 2.79s | 1.17s | n/a | n/a |
 | uvicorn | 2.49s | 2.42s | 1.99s | 0.71s | n/a | n/a |
 
 ## Quality
-- pytest_all: passed (D:\Claude_workfile\CodePilot\reports\quant_metrics_v3_7\raw_logs\pytest_all.log)
-- ruff: passed (D:\Claude_workfile\CodePilot\reports\quant_metrics_v3_7\raw_logs\ruff.log)
-- audit_harness: failed (D:\Claude_workfile\CodePilot\reports\quant_metrics_v3_7\raw_logs\audit_harness.log)
+- pytest_all: passed (reports\quant_metrics_v3_7\raw_logs\pytest_all.log)
+- ruff: passed (reports\quant_metrics_v3_7\raw_logs\ruff.log)
+- audit_harness: passed (reports\quant_metrics_v3_7\raw_logs\audit_harness.log)
 - frontend_tests: skipped (frontend not changed)
 - frontend_build: skipped (frontend not changed)
 
@@ -65,20 +68,18 @@
 - Real LLM produced one successful repo-level validation; no multi-repo Real average is claimed.
 
 ## Unsupported
-- httpx: baseline - The read operation timed out
+- click: real_call_token_compression_rate - real mode not run or provider usage unavailable
 - click: real_llm_input_tokens - real mode not run or provider usage unavailable
 - click: real_llm_output_tokens - real mode not run or provider usage unavailable
 - click: real_llm_total_tokens - real mode not run or provider usage unavailable
-- click: real_call_token_compression_rate - real mode not run or provider usage unavailable
+- uvicorn: real_call_token_compression_rate - real mode not run or provider usage unavailable
 - uvicorn: real_llm_input_tokens - real mode not run or provider usage unavailable
 - uvicorn: real_llm_output_tokens - real mode not run or provider usage unavailable
 - uvicorn: real_llm_total_tokens - real mode not run or provider usage unavailable
-- uvicorn: real_call_token_compression_rate - real mode not run or provider usage unavailable
-- quality: audit_harness - failed
 - quality: frontend_tests - frontend not changed
 - quality: frontend_build - frontend not changed
 
 ## Reproduction
+- `python scripts/metrics/run_quant_metrics.py --repo-url https://github.com/encode/httpx.git --mode baseline --output reports/quant_metrics_v3_7`
 - `python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode both --max-repos 3 --output reports/quant_metrics_v3_7`
 - `python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode real --max-repos 1 --output reports/quant_metrics_v3_7`
-- `python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode baseline --max-repos 1 --output reports/quant_metrics_v3_7`

@@ -38,5 +38,5 @@ If Real LLM is unavailable, run these narrower commands and keep the recorded fa
 
 ```powershell
 python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode real --max-repos 1 --output reports/quant_metrics_v3_7
-python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode baseline --max-repos 1 --output reports/quant_metrics_v3_7
+python scripts/metrics/run_quant_metrics.py --repo-url https://github.com/encode/httpx.git --mode baseline --output reports/quant_metrics_v3_7
 ```
