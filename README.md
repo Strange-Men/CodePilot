@@ -187,16 +187,16 @@ MIMO_MODEL_NAME=mimo-v2.5-pro
 
 ```text
 DOUBAO_API_KEY=your-key
-DOUBAO_BASE_URL=your-openai-compatible-base-url
-DOUBAO_MODEL_NAME=your-model
+DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+DOUBAO_MODEL_NAME=your-volcengine-endpoint-id
 ```
 
 使用 DeepSeek：
 
 ```text
 DEEPSEEK_API_KEY=your-key
-DEEPSEEK_BASE_URL=your-openai-compatible-base-url
-DEEPSEEK_MODEL_NAME=your-model
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL_NAME=deepseek-chat
 ```
 
 ---

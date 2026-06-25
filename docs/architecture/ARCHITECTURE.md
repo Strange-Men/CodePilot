@@ -59,6 +59,8 @@ DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL_NAME
 
 The frontend sends the selected provider value to the backend and never stores API keys. Provider availability is exposed through `GET /api/llm/providers` as value, label, and availability only. Both Mock and Real modes produce the same Pydantic-validated output schema.
 
+Doubao uses the Volcengine Ark OpenAI-compatible endpoint (`https://ark.cn-beijing.volces.com/api/v3`), and `DOUBAO_MODEL_NAME` should be the user's Ark endpoint id. DeepSeek uses `https://api.deepseek.com` with `DEEPSEEK_MODEL_NAME=deepseek-chat` as the default example.
+
 ## Evaluation
 
 `evaluation/` provides a deterministic quality harness with five quality dimensions, per-agent cost/latency tracking, and optional real-LLM mode. See `evaluation/README.md` for details.

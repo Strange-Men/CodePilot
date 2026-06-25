@@ -62,7 +62,7 @@ class ReviewTaskRunner:
         if llm_mode != "mock":
             try:
                 build_llm_client_for_mode(self.settings, llm_mode, llm_provider)
-            except RuntimeError as exc:
+            except (RuntimeError, ValueError) as exc:
                 raise APIError(
                     400,
                     "LLM configuration error",

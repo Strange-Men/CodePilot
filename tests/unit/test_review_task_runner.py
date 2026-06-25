@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import backend.tasks.pipeline as pipeline_module
 import backend.tasks.runner as runner_module
 from backend.agents.orchestrator import AgentOrchestrator
+from backend.api.errors import APIError
 from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings
 from backend.llm.client import MockLLMClient
@@ -213,6 +214,21 @@ def test_submit_creates_review_and_schedules_task(runner_dependencies: tuple[Set
         "A4 RefactorAgent",
     ]
     assert "progress" not in row
+
+
+def test_submit_real_llm_invalid_default_provider_returns_config_error(
+    runner_dependencies: tuple[Settings, ReviewStore],
+) -> None:
+    settings, store = runner_dependencies
+    settings.real_llm_provider = "invalid"
+    runner = ReviewTaskRunner(settings, store)
+
+    with pytest.raises(APIError) as exc_info:
+        runner.submit("https://github.com/pallets/flask", llm_mode="mimo")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.code == "llm_config_error"
+    assert "Unknown Real LLM provider" in exc_info.value.detail
 
 
 def test_run_completes_review_and_exports_report(runner_dependencies: tuple[Settings, ReviewStore]) -> None:

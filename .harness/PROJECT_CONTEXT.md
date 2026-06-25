@@ -140,7 +140,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 1012 tests on 2026-06-25: 1011 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- `pytest` collected 1013 tests on 2026-06-25: 1012 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 - Unit tests: 303 collected across context compatibility, prompts, structured reviews, report composition and quality,
   evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence,
   structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior,

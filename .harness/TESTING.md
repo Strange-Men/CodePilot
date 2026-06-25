@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest` collected 1012 tests: 1011 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 1013 tests: 1012 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 919 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.7 MiMo Chinese report fallback. |
+| Unit | 920 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.7 MiMo Chinese report fallback. |
 | Integration | 87 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Metrics | 5 | 1 | Validate quant metrics report data and generated metric contracts. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
@@ -47,7 +47,7 @@
 | `tests/unit/test_review_store.py` | 15 | DB initialization, WAL mode, CRUD, report preservation, structured finding persistence, agent state and graph state storage, safe evidence refs, internal inspection, and schema-neutral history queries. |
 | `tests/unit/test_review_context.py` | 4 | Focused context defaults and flat compatibility round trips. |
 | `tests/unit/test_review_state.py` | 1 | Graph-ready ReviewState safe snapshots exclude source snippets while preserving evidence lineage. |
-| `tests/unit/test_review_task_runner.py` | 8 | Submit/run behavior, status progression, parser selection, V3 state persistence, and idempotent executor shutdown. |
+| `tests/unit/test_review_task_runner.py` | 9 | Submit/run behavior, Real LLM config-error handling, status progression, parser selection, V3 state persistence, and idempotent executor shutdown. |
 | `tests/unit/test_scoring.py` | 32 | Importance labels, calibrated scoring, role modifiers, all six file roles, entry-point detection, and dependency-aware importance. |
 | `tests/unit/test_token_counting.py` | 6 | Model encodings, Unicode, exact budgets, line preservation, unknown-model fallback, and missing-dependency runtime fallback. |
 | `tests/unit/test_v3_2_retrieval.py` | 17 | Tiered retrieval, legacy compatibility, context compression, token budgeting, safe metadata, large repo tiers, and manifest-only low-priority files. |
