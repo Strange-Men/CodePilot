@@ -6,11 +6,11 @@
 
 ## Current Test Inventory
 
-`pytest` collected 1018 tests: 1017 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 1019 tests: 1018 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 925 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.9 Chinese report language consistency. |
+| Unit | 926 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.9 Chinese report language consistency. |
 | Integration | 87 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Metrics | 5 | 1 | Validate quant metrics report data and generated metric contracts. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
@@ -61,7 +61,7 @@
 | `tests/unit/test_v3_evaluation_metrics.py` | 4 | Hallucination, quality, per-agent, and deterministic retrieval evaluation metrics. |
 | `tests/unit/test_v3_hardening_matrix.py` | 48 | Secret redaction, sandbox boundaries, evidence stability, structured validation, real LLM opt-in, and deduplication matrix coverage. |
 | `tests/unit/test_structured_review.py` | 6 | Markdown parsing, structured findings, contract ordering, cycle compression, and lossless context-aware round trips. |
-| `tests/unit/test_zh_presentation.py` | 159 | V3.7 centralized Chinese presentation pipeline: English leakage detection, zh field repair with category templates, validation_tests repair, metadata repair (evidence labels, repo summary), allowed English preservation, en report unchanged, old reviews still render, no secrets, V3.6 regression coverage, and V3.7 MiMo fallback (indexer metadata repair, MiMo English sentence repair, evidence ref cleanup, category-specific description templates, final gate regression). |
+| `tests/unit/test_zh_presentation.py` | 160 | V3.7 centralized Chinese presentation pipeline: English leakage detection, zh field repair with category templates, validation_tests repair, metadata repair (evidence labels, repo summary), allowed English preservation, en report unchanged, old reviews still render, no secrets, V3.6 regression coverage, and V3.7 MiMo fallback (indexer metadata repair, MiMo English sentence repair, evidence ref cleanup, category-specific description templates, final gate regression). |
 
 ## Integration Tests
 

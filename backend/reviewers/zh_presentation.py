@@ -443,14 +443,19 @@ def repair_zh_display_fields(finding: ReviewFinding) -> ReviewFinding:
 
     category = finding.category or ""
 
-    repaired_title = repair_zh_field(zh.title, "title", category)
-    repaired_desc = repair_zh_field(zh.description, "description", category)
-    repaired_rec = repair_zh_field(zh.recommendation, "recommendation", category)
-    repaired_impact = repair_zh_field(zh.impact, "impact", category)
-    repaired_first_step = repair_zh_field(zh.first_step, "first_step", category)
-    repaired_caveat = repair_zh_field(zh.caveat, "caveat", category)
-    repaired_conf = repair_zh_field(zh.confidence_rationale, "confidence_rationale", category)
-    repaired_tests = repair_zh_validation_tests(zh.validation_tests, category)
+    repaired_title = repair_zh_field(zh.title or finding.title, "title", category)
+    repaired_desc = repair_zh_field(zh.description or finding.description, "description", category)
+    repaired_rec = repair_zh_field(zh.recommendation or finding.recommendation, "recommendation", category)
+    repaired_impact = repair_zh_field(zh.impact or finding.impact, "impact", category)
+    repaired_first_step = repair_zh_field(zh.first_step or finding.first_step, "first_step", category)
+    repaired_caveat = repair_zh_field(zh.caveat or finding.caveat, "caveat", category)
+    repaired_conf = repair_zh_field(
+        zh.confidence_rationale or finding.confidence_rationale,
+        "confidence_rationale",
+        category,
+    )
+    source_tests = zh.validation_tests or finding.validation_tests
+    repaired_tests = repair_zh_validation_tests(source_tests, category)
 
     # Check if any field was actually repaired
     changes_made = (

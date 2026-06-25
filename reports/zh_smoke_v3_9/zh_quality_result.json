@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "mode": "real_llm",
+    "provider": "mimo",
+    "repo_url": "https://github.com/pallets/markupsafe",
+    "task_id": "zh-smoke-v3-9-real-mimo",
+    "started_at": "2026-06-25T13:12:02.068678+00:00",
+    "status": "real_llm_response_rendered",
+    "completed_at": "2026-06-25T13:16:19.832710+00:00",
+    "llm_call_count": 1,
+    "postprocess_status": "completed_from_recorded_real_response",
+    "finding_count": 3,
+    "quality_issue_count": 0,
+    "quality_pass": true
+  },
+  "issues": [],
+  "pass": true,
+  "banned_checks": {
+    "n/a": true,
+    "Extract common functionality": true,
+    "Increases maintenance cost": true,
+    "Analyze if the method": true,
+    "Run existing tests": true,
+    "Check for any differences": true,
+    "Without consolidation": true
+  }
+}

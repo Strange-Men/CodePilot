@@ -604,6 +604,38 @@ class TestV36Regression:
         assert repaired[0].display.zh.impact == _IMPACT_TEMPLATES["code_smell"]
         assert repaired[0].display.zh.recommendation == _RECOMMENDATION_TEMPLATES["code_smell"]
 
+    def test_prepare_zh_report_fills_missing_zh_fields_from_safe_templates(self):
+        """Missing display.zh fields must not fall back to English prose in zh rendering."""
+        findings = [
+            ReviewFinding(
+                section="Maintainability Issues",
+                title="Protocol consistency",
+                description="Protocol use is inconsistent.",
+                severity="medium",
+                confidence=0.82,
+                category="maintainability",
+                files=["src/markupsafe/_typing.py"],
+                evidence_ids=["ev_001"],
+                recommendation="Continue using protocols for new type hints to maintain consistency.",
+                impact="Improves code maintainability and enables better tooling support.",
+                caveat="Protocols are for static type checking; runtime behavior depends on implementation.",
+                display=DisplayFields(
+                    en=BilingualTextField(),
+                    zh=BilingualTextField(title="协议类型标注需要保持一致"),
+                ),
+            ),
+        ]
+
+        repaired, _ = prepare_zh_report(findings, "")
+        rendered = repaired[0].to_localized_markdown("zh")
+
+        assert _RECOMMENDATION_TEMPLATES["maintainability"] in rendered
+        assert _IMPACT_TEMPLATES["maintainability"] in rendered
+        assert _GENERIC_CAVEAT in rendered
+        assert "Continue using protocols" not in rendered
+        assert "Improves code maintainability" not in rendered
+        assert "Protocols are for static type checking" not in rendered
+
     def test_finalize_zh_report_repairs_metadata(self):
         """finalize_zh_report should repair metadata patterns."""
         md = """# 证据附录
