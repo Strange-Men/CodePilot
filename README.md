@@ -1,117 +1,151 @@
-# CodePilot｜AI 代码审查与仓库理解 Agent 系统
+# CodePilot | AI 代码审查与仓库理解系统
 
 English version: [README.en.md](README.en.md)
 
-CodePilot 是一个面向 GitHub 开源仓库的 **AI 代码审查与仓库理解系统**。输入仓库 URL，自动完成仓库拉取、代码解析、多 Agent 审查、证据追踪和结构化报告生成。项目验证了从「仓库解析 → 结构化上下文 → 多 Agent 协作 → 证据绑定 → 报告导出 → 前端展示」的完整工程链路。
+前置静态解析 + 结构化上下文 + 证据绑定，让大模型生成可复查的仓库审查报告。
 
----
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)
+![Pydantic](https://img.shields.io/badge/Pydantic-Data%20Validation-E92063?logo=pydantic)
+![SQLite](https://img.shields.io/badge/SQLite-Persistence-003B57?logo=sqlite)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?logo=tailwindcss)
+![Mock](https://img.shields.io/badge/Mock-Default-orange)
+![Render](https://img.shields.io/badge/Render-Backend-46E3B7?logo=render)
+![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?logo=vercel)
 
-## 在线演示
+## 🎯 项目背景：为什么做？（Situation）
 
-| 模块 | 地址 |
-|------|------|
-| 前端 Demo | [https://code-pilot-red.vercel.app](https://code-pilot-red.vercel.app) |
-| 后端 API | `https://codepilot-i189.onrender.com` |
-| 健康检查 | [https://codepilot-i189.onrender.com/health](https://codepilot-i189.onrender.com/health) |
+中小型 GitHub 仓库的理解和审查经常卡在三个现实问题上：
 
-> **演示建议：** 推荐使用 Mock 模式（默认），无需 API Key，输出稳定，支持中英文切换。真实模型模式为可选能力，受模型服务和网络影响。
-> **注意：** Render 免费环境为临时存储，历史审查记录可能因容器重启丢失，这在演示部署中属于预期行为。
+- 人工阅读仓库耗时长、依赖经验，输出质量也容易随审查者状态波动。
+- 通用大模型直接问答缺少完整仓库上下文，容易给出泛化建议，难以复查依据。
+- 传统静态分析工具偏语法、规范和安全检查，通常不生成架构级理解报告。
 
----
+CodePilot 面向中小型 Python 仓库，用“静态解析提取事实 + LLM 生成解释”的方式，把仓库文件、符号、依赖、规模指标先整理成结构化上下文，再生成带证据的代码理解与审查报告。
 
-## 项目定位
+## ✨ 项目定位与核心能力（Task）
 
-- 这是一个**仓库级代码审查 Agent 原型**，不是商业产品的替代品
-- 重点验证「仓库解析 → 结构化上下文 → 多 Agent 审查 → 证据追踪 → 报告生成」的完整工程链路
-- 适合用于快速理解陌生仓库、定位潜在工程问题、生成结构化审查报告
-- 项目面向校招 / 实习 Portfolio 展示，强调工程完整性和技术深度，不夸大功能边界
+CodePilot 是一个面向中小型 GitHub 仓库的 AI 代码审查 MVP，当前优先支持 Python 仓库。输入公开仓库 URL 后，系统静态读取仓库并输出四区块报告：
 
----
+- 架构概览
+- 代码坏味道
+- 可维护性分析
+- 重构建议
 
-## 核心功能
+核心能力：
 
-- **仓库智能解析** — 基于 Tree-sitter 和 AST 的代码结构解析，支持 Python、JavaScript、TypeScript
-- **结构化上下文构建** — 不向 LLM 发送原始源码，而是构建包含符号摘要、依赖关系和文件结构的 RepositoryContext
-- **多 Agent 审查** — Architecture、CodeQuality、Maintainability、Refactor 四个专项 Agent 并行审查
-- **证据追踪系统** — 每条审查结论绑定 evidence_id（如 `[E1]`/`[E2]`），关联文件路径、行号和代码片段，降低 LLM 幻觉风险
-- **中英文切换** — 全局 zh/en 语言切换，报告、发现、UI 标签和错误信息均跟随语言设置
-- **Markdown 报告导出** — 一键导出完整审查报告，含证据附录
-- **Mock / 真实模型双模式** — Mock 模式确定性输出、无需凭据；真实模型模式可选择 MiMo、豆包 / Doubao、DeepSeek
+- 前置静态解析降噪，降低大模型输入规模。
+- 结构化证据绑定，让建议可追溯到文件、函数、类、依赖和指标。
+- Mock / Real LLM 双模式解耦，开发、测试、CI 可稳定复现，真实模型可用于报告生成验证。
+- SQLite 保存任务状态和历史报告，支持前端轮询展示。
+- Provider 接口隔离模型接入，支持 Mock 以及 OpenAI-compatible 的真实模型配置。
 
----
+非当前目标：
 
-## 系统架构
+- 大型 monorepo 不在当前范围内。
+- 不做所有语言全覆盖。
+- 不执行用户仓库代码，只做静态分析。
+- 不做自动修复。
+- 不包装成商业化代码审查产品。
 
-```
+## 🏗️ 架构与核心实现（Action）
+
+整体链路：
+
+```text
 GitHub URL
-  → 仓库拉取
-  → 文件过滤（大小 / 类型 / 敏感信息）
-  → Tree-sitter / AST 代码解析
-  → 结构化仓库上下文（RepositoryContext）
-  → 多 Agent 并行审查
-       ├── Architecture Agent（架构分析）
-       ├── CodeSmell Agent（代码质量）
-       ├── Maintainability Agent（可维护性）
-       └── Refactor Agent（重构建议）
-  → Evidence Store（证据绑定）
-  → Report Composer（报告合成）
-  → 前端展示 / Markdown 导出
+→ 仓库克隆（静态读取）
+→ 文件过滤 / 静态解析
+→ 结构化上下文构建
+→ Mock / Real LLM 生成报告
+→ ReportContract 校验
+→ SQLite 持久化
+→ 前端展示
 ```
 
-**部署架构：**
+### 1. 前置工程降噪
 
-```
-┌──────────────────────────┐         ┌──────────────────────────┐
-│   Vercel（前端）           │         │   Render（后端）           │
-│   Next.js 15 + React 19   │────────▶│   FastAPI + SQLite       │
-│   TypeScript + Tailwind    │  HTTPS  │   Tree-sitter 解析器      │
-│   code-pilot-red.vercel.app│        │   codepilot-*.onrender.com│
-└──────────────────────────┘         └──────────────────────────┘
-```
+- 过滤 `.git`、`__pycache__`、`.venv`、`dist`、`build` 等低价值内容。
+- 保留源码、配置文件、README 等对仓库理解有用的内容。
+- 使用 Python AST，并保留 tree-sitter extension-ready 的解析路径，提取函数、类、导入依赖和文件规模。
+- 用结构化上下文替代原始代码直喂，减少噪声并保留可定位的工程事实。
 
----
+### 2. 报告质量控制
 
-## 技术栈
+- 固定四区块报告结构：架构概览、代码坏味道、可维护性分析、重构建议。
+- `ReportContract` 统一报告结构契约，隔离 LLM 输出波动。
+- evidence 字段让 finding 绑定文件路径、函数、类、依赖和指标。
+- 目标是让报告可复查，而不是自由生成一大段主观评价。
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| 前端 | Next.js 15.5、React 19、TypeScript 5.7、Tailwind CSS 3.4 | Vercel 部署，支持中英文切换 |
-| 后端 | FastAPI、Python 3.11、SQLite（WAL 模式）、ThreadPoolExecutor | Render Docker 部署 |
-| 代码解析 | Tree-sitter + AST fallback | Python 深度解析，JS/TS 基础解析 |
-| 数据校验 | Pydantic | 全链路结构化数据校验 |
-| LLM 接入 | MockLLMClient + OpenAI 兼容接口 / MiMo 可选 | Mock 模式默认，真实模型可选 |
-| 部署 | Vercel（前端）+ Render（后端） | 免费层部署 |
-| 工程化 | GitHub Actions、pytest、ruff、npm test、npm run build | CI 全流程覆盖 |
+### 3. 工程稳定性保障
 
----
+- Mock LLM 用于开发、测试和 CI，输出稳定、可复现。
+- Real LLM 用于真实报告生成验证。
+- Provider 接口让模型层可插拔。
+- 任务分阶段记录，失败后可以定位到克隆、解析、LLM 或报告合成阶段。
+- `pytest`、`ruff`、`audit_harness` 覆盖测试、静态检查和工程一致性校验。
 
-## 关键设计说明
+## 🛠️ 技术栈
 
-### 1. 多 Agent 审查流程
+- Backend：FastAPI 0.115.6 + Pydantic 2.10.4 + Uvicorn 0.34.0
+- Frontend：Next.js 15.5.19 + React 19 + TypeScript 5.7 + Tailwind CSS 3.4
+- Persistence：SQLite（Python stdlib，WAL 模式）
+- Parsing：Python AST + tree-sitter / tree-sitter-language-pack
+- Token Counting：tiktoken 0.13.0
+- LLM：Mock Provider + OpenAI-compatible Real LLM Provider（MiMo / Doubao / DeepSeek 配置）
+- Deployment：Docker 本地可部署；仓库包含 Render 后端和 Vercel 前端部署配置文档
+- Quality：pytest + ruff + audit_harness + GitHub Actions
 
-不同 Agent 负责不同审查维度（架构、质量、可维护性、重构）。Agent 之间不是自由对话，而是由统一的 Orchestrator 调度：共享 RepositoryContext 和 EvidenceStore，各自独立产出结构化 findings，最后由 ReportComposer 合成四段式报告（总览 + 发现 + 行动计划 + 证据附录）。
+## 📊 量化效果（Result）
 
-### 2. Evidence-grounded 报告
+### 工程降噪
 
-每条 finding 绑定 `evidence_id`，用户在报告中看到 `[E1]`/`[E2]` 标记。Evidence Appendix 展示对应的文件路径、行号和代码片段。这种设计让审查结论可溯源、可验证，降低 LLM 幻觉对报告可信度的影响。
+- 基准仓库：3 个公开 Python 仓库。
+- 仓库规模：60-79 个 Python 源码文件，接近或超出早期 50 文件边界。
+- 平均文件降噪率：49.1%。
+  - 口径：以 `git ls-files` 统计的 Git 跟踪原生业务文件为基线，排除 `.git`、依赖目录、虚拟环境等非业务内容。
+- 结构化上下文平均 Token 压缩率：96.8%。
+  - 口径：对比同范围有效源码的原始代码 Token 与结构化上下文 Token，统一估算方法。
 
-### 3. 结构化仓库上下文（非完整向量 RAG）
+### 真实 LLM 单仓验证
 
-本项目**没有**采用 embedding + 向量数据库的完整 RAG 路径。当前方案是通过 Tree-sitter / AST / 依赖图 / 符号摘要构建结构化仓库上下文（RepositoryContext），保留文件路径、符号关系、行号和依赖结构。这种方式更适合代码审查场景——审查需要精确的文件位置和结构信息，而不是语义相似度检索。
+- 验证仓库：httpx 单仓。
+- 对照组输入 Token：137417。
+- CodePilot 输入 Token：15212。
+- 输入规模降低：约 8.85 倍，约等于近 9 倍。
+- 真实 LLM 调用输入 Token 压缩率：88.7%。
+- CodePilot 证据绑定率：100%。
+- 通用大模型直出对照组证据绑定率：0%。
+- 证据绑定率提升：100 个百分点。
 
-### 4. Mock / 真实模型双模式
+说明：
 
-- **Mock 模式**：`MockLLMClient` 返回预构建的双语 findings，确定性输出，无需 API Key，用于稳定演示和 CI 测试
-- **真实模型模式**：支持 MiMo、豆包 / Doubao、DeepSeek 的后端 OpenAI 兼容配置，验证真实模型接入能力
-- 两种模式走同一套报告生成、前端展示和导出链路
+- 这是 httpx 单仓定性验证，不代表大规模统计结论。
+- 这里只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
+- 证据绑定率是 v1.0 规则下的统计结果，不等于报告绝对正确。
 
-### 5. 中文展示与容错
+### 工程质量
 
-支持 zh/en 全局切换，localStorage 持久化语言偏好。对真实模型的中文输出做了字段级校验和兜底处理，确保即使模型输出格式异常也能正常展示。MiMo 中文输出可能仍有少量不自然表达，Mock 模式的中文是确定性且稳定的。
+- `pytest`：1000 passed, 1 skipped。
+- `ruff`：0 问题。
+- `audit_harness`：全链路校验通过。
+- Mock 模式仓库审查成功率：100%。
 
----
+| 验证维度 | 结果 | 口径 |
+|---|---:|---|
+| 平均文件降噪率 | 49.1% | 3 个基准仓库，`git ls-files` 业务文件基线 |
+| 结构化上下文 Token 压缩率 | 96.8% | 同范围有效源码 vs 结构化上下文 |
+| httpx 真实 LLM 输入 Token 压缩率 | 88.7% | 单仓真实调用，只统计输入 Token |
+| 证据绑定率 | 100% vs 0% | httpx 单仓，CodePilot vs 原始代码直喂 |
+| pytest | 1000 passed, 1 skipped | 测试工具原生输出 |
+| ruff | 0 issues | 静态检查 |
 
-## 本地运行
+## 🚀 快速开始
+
+推荐使用仓库自带 PowerShell 脚本。该路径会创建 `codepilot` conda 环境、安装后端依赖、安装前端依赖，并启动后端与前端。
 
 ```powershell
 git clone https://github.com/Strange-Men/CodePilot.git
@@ -121,134 +155,90 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\start-demo.ps1
 ```
 
-打开浏览器访问 [http://localhost:3000](http://localhost:3000)。
+启动后访问：
 
-如果 conda 不在 PATH 中，需在运行 setup 前设置：
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:8000](http://localhost:8000)
+- Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+如果 `conda.exe` 不在 PATH 中：
 
 ```powershell
 $env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 .\scripts\setup.ps1
 ```
 
----
-
-## 在线部署配置
-
-### Vercel（前端）
-
-| 配置项 | 值 |
-|--------|-----|
-| Framework Preset | Next.js |
-| Root Directory | `frontend` |
-| Build Command | `npm run build` |
-| 环境变量 | `NEXT_PUBLIC_API_BASE=https://codepilot-i189.onrender.com` |
-
-`NEXT_PUBLIC_API_BASE` 必须在构建前设置，修改后需重新部署。
-
-### Render（后端）
-
-| 配置项 | 值 |
-|--------|-----|
-| Runtime | Docker |
-| Dockerfile | `./Dockerfile.backend` |
-| Instance Type | Free |
-
-所需环境变量：
-
-```text
-USE_MOCK_LLM=true
-DATABASE_PATH=/app/backend/data/codepilot.db
-WORKSPACE_PATH=/app/backend/workspace
-REPORTS_PATH=/app/reports
-CORS_ALLOW_ORIGINS=https://code-pilot-red.vercel.app
-MAX_FILES=300
-MAX_FILE_SIZE_BYTES=204800
-```
-
-### 真实模型模式配置（可选）
-
-真实模型服务商由前端选择并传给后端。API Key 只存放在后端 `.env`，前端不会保存任何模型服务商的 API Key。默认服务商为 `mimo`。
-
-```text
-USE_MOCK_LLM=false
-ENABLE_REAL_LLM=true
-REAL_LLM_PROVIDER=mimo
-```
-
-使用 MiMo：
-
-```text
-MIMO_API_KEY=your-key
-MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-MIMO_MODEL_NAME=mimo-v2.5-pro
-```
-
-使用豆包 / Doubao：
-
-```text
-DOUBAO_API_KEY=your-key
-DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-DOUBAO_MODEL_NAME=your-volcengine-endpoint-id
-```
-
-使用 DeepSeek：
-
-```text
-DEEPSEEK_API_KEY=your-key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL_NAME=deepseek-chat
-```
-
----
-
-## 测试与质量保障
+也可以手动启动：
 
 ```powershell
-# 后端测试
-pytest                    # 995 tests passed, 1 skipped
-ruff check .              # All checks passed
+# 后端
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements-dev.txt
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
-# 前端测试
+# 前端
 cd frontend
-npm test                  # 104 tests passed
-npm run build             # Production build succeeds
-
-# 集成冒烟测试
-.\scripts\smoke-backend.ps1
+npm install
+$env:NEXT_PUBLIC_API_BASE = "http://localhost:8000"
+npm run dev -- --port 3000
 ```
 
-CI 使用 GitHub Actions，运行环境为 `windows-latest`，覆盖 ruff、pytest、npm install 和前端 build。
+质量校验：
 
----
+```powershell
+python -m pytest tests/ -q
+ruff check .
+python scripts/audit_harness.py
 
-## 已知限制
+cd frontend
+npm test
+npm run build
+```
 
-- **一次性审查，非持续 PR Review Bot** — 当前版本是输入仓库 URL 后的一次性审查，还没有 GitHub OAuth / GitHub App / PR 自动评论能力
-- **无长期仓库记忆** — 每次审查独立，没有跨次审查的持久化记忆
-- **非完整向量 RAG** — 没有 embedding + 向量数据库的语义检索，采用结构化上下文方案
-- **临时存储** — Render 免费环境的 SQLite 历史记录可能因容器重启丢失
-- **语言支持差异** — Python 分析最深入，JavaScript / TypeScript 支持可用但分析深度较弱
-- **静态分析** — 不执行仓库代码，仅做静态分析和 LLM 审查
-- **文件数量限制** — 最多分析 300 个支持的源文件，跳过超过 200KB 的文件
-- **真实模型输出质量** — 依赖模型服务可用性和 API Key，MiMo 中文可能有少量不自然表达
+Docker 本地运行：
 
----
+```powershell
+docker compose up --build
+```
 
-## 文档入口
+## 📁 目录结构
 
-| 文档 | 说明 |
-|------|------|
-| [文档总览](docs/README.md) | 项目全部文档索引 |
-| [本地安装指南](docs/setup/SETUP.md) | 环境配置与本地运行 |
-| [部署指南](docs/setup/DEPLOYMENT.md) | Render + Vercel 部署说明 |
-| [Vercel 部署指南](docs/setup/VERCEL_DEPLOYMENT.md) | 前端 Vercel 部署 |
-| [系统架构](docs/architecture/ARCHITECTURE.md) | 设计决策、模块地图、数据流 |
-| [V3.7 Release Notes](docs/releases/v3.7/V3.7_RELEASE_NOTES.md) | 版本亮点、修复、测试结果 |
-| [V3.7 项目收尾报告](docs/releases/v3.7/V3.7_PROJECT_CLOSURE.md) | 完整验证与收尾 |
-| [Tag 审计记录](docs/releases/TAG_AUDIT.md) | Release tag 审计 |
+```text
+CodePilot/
+├── backend/          # FastAPI backend, parsers, LLM providers, review pipeline
+├── frontend/         # Next.js/React/TypeScript frontend
+├── contracts/        # Report section contract files
+├── docs/             # Architecture, setup, evaluation and release docs
+├── evaluation/       # Evaluation datasets, metrics and comparison scripts
+├── reports/          # Generated metric and validation outputs
+├── scripts/          # Setup, startup, audit and metric scripts
+├── tests/            # Unit, integration, regression and metric tests
+├── Dockerfile.backend
+├── Dockerfile.frontend
+├── docker-compose.yml
+├── README.md
+└── README.en.md
+```
 
----
+## 🛣️ 后续规划
 
-## License
+- 增强报告证据链：绑定代码片段、影响范围、重构优先级。
+- 增强真实 LLM 稳定性：schema 校验、自动重试、fallback。
+- 加固外部仓库安全沙箱：目录隔离、文件数量 / 大小限制、超时控制。
+- 扩展多语言支持：优先 JavaScript / TypeScript，基于 tree-sitter。
+- 产品化评估体系：evaluation dashboard。
 
-本项目用于学习和 Portfolio 展示目的。
+## ⚠️ 当前局限
+
+- 当前优先支持 Python 仓库。
+- 不执行用户仓库代码，只做静态分析。
+- 真实 LLM 仅完成 httpx 单仓端到端验证。
+- Baseline 对照是单仓定性验证，不代表大规模统计结论。
+- 当前是 MVP，不是商业化代码审查产品。
+- JavaScript / TypeScript 已有解析入口和测试覆盖，但当前分析深度弱于 Python。
+- 本地和演示部署中的 SQLite 历史记录取决于实际存储配置；Render Free 等临时存储环境重启后可能丢失历史。
+
+## 📄 License
+
+MIT License

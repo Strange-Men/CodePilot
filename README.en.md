@@ -1,168 +1,151 @@
-# CodePilot
+# CodePilot | AI Code Review and Repository Understanding System
 
-**AI Code Review & Refactor Agent for Large Repositories**
+中文版: [README.md](README.md)
 
-CodePilot clones public GitHub repositories, analyzes source files, builds structured context, and generates actionable four-section review reports with evidence-backed findings. It runs a multi-agent pipeline that produces architecture summaries, code smells, maintainability issues, and refactoring suggestions — all with `[E1]`/`[E2]` evidence references traceable to specific source locations.
+Static analysis + structured context + evidence binding for reviewable AI-generated repository reports.
 
----
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)
+![Pydantic](https://img.shields.io/badge/Pydantic-Data%20Validation-E92063?logo=pydantic)
+![SQLite](https://img.shields.io/badge/SQLite-Persistence-003B57?logo=sqlite)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?logo=tailwindcss)
+![Mock](https://img.shields.io/badge/Mock-Default-orange)
+![Render](https://img.shields.io/badge/Render-Backend-46E3B7?logo=render)
+![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?logo=vercel)
 
-## Live Demo
+## 🎯 Project Background: Why Build It? (Situation)
 
-| Component | URL |
-|-----------|-----|
-| **Frontend** | [https://code-pilot-red.vercel.app](https://code-pilot-red.vercel.app) |
-| **Backend API** | `https://codepilot-i189.onrender.com` |
-| **Health Check** | [https://codepilot-i189.onrender.com/health](https://codepilot-i189.onrender.com/health) |
+Understanding and reviewing small-to-medium GitHub repositories often runs into three practical problems:
 
-**Recommended for demo:** Use **Mock mode** (the default). It is deterministic, requires no API key, and produces stable bilingual output. Real LLM mode is optional and depends on provider availability.
+- Manual repository reading is time-consuming, experience-dependent, and hard to keep consistent.
+- Asking a general LLM directly often misses complete repository context and produces generic suggestions with weak traceability.
+- Traditional static analysis tools focus on syntax, style, and security checks, but usually do not produce architecture-level understanding reports.
 
-> **Note:** The Render free tier has ephemeral storage — review history is lost after a container restart. This is expected for a demo deployment.
+CodePilot targets small-to-medium Python repositories. It follows a “static facts first, LLM explanation second” approach: source files, symbols, dependencies, and size metrics are extracted into structured context before the model generates an evidence-backed review report.
 
----
+## ✨ Positioning and Core Capabilities (Task)
 
-## What CodePilot Does
+CodePilot is an AI code review MVP for small-to-medium GitHub repositories, with Python as the current priority. Given a public repository URL, it reads the repository statically and produces a four-section report:
 
-CodePilot is an end-to-end AI code review agent. Given a public GitHub repository URL, it:
+- Architecture overview
+- Code smells
+- Maintainability analysis
+- Refactoring suggestions
 
-1. **Clones** the repository into a local workspace
-2. **Parses** source files using tree-sitter (Python, JavaScript, TypeScript)
-3. **Builds** structured context — no raw source code is sent to the LLM
-4. **Runs** four parallel specialist agents (Architecture, CodeSmell, Maintainability, Refactor)
-5. **Composes** a four-section review report with executive summary and action plan
-6. **Displays** findings with `[E1]`/`[E2]` evidence references linked to source locations
-7. **Exports** the full report as Markdown with a self-contained evidence appendix
+Core capabilities:
 
----
+- Pre-LLM static parsing and filtering to reduce noisy input.
+- Structured evidence binding so suggestions can be traced back to files, functions, classes, dependencies, and metrics.
+- Mock / Real LLM modes separated for reproducible development, testing, CI, and real report generation validation.
+- SQLite persistence for task state and historical reports.
+- Provider interfaces that isolate model integration, covering Mock and OpenAI-compatible real model configuration.
 
-## Core Features
+Current non-goals:
 
-- **Repository Intelligence** — tree-sitter parsing, AST extraction, and structured context building for Python, JavaScript, and TypeScript
-- **Multi-Agent Review** — parallel specialist agents produce structured findings with severity, category, and evidence links
-- **Evidence System** — every finding links to `[E1]`/`[E2]` evidence references with file paths and line numbers; raw IDs are never exposed
-- **Bilingual Output** — global zh/en language switch with localStorage persistence; all reports, findings, UI labels, and error messages follow the active language
-- **Markdown Export** — one-click export of the full review report with evidence appendix
-- **Mock Demo Mode** — deterministic, credential-free demo path that runs out of the box
-- **Real LLM Mode** — optional MiMo, Doubao, or DeepSeek provider for production use
+- Not designed for large monorepos.
+- No full coverage across all programming languages.
+- Does not execute user repository code.
+- Does not automatically fix code.
+- Not packaged as a commercial code review product.
 
----
+## 🏗️ Architecture and Core Implementation (Action)
 
-## Architecture Overview
-
-```
-┌──────────────────────────┐         ┌──────────────────────────┐
-│   Vercel (Frontend)      │         │   Render (Backend)       │
-│   Next.js 15 + React 19  │────────▶│   FastAPI + SQLite       │
-│   TypeScript + Tailwind   │  HTTPS  │   tree-sitter parser     │
-│   code-pilot-red.vercel.app│        │   codepilot-*.onrender.com│
-└──────────────────────────┘         └──────────────────────────┘
-```
-
-**Pipeline:**
-
-```
-GitHub URL → Clone → Parse (tree-sitter) → Build Context → Multi-Agent Review → Compose Report → Display + Export
-                                                    ↓
-                                        Architecture Agent
-                                        CodeSmell Agent
-                                        Maintainability Agent
-                                        Refactor Agent
-                                                    ↓
-                                        Structured Findings + Evidence Map → [E1]/[E2] References
-```
-
-Each agent receives structured context (not raw source code) and returns bilingual findings with severity, category, and evidence links. The report composer merges agent outputs into a four-section report with executive summary, action plan, and self-contained evidence appendix.
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 15.5, React 19, TypeScript 5.7, Tailwind CSS 3.4 |
-| Backend | FastAPI, Python 3.11, SQLite (WAL), in-process ThreadPoolExecutor |
-| Parser | tree-sitter with AST fallback (Python, JS, TS) |
-| LLM | OpenAI-compatible chat completions or deterministic mock mode |
-| Hosting | Vercel (frontend) + Render (backend) |
-| CI | GitHub Actions on windows-latest (ruff + pytest + npm build) |
-
----
-
-## Online Deployment Configuration
-
-### Vercel (Frontend)
-
-| Setting | Value |
-|---------|-------|
-| Framework Preset | Next.js |
-| Root Directory | `frontend` |
-| Build Command | `npm run build` |
-| Environment Variable | `NEXT_PUBLIC_API_BASE=https://codepilot-i189.onrender.com` |
-
-The `NEXT_PUBLIC_API_BASE` variable must be set before the build runs. Redeploy after changing it.
-
-### Render (Backend)
-
-| Setting | Value |
-|---------|-------|
-| Runtime | Docker |
-| Dockerfile Path | `./Dockerfile.backend` |
-| Instance Type | Free |
-
-Required environment variables:
+End-to-end pipeline:
 
 ```text
-USE_MOCK_LLM=true
-DATABASE_PATH=/app/backend/data/codepilot.db
-WORKSPACE_PATH=/app/backend/workspace
-REPORTS_PATH=/app/reports
-CORS_ALLOW_ORIGINS=https://code-pilot-red.vercel.app
-MAX_FILES=300
-MAX_FILE_SIZE_BYTES=204800
+GitHub URL
+→ Repository clone (static read)
+→ File filtering / static parsing
+→ Structured context building
+→ Mock / Real LLM report generation
+→ ReportContract validation
+→ SQLite persistence
+→ Frontend presentation
 ```
 
-### Mock Mode (Default)
+### 1. Upfront Engineering Noise Reduction
 
-Mock mode is enabled with `USE_MOCK_LLM=true`. No API key is needed. The `MockLLMClient` returns pre-built bilingual findings deterministically. This is the stable demo path.
+- Filters low-value content such as `.git`, `__pycache__`, `.venv`, `dist`, and `build`.
+- Keeps source files, configuration files, README files, and other repository-understanding signals.
+- Uses Python AST, with a tree-sitter extension-ready parsing path, to extract functions, classes, imports, dependencies, and file-scale metrics.
+- Replaces raw-code prompting with structured context so the model receives less noise while keeping locatable engineering facts.
 
-### Real LLM Mode (Optional)
+### 2. Report Quality Control
 
-To use a real LLM provider, set:
+- Uses a fixed four-section report structure: architecture overview, code smells, maintainability analysis, and refactoring suggestions.
+- `ReportContract` provides a unified report schema and absorbs variation in LLM output.
+- Evidence fields bind each finding to file paths, functions, classes, dependencies, and metrics.
+- The goal is a reviewable report, not a long free-form subjective assessment.
 
-```text
-USE_MOCK_LLM=false
-ENABLE_REAL_LLM=true
-REAL_LLM_PROVIDER=mimo
-```
+### 3. Engineering Stability
 
-The frontend sends only the selected provider. API keys stay in the backend `.env`; the frontend never stores provider API keys. The default provider is `mimo`.
+- Mock LLM is used for development, tests, and CI with deterministic output.
+- Real LLM is used for validating real report generation.
+- Provider interfaces make the model layer pluggable.
+- Task state is recorded by phase so failures can be located in clone, parsing, LLM, or report composition stages.
+- `pytest`, `ruff`, and `audit_harness` cover tests, static checks, and engineering consistency checks.
 
-For MiMo:
+## 🛠️ Tech Stack
 
-```text
-MIMO_API_KEY=your-key
-MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-MIMO_MODEL_NAME=mimo-v2.5-pro
-```
+- Backend: FastAPI 0.115.6 + Pydantic 2.10.4 + Uvicorn 0.34.0
+- Frontend: Next.js 15.5.19 + React 19 + TypeScript 5.7 + Tailwind CSS 3.4
+- Persistence: SQLite via Python stdlib, with WAL mode
+- Parsing: Python AST + tree-sitter / tree-sitter-language-pack
+- Token Counting: tiktoken 0.13.0
+- LLM: Mock Provider + OpenAI-compatible Real LLM Provider (MiMo / Doubao / DeepSeek configuration)
+- Deployment: Locally deployable with Docker; repository docs include Render backend and Vercel frontend deployment configuration
+- Quality: pytest + ruff + audit_harness + GitHub Actions
 
-For Doubao:
+## 📊 Quantified Results (Result)
 
-```text
-DOUBAO_API_KEY=your-key
-DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-DOUBAO_MODEL_NAME=your-volcengine-endpoint-id
-```
+### Engineering Noise Reduction
 
-For DeepSeek:
+- Benchmark repositories: 3 public Python repositories.
+- Repository size: 60-79 Python source files, close to or above the early 50-file boundary.
+- Average file noise reduction: 49.1%.
+  - Method: `git ls-files` tracked business files as the baseline, excluding `.git`, dependency directories, virtual environments, and other non-business content.
+- Average structured-context token compression: 96.8%.
+  - Method: raw source-code tokens and structured-context tokens are compared over the same valid source scope with the same estimation method.
 
-```text
-DEEPSEEK_API_KEY=your-key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL_NAME=deepseek-chat
-```
+### Single-Repository Real LLM Validation
 
-Real LLM mode supports MiMo, Doubao, and DeepSeek through backend OpenAI-compatible configuration. Provider availability depends on backend env configuration, network access, and API key validity. Output quality varies by model. MiMo Chinese output may have occasional unnatural wording.
+- Validation repository: httpx.
+- Baseline input tokens: 137417.
+- CodePilot input tokens: 15212.
+- Input size reduction: about 8.85x, approximately 9x.
+- Real LLM call input token compression: 88.7%.
+- CodePilot evidence binding rate: 100%.
+- Direct general-LLM baseline evidence binding rate: 0%.
+- Evidence binding improvement: 100 percentage points.
 
----
+Notes:
 
-## Local Quick Start
+- This is a qualitative single-repository validation on httpx, not a large-scale statistical conclusion.
+- Only input tokens are counted here. Output tokens are not included, so this must not be described as total cost reduction.
+- Evidence binding rate is measured under v1.0 rules and does not mean the report is absolutely correct.
 
-For developers who want to run CodePilot locally:
+### Engineering Quality
+
+- `pytest`: 1000 passed, 1 skipped.
+- `ruff`: 0 issues.
+- `audit_harness`: full-chain validation passed.
+- Mock-mode repository review success rate: 100%.
+
+| Validation Dimension | Result | Method |
+|---|---:|---|
+| Average file noise reduction | 49.1% | 3 benchmark repositories, `git ls-files` business-file baseline |
+| Structured-context token compression | 96.8% | Same valid source scope vs structured context |
+| httpx real LLM input token compression | 88.7% | Single-repository real call, input tokens only |
+| Evidence binding rate | 100% vs 0% | httpx single repository, CodePilot vs raw-code direct prompting |
+| pytest | 1000 passed, 1 skipped | Native test output |
+| ruff | 0 issues | Static check |
+
+## 🚀 Quick Start
+
+The recommended local path is the repository's PowerShell scripts. They create the `codepilot` conda environment, install backend dependencies, install frontend dependencies, and start both services.
 
 ```powershell
 git clone https://github.com/Strange-Men/CodePilot.git
@@ -172,87 +155,90 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\start-demo.ps1
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+After startup:
 
-If `conda.exe` is not on PATH, set it before running setup:
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:8000](http://localhost:8000)
+- Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+If `conda.exe` is not on PATH:
 
 ```powershell
 $env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 .\scripts\setup.ps1
 ```
 
----
-
-## Demo Flow
-
-1. Open [https://code-pilot-red.vercel.app](https://code-pilot-red.vercel.app)
-2. Enter a public GitHub repository URL (e.g. `https://github.com/pallets/flask`)
-3. Click **Run Review** — Mock mode is the default and requires no API key
-4. View the structured report with executive summary, findings, and evidence
-5. Toggle **EN / zh** to switch the full UI and report language
-6. Click **Export** to download the report as Markdown
-7. Browse findings by severity, category, or agent — each links to `[E1]`/`[E2]` evidence
-
----
-
-## CLI Workflows
-
-```powershell
-python -m backend.cli review https://github.com/owner/repo --output reports/review.md --json-output reports/review.json
-python -m backend.cli ci https://github.com/owner/repo --fail-on high --json-output reports/ci.json
-python -m backend.cli diff https://github.com/owner/repo --changed-file backend/main.py --output reports/diff.md
-```
-
-See [`docs/history/v3/V3_3_WORKFLOWS.md`](docs/history/v3/V3_3_WORKFLOWS.md) for details.
-
----
-
-## Testing
+Manual startup is also available:
 
 ```powershell
 # Backend
-pytest                    # 995 tests passed, 1 skipped
-ruff check .              # All checks passed
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements-dev.txt
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
 # Frontend
 cd frontend
-npm test                  # 104 tests passed
-npm run build             # Production build succeeds
-
-# Smoke test
-.\scripts\smoke-backend.ps1
+npm install
+$env:NEXT_PUBLIC_API_BASE = "http://localhost:8000"
+npm run dev -- --port 3000
 ```
 
----
+Quality checks:
 
-## Known Limitations
+```powershell
+python -m pytest tests/ -q
+ruff check .
+python scripts/audit_harness.py
 
-- **MiMo Chinese output** — may still have occasional unnatural wording in zh reports; mock mode zh is deterministic and stable
-- **Ephemeral storage** — free Render/tmp SQLite may lose review history after restart; this is expected for demo deployments
-- **Real LLM dependency** — production-quality output requires a working API key and network access to the provider
-- **Language support** — analysis is strongest for Python; JavaScript and TypeScript support is functional but less deep
-- **No production workflow yet** — GitHub OAuth, PR bot, MCP integration, vector DB, and LangGraph workflows are not implemented
-- **Static analysis only** — CodePilot does not execute repository code; it uses heuristic and AST-based analysis
-- **File limits** — analyzes at most 300 supported source files, skips files over 200KB
+cd frontend
+npm test
+npm run build
+```
 
----
+Local Docker run:
 
-## Project Status
+```powershell
+docker compose up --build
+```
 
-**V3.7** — Stable demo release. CI green. 995 backend tests + 104 frontend tests passing. Mock mode is the recommended demo path. Real LLM mode is optional with known provider-dependent limitations.
+## 📁 Project Structure
 
-| Document | Description |
-|----------|-------------|
-| [V3.7 Release Notes](docs/releases/v3.7/V3.7_RELEASE_NOTES.md) | Highlights, fixes, test results, known limitations |
-| [V3.7 Project Closure](docs/releases/v3.7/V3.7_PROJECT_CLOSURE.md) | Full closure report, verification results |
-| [Deployment Guide](docs/setup/DEPLOYMENT.md) | Backend/frontend deployment to Render and Vercel |
-| [Vercel Deployment](docs/setup/VERCEL_DEPLOYMENT.md) | Frontend deployment to Vercel |
-| [Setup Guide](docs/setup/SETUP.md) | Local installation and environment configuration |
-| [Architecture](docs/architecture/ARCHITECTURE.md) | System design, module map, data flow |
-| [Full Documentation Index](docs/README.md) | All project documentation |
+```text
+CodePilot/
+├── backend/          # FastAPI backend, parsers, LLM providers, review pipeline
+├── frontend/         # Next.js/React/TypeScript frontend
+├── contracts/        # Report section contract files
+├── docs/             # Architecture, setup, evaluation and release docs
+├── evaluation/       # Evaluation datasets, metrics and comparison scripts
+├── reports/          # Generated metric and validation outputs
+├── scripts/          # Setup, startup, audit and metric scripts
+├── tests/            # Unit, integration, regression and metric tests
+├── Dockerfile.backend
+├── Dockerfile.frontend
+├── docker-compose.yml
+├── README.md
+└── README.en.md
+```
 
----
+## 🛣️ Roadmap
 
-## License
+- Strengthen report evidence chains: bind snippets, impact scope, and refactoring priority.
+- Improve real LLM stability: schema validation, automatic retries, and fallback paths.
+- Harden external repository sandboxing: directory isolation, file count / file size limits, and timeout controls.
+- Expand multi-language support, starting with JavaScript / TypeScript on tree-sitter.
+- Build a more product-oriented evaluation dashboard.
 
-This project is for educational and portfolio purposes.
+## ⚠️ Current Limitations
+
+- Python repositories are the current priority.
+- User repository code is not executed; analysis is static only.
+- Real LLM validation has only completed one end-to-end run on httpx.
+- The baseline comparison is a qualitative single-repository validation, not a large-scale statistical conclusion.
+- This is an MVP, not a commercial code review product.
+- JavaScript / TypeScript parsing entry points and tests exist, but analysis depth is currently weaker than Python.
+- SQLite review history depends on the actual storage configuration; temporary environments such as Render Free may lose history after restarts.
+
+## 📄 License
+
+MIT License
