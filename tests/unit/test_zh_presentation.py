@@ -363,11 +363,16 @@ class TestRepairZhDisplayFields:
         assert repaired.display.zh.description == CLEAN_ZH_DESCRIPTION
         assert repaired.display.zh.impact == CLEAN_ZH_IMPACT
 
-    def test_no_display_returns_same(self):
-        """Finding without display should be returned unchanged."""
+    def test_no_display_gets_safe_zh_display(self):
+        """Finding without display should receive safe zh display fields."""
         finding = self._make_finding(display=None)
         repaired = repair_zh_display_fields(finding)
-        assert repaired is finding
+        assert repaired is not finding
+        assert repaired.title == finding.title
+        assert repaired.description == finding.description
+        assert repaired.display is not None
+        assert repaired.display.zh.title == _TITLE_TEMPLATES["code_smell"]
+        assert repaired.display.zh.description == _DESCRIPTION_TEMPLATES["code_smell"]
 
     def test_en_display_preserved(self):
         """English display fields should NOT be modified."""
@@ -773,9 +778,14 @@ class TestOldReviewsStillRender:
             impact="Affects stability.",
             # No display field
         )
-        # repair_zh_display_fields should return unchanged
         repaired = repair_zh_display_fields(finding)
-        assert repaired is finding
+        assert repaired is not finding
+        assert repaired.title == "Test issue"
+        assert repaired.description == "A test issue."
+        assert repaired.recommendation == "Fix this."
+        assert repaired.display is not None
+        assert repaired.display.zh.recommendation == _GENERIC_RECOMMENDATION
+        assert repaired.display.zh.impact == _GENERIC_IMPACT
 
     def test_legacy_review_metadata_cleaned(self):
         """Legacy reviews with English metadata should be cleaned."""

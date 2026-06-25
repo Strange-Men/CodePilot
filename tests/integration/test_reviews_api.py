@@ -828,7 +828,7 @@ def test_get_review_findings_lang_zh_keeps_same_evidence_ids(
     assert en_finding["confidence"] == zh_finding["confidence"]
 
 
-def test_get_review_findings_lang_zh_translates_labels(
+def test_get_review_findings_lang_zh_returns_safe_chinese_prose(
     api_client: tuple[TestClient, ReviewStore, FakeRunner],
 ) -> None:
     client, store, _ = api_client
@@ -869,9 +869,18 @@ def test_get_review_findings_lang_zh_translates_labels(
 
     assert zh_response.status_code == 200
     finding = zh_response.json()["findings"][0]
-    # Labels should be translated
-    assert finding["impact"] == "**影响** Changes may need duplication across paths." or \
-        "Changes may need duplication across paths." in (finding["impact"] or "")
+    # Natural-language fields should not fall back to English prose.
+    assert "Duplicate dispatch" not in finding["title"]
+    assert "Two paths implement similar dispatch" not in finding["description"]
+    assert "Extract shared logic" not in (finding["recommendation"] or "")
+    assert "Changes may need duplication across paths" not in (finding["impact"] or "")
+    assert "Add tests before refactoring" not in (finding["first_step"] or "")
+    assert "Mature public API" not in (finding["caveat"] or "")
+    assert finding["title"]
+    assert finding["description"]
+    assert finding["recommendation"]
+    assert finding["impact"]
+    assert finding["first_step"]
     # Canonical data unchanged
     assert finding["severity"] == "medium"
     assert finding["confidence"] == 0.75
@@ -1820,6 +1829,76 @@ def test_bilingual_findings_zh_uses_stored_display(
     assert finding["first_step"] == "先添加表征测试。"
     assert finding["caveat"] == "必须保留公共 API 兼容性。"
     assert "变更前后运行完整测试套件" in finding["validation_tests"][0]
+
+
+def test_zh_findings_fill_missing_display_fields_with_safe_chinese(
+    api_client: tuple[TestClient, ReviewStore, FakeRunner],
+) -> None:
+    """Chinese structured API must not fall back to English prose when display.zh is partial."""
+    client, store, _ = api_client
+    store.create_review("task-zh-partial-display", "https://github.com/example/project")
+    store.update_status("task-zh-partial-display", ReviewStatus.completed, report_markdown="# Test")
+    store.replace_structured_findings(
+        "task-zh-partial-display",
+        [
+            ReviewFinding(
+                section="Maintainability Issues",
+                title="Protocol consistency",
+                description="Protocol use is inconsistent.",
+                severity="medium",
+                category="maintainability",
+                confidence=0.82,
+                recommendation="Continue using protocols for new type hints to maintain consistency.",
+                files=["src/markupsafe/_typing.py"],
+                evidence_ids=["ev_safe"],
+                impact="Improves code maintainability and enables better tooling support.",
+                first_step="Run existing tests before changing the typing helpers.",
+                validation_tests=["Check for any differences in type checker output."],
+                caveat="Protocols are for static type checking; runtime behavior depends on implementation.",
+                display=DisplayFields(
+                    en=BilingualTextField(),
+                    zh=BilingualTextField(title="协议类型标注需要保持一致"),
+                ),
+            ),
+        ],
+        [
+            EvidenceRecord(
+                evidence_id="ev_safe",
+                file_path="src/markupsafe/_typing.py",
+                start_line=1,
+                end_line=20,
+                snippet="code",
+                kind="symbol",
+                symbols=["Protocol"],
+            ),
+        ],
+    )
+
+    response = client.get("/api/reviews/task-zh-partial-display/findings?lang=zh")
+
+    assert response.status_code == 200
+    finding = response.json()["findings"][0]
+    rendered = "\n".join(
+        [
+            finding["title"],
+            finding["description"],
+            finding["recommendation"],
+            finding["impact"],
+            finding["first_step"],
+            finding["caveat"],
+            "\n".join(finding["validation_tests"]),
+        ],
+    )
+    for banned in (
+        "Continue using protocols",
+        "Improves code maintainability",
+        "Run existing tests",
+        "Check for any differences",
+        "Protocols are for static type checking",
+    ):
+        assert banned not in rendered
+    assert finding["evidence_ids"] == ["ev_safe"]
+    assert finding["files"] == ["src/markupsafe/_typing.py"]
 
 
 def test_bilingual_findings_en_uses_english_display(

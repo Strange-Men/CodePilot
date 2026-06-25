@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/workspace/EmptyState";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedSeverity, t } from "@/lib/i18n";
+import { localizedAgentError } from "@/lib/localizedFinding";
 import type { ReviewAgentStateItem } from "@/lib/types";
 
 export function AgentStateCards({ agents, language }: { agents: ReviewAgentStateItem[]; language: Language }) {
@@ -46,9 +47,9 @@ export function AgentStateCards({ agents, language }: { agents: ReviewAgentState
               value={severitySummary(agent, language)}
             />
           </dl>
-          {agent.error ? (
+          {localizedAgentError(agent.error, language) ? (
             <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              {agent.error}
+              {localizedAgentError(agent.error, language)}
             </p>
           ) : null}
         </article>

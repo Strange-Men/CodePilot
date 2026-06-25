@@ -6,6 +6,7 @@ import { SeverityBadge } from "@/components/workspace/FindingsPanel";
 import { formatEvidenceDisplayRef } from "@/lib/evidence";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
+import { getLocalizedFindingTitle } from "@/lib/localizedFinding";
 import type { ReviewEvidenceRefItem, ReviewFindingItem } from "@/lib/types";
 
 type EvidencePanelProps = {
@@ -123,7 +124,7 @@ function FindingEvidenceCard({
           </span>
         </div>
         <h3 className="mt-2 text-sm font-semibold tracking-tight">
-          {finding.title || finding.description}
+          {getLocalizedFindingTitle(finding, language)}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
           {t(language, "evidence.supportingEvidence")}：{evidence.length} {t(language, "evidence.references")}

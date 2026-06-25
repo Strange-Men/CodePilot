@@ -1,0 +1,68 @@
+{
+  "quality_pass": true,
+  "english_prose_issue_count": 0,
+  "n_a_count": 0,
+  "checked_surfaces": [
+    "overview",
+    "agent",
+    "findings",
+    "report",
+    "evidence",
+    "metrics",
+    "markdown_export"
+  ],
+  "surface_results": {
+    "overview": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "agent": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "findings": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "report": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "evidence": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "metrics": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    },
+    "markdown_export": {
+      "quality_pass": true,
+      "english_prose_issue_count": 0,
+      "n_a_count": 0,
+      "issues": [],
+      "banned_hits": []
+    }
+  },
+  "banned_hits": [],
+  "generated_at": "2026-06-25T14:07:26.762193+00:00",
+  "source": "real MiMo smoke report plus deterministic page-surface fixture for partial display.zh fallback"
+}

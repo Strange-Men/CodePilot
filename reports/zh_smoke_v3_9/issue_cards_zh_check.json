@@ -1,0 +1,23 @@
+{
+  "quality_pass": true,
+  "issue_card_count": 1,
+  "english_prose_issue_count": 0,
+  "n_a_count": 0,
+  "preserved_tokens": [
+    "src/markupsafe/_typing.py",
+    "Protocol",
+    "pytest tests/test_typing.py",
+    "[E1]"
+  ],
+  "checked_fields": [
+    "title",
+    "description",
+    "recommendation",
+    "impact",
+    "first_step",
+    "validation_tests",
+    "caveat"
+  ],
+  "issues": [],
+  "generated_at": "2026-06-25T14:07:26.762193+00:00"
+}

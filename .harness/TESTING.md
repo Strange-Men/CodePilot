@@ -6,16 +6,16 @@
 
 ## Current Test Inventory
 
-`pytest` collected 1019 tests: 1018 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 1020 tests: 1019 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
 | Unit | 926 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.9 Chinese report language consistency. |
-| Integration | 87 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
+| Integration | 88 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Metrics | 5 | 1 | Validate quant metrics report data and generated metric contracts. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 109 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, Real LLM provider selection, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, V3.6 UI evidence/status polish, V3.7 global language switch (browser detection, localStorage persistence, API lang linkage, export lang, localized errors, no DOM auto-translation), and V3.9 confidence fallback copy. |
+| Frontend | 110 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, Real LLM provider selection, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, V3.6 UI evidence/status polish, V3.7 global language switch (browser detection, localStorage persistence, API lang linkage, export lang, localized errors, no DOM auto-translation), and V3.9 confidence fallback copy. |
 
 ## Unit Tests
 
@@ -69,7 +69,7 @@
 |------|-----------------|----------|
 | `tests/integration/test_javascript_review_pipeline.py` | 1 | Local JavaScript repository review completes and the generated report uses JavaScript language labeling. |
 | `tests/integration/test_multilanguage_review_pipeline.py` | 1 | Python, JavaScript, and TypeScript parsers merge into one insight-rich mock review. |
-| `tests/integration/test_reviews_api.py` | 17 | Create, canonical URL validation, history, item reads, structured errors, and export behavior. |
+| `tests/integration/test_reviews_api.py` | 18 | Create, canonical URL validation, history, item reads, structured errors, and export behavior. |
 | `tests/integration/test_v3_3_workflows.py` | 4 | CLI report outputs, configurable CI exit policy, fixture diff parsing, and safe MCP workflow wrappers. |
 
 ## Regression Tests

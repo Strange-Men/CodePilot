@@ -120,5 +120,8 @@ function overviewMessage(review: ReviewResponse, language: Language): string {
   if (review.status === "failed") {
     return t(language, "overview.reviewFailed");
   }
+  if (language === "zh") {
+    return t(language, "overview.reviewInProgress");
+  }
   return review.progress?.current_phase || "Preparing the review pipeline.";
 }

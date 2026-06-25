@@ -6,6 +6,11 @@ import { EmptyState } from "@/components/workspace/EmptyState";
 import { formatEvidenceDisplayRef } from "@/lib/evidence";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedSeverity, t } from "@/lib/i18n";
+import {
+  getLocalizedFindingText,
+  getLocalizedFindingTitle,
+  getLocalizedValidationTests
+} from "@/lib/localizedFinding";
 import type { ReviewFindingItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -55,12 +60,21 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
         </span>
       </div>
 
-      {findings.map((finding) => (
-        <article
-          className="rounded-xl border border-border bg-card p-5 shadow-panel transition-colors duration-200 hover:border-primary/25 sm:p-6"
-          data-finding-id={finding.finding_id}
-          key={finding.finding_id}
-        >
+      {findings.map((finding) => {
+        const title = getLocalizedFindingTitle(finding, language);
+        const description = getLocalizedFindingText(finding, "description", language);
+        const recommendation = getLocalizedFindingText(finding, "recommendation", language);
+        const impact = getLocalizedFindingText(finding, "impact", language);
+        const firstStep = getLocalizedFindingText(finding, "first_step", language);
+        const caveat = getLocalizedFindingText(finding, "caveat", language);
+        const validationTests = getLocalizedValidationTests(finding, language);
+
+        return (
+          <article
+            className="rounded-xl border border-border bg-card p-5 shadow-panel transition-colors duration-200 hover:border-primary/25 sm:p-6"
+            data-finding-id={finding.finding_id}
+            key={finding.finding_id}
+          >
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge language={language} severity={finding.severity} />
             <span className="text-xs text-muted-foreground">{finding.section}</span>
@@ -69,11 +83,11 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
             </span>
           </div>
           <h3 className="mt-4 text-base font-semibold tracking-tight">
-            {finding.title || finding.description}
+            {title}
           </h3>
-          {finding.title && finding.description ? (
+          {description && description !== title ? (
             <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-              {finding.description}
+              {description}
             </p>
           ) : null}
           {finding.files.length ? (
@@ -88,29 +102,29 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
               ))}
             </div>
           ) : null}
-          {finding.recommendation ? (
+          {recommendation ? (
             <div className="mt-4 border-l-2 border-primary/60 pl-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t(language, "findings.recommendedAction")}</p>
-              <p className="mt-1 text-sm leading-6">{finding.recommendation}</p>
+              <p className="mt-1 text-sm leading-6">{recommendation}</p>
             </div>
           ) : null}
-          {finding.impact ? (
+          {impact ? (
             <div className="mt-3 border-l-2 border-amber-400/60 pl-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">{t(language, "findings.impact")}</p>
-              <p className="mt-1 text-sm leading-6">{finding.impact}</p>
+              <p className="mt-1 text-sm leading-6">{impact}</p>
             </div>
           ) : null}
-          {finding.first_step ? (
+          {firstStep ? (
             <div className="mt-3 border-l-2 border-emerald-400/60 pl-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(language, "findings.firstSafeStep")}</p>
-              <p className="mt-1 text-sm leading-6">{finding.first_step}</p>
+              <p className="mt-1 text-sm leading-6">{firstStep}</p>
             </div>
           ) : null}
-          {finding.validation_tests.length ? (
+          {validationTests.length ? (
             <div className="mt-3 pl-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(language, "findings.validationTests")}</p>
               <ul className="mt-1 list-disc space-y-1 pl-4">
-                {finding.validation_tests.map((test) => (
+                {validationTests.map((test) => (
                   <li className="text-sm leading-5" key={test}>
                     {isCommandOrPath(test) ? (
                       <code className="rounded-md border border-border bg-panel px-1.5 py-0.5 font-mono text-xs">{test}</code>
@@ -122,10 +136,10 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
               </ul>
             </div>
           ) : null}
-          {finding.caveat ? (
+          {caveat ? (
             <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(language, "findings.caveat")}</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{finding.caveat}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{caveat}</p>
             </div>
           ) : null}
           {finding.evidence_ids.length ? (
@@ -141,8 +155,9 @@ export function FindingsPanel({ error, findings, evidenceDisplayMap = {}, langua
               ))}
             </div>
           ) : null}
-        </article>
-      ))}
+          </article>
+        );
+      })}
     </div>
   );
 }

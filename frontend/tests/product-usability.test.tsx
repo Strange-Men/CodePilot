@@ -13,6 +13,7 @@ import { EvidencePanel } from "../components/workspace/EvidencePanel";
 import { FindingsPanel } from "../components/workspace/FindingsPanel";
 import { MetricsPanel } from "../components/workspace/MetricsPanel";
 import { OverviewPanel } from "../components/workspace/OverviewPanel";
+import { ReportPanel } from "../components/workspace/ReportPanel";
 import { applyTheme, nextTheme, ThemeToggle } from "../components/workspace/ThemeToggle";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
 import {
@@ -138,6 +139,20 @@ const structuredFindings: ReviewFindingItem[] = [
     validation_tests: ["tests/test_blueprints.py", "tests/test_basic.py"],
     confidence_rationale: "Multiple evidence records confirm the pattern.",
     caveat: "Public API; preserve backward compatibility."
+  }
+];
+
+const leakyStructuredFindings: ReviewFindingItem[] = [
+  {
+    ...structuredFindings[0],
+    finding_id: "finding-leaky",
+    title: "Protocol consistency",
+    description: "Protocol use is inconsistent.",
+    recommendation: "Continue using protocols for new type hints to maintain consistency.",
+    impact: "Improves code maintainability and enables better tooling support.",
+    first_step: "Run existing tests before changing the typing helpers.",
+    validation_tests: ["Check for any differences in type checker output.", "pytest tests/test_typing.py"],
+    caveat: "Protocols are for static type checking; runtime behavior depends on implementation."
   }
 ];
 
@@ -360,7 +375,8 @@ test("switching language does not change findings count", () => {
 
   // Both should show the same finding
   assert.match(htmlEn, /Boundary risk/);
-  assert.match(htmlZh, /Boundary risk/);
+  assert.doesNotMatch(htmlZh, /Boundary risk/);
+  assert.match(htmlZh, new RegExp(t("zh", "common.notAvailable")));
   assert.match(htmlEn, /data-finding-id="finding-1"/);
   assert.match(htmlZh, /data-finding-id="finding-1"/);
 });
@@ -1211,6 +1227,78 @@ test("Chinese findings panel uses polished labels", () => {
   assert.equal(t("zh", "header.workspace"), "代码审查工作台");
 });
 
+test("Chinese workspace surfaces do not render English finding prose fallbacks", () => {
+  const runningReview: ReviewResponse = {
+    ...completedReview,
+    status: "reviewing",
+    progress: {
+      ...runningProgress,
+      current_phase: "Document the precedence rules before continuing."
+    }
+  };
+  const agentsWithEnglishError = structuredAgents.map((agent) =>
+    agent.agent_id === "CodeSmellAgent"
+      ? { ...agent, error: "Agent execution failed." }
+      : agent
+  );
+  const renderedSurfaces = [
+    renderToStaticMarkup(
+      <OverviewPanel
+        agents={agentsWithEnglishError}
+        findings={leakyStructuredFindings}
+        language="zh"
+        review={runningReview}
+      />
+    ),
+    renderToStaticMarkup(<AgentStateCards agents={agentsWithEnglishError} language="zh" />),
+    renderToStaticMarkup(
+      <FindingsPanel
+        error={null}
+        findings={leakyStructuredFindings}
+        language="zh"
+        loading={false}
+        onRetry={() => undefined}
+      />
+    ),
+    renderToStaticMarkup(
+      <EvidencePanel
+        error={null}
+        findings={leakyStructuredFindings}
+        language="zh"
+        loading={false}
+        onRetry={() => undefined}
+      />
+    ),
+    renderToStaticMarkup(
+      <ReportPanel
+        isRunning={false}
+        language="zh"
+        reportMarkdown={"# 执行摘要\n审查完成。\n# 问题发现\n建议先补充验证。"}
+      />
+    ),
+    renderToStaticMarkup(
+      <MetricsPanel agents={agentsWithEnglishError} findings={leakyStructuredFindings} language="zh" />
+    )
+  ];
+  const html = renderedSurfaces.join("\n");
+
+  for (const phrase of [
+    "Document the precedence rules",
+    "Protocol use is inconsistent",
+    "Continue using protocols",
+    "Improves code maintainability",
+    "Run existing tests",
+    "Check for any differences",
+    "Protocols are for static type checking",
+    "Agent execution failed",
+    "n/a",
+    "Not available"
+  ]) {
+    assert.doesNotMatch(html, new RegExp(phrase, "i"));
+  }
+  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
+});
+
 // --- V3.5.6 Chinese localization closure tests ---
 
 test("severity localization returns Chinese values in zh mode", () => {
@@ -1288,8 +1376,9 @@ test("zh EvidencePanel groups evidence by finding", () => {
   assert.match(html, /代码位置/);
   // Evidence ID should still be present but not as main title
   assert.match(html, /E123/);
-  // Finding title should be visible in the group
-  assert.match(html, /Boundary risk/);
+  // English finding prose should not leak into the Chinese evidence group
+  assert.doesNotMatch(html, /Boundary risk/);
+  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
 });
 
 test("zh AgentStateCards shows localized severity", () => {
@@ -1418,8 +1507,9 @@ test("zh EvidencePanel shows chain title and Chinese labels", () => {
   // Evidence IDs preserved
   assert.match(html, /E123/);
   assert.match(html, /E124/);
-  // Finding title visible in group
-  assert.match(html, /Boundary risk/);
+  // English finding prose should not leak into the Chinese evidence group
+  assert.doesNotMatch(html, /Boundary risk/);
+  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
 });
 
 test("zh MetricsPanel shows localized labels", () => {

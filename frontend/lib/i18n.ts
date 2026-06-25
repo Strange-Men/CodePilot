@@ -77,6 +77,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "overview.evidenceRefs": "Evidence refs",
     "overview.reviewComplete": "Review complete. Structured agent, finding, evidence, and metric data is ready across the workspace tabs.",
     "overview.reviewFailed": "The latest execution did not complete. Persisted progress remains visible for diagnosis.",
+    "overview.reviewInProgress": "Preparing the review pipeline.",
     "overview.reviewInterrupted": "Review interrupted",
 
     // Agent timeline
@@ -292,6 +293,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "overview.evidenceRefs": "证据引用",
     "overview.reviewComplete": "审查完成。结构化 Agent、问题发现、证据和指标数据已在工作台各标签中就绪。",
     "overview.reviewFailed": "最近一次执行未完成。持久化的进度仍可用于诊断。",
+    "overview.reviewInProgress": "审查正在进行中，结构化结果将在各标签中陆续更新。",
     "overview.reviewInterrupted": "审查中断",
 
     // Agent timeline

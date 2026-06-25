@@ -17,12 +17,13 @@ from backend.models.review import (
     ReviewStatus,
     ReviewStatusResponse,
 )
+from backend.models.structured_review import BilingualTextField
 from backend.reviewers.localization import Language, normalize_language
 from backend.reviewers.localized_report_renderer import (
     render_localized_finding_text,
     render_localized_report,
 )
-from backend.reviewers.zh_presentation import finalize_zh_report, repair_zh_findings
+from backend.reviewers.zh_presentation import finalize_zh_report, repair_zh_display_fields, repair_zh_findings
 from backend.reviewers.zh_quality import normalize_zh_text
 from backend.services.localization_service import LocalizationService
 from backend.storage.sqlite import ReviewStore
@@ -435,22 +436,26 @@ def _finding_response(
     # Check for bilingual display fields (new reviews)
     display = row.get("display")
     if lang == "zh" and display and isinstance(display, dict):
-        zh = display.get("zh")
-        if zh and isinstance(zh, dict):
-            title = normalize_zh_text(zh.get("title") or title)
-            description = normalize_zh_text(zh.get("description") or description)
-            recommendation = normalize_zh_text(zh.get("recommendation") or recommendation)
-            impact = normalize_zh_text(zh.get("impact") or impact)
-            first_step = normalize_zh_text(zh.get("first_step") or first_step)
-            caveat = normalize_zh_text(zh.get("caveat") or caveat)
-            confidence_rationale = normalize_zh_text(zh.get("confidence_rationale") or confidence_rationale)
-            zh_tests = zh.get("validation_tests")
-            if isinstance(zh_tests, list) and zh_tests:
-                validation_tests = [normalize_zh_text(t) for t in zh_tests]
+        zh = _repaired_zh_display_for_response(row)
+        title = normalize_zh_text(zh.title or title)
+        description = normalize_zh_text(zh.description or description)
+        recommendation = normalize_zh_text(zh.recommendation or recommendation)
+        impact = normalize_zh_text(zh.impact or impact)
+        first_step = normalize_zh_text(zh.first_step or first_step)
+        caveat = normalize_zh_text(zh.caveat or caveat)
+        confidence_rationale = normalize_zh_text(zh.confidence_rationale or confidence_rationale)
+        if zh.validation_tests:
+            validation_tests = [normalize_zh_text(t) for t in zh.validation_tests]
     elif lang == "zh":
         # Legacy fallback: use *_zh keys from localization service
+        safe_zh = _repaired_zh_display_for_response(row)
+
         def _zh_legacy(field: str, fallback: str | None, default: str = "") -> str:
-            raw = row.get(f"{field}_zh") or render_localized_finding_text(fallback, lang)
+            raw = (
+                row.get(f"{field}_zh")
+                or getattr(safe_zh, field, None)
+                or render_localized_finding_text(fallback, lang)
+            )
             return normalize_zh_text(raw or default)
 
         title = _zh_legacy("title", title, title)
@@ -465,6 +470,8 @@ def _finding_response(
         zh_tests = row.get("validation_tests_zh")
         if isinstance(zh_tests, list) and len(zh_tests) == len(validation_tests):
             validation_tests = [normalize_zh_text(t) for t in zh_tests]
+        elif safe_zh.validation_tests:
+            validation_tests = [normalize_zh_text(t) for t in safe_zh.validation_tests]
 
     return ReviewFindingResponse(
         finding_id=str(row["id"]),
@@ -486,6 +493,35 @@ def _finding_response(
         confidence_rationale=confidence_rationale,
         caveat=caveat,
     )
+
+
+def _repaired_zh_display_for_response(row: dict) -> BilingualTextField:
+    from backend.models.structured_review import DisplayFields, ReviewFinding
+
+    display_data = row.get("display")
+    display = DisplayFields.model_validate(display_data) if display_data else None
+    finding = ReviewFinding(
+        section=row["section"],
+        description=row["description"],
+        title=row.get("title"),
+        severity=row.get("severity", "informational"),
+        category=row.get("category"),
+        confidence=row.get("confidence"),
+        files=row.get("files", []),
+        recommendation=row.get("recommendation"),
+        evidence_ids=row.get("evidence_ids", []),
+        evidence=row.get("evidence", []),
+        impact=row.get("impact"),
+        first_step=row.get("first_step"),
+        validation_tests=row.get("validation_tests") or [],
+        confidence_rationale=row.get("confidence_rationale"),
+        caveat=row.get("caveat"),
+        display=display,
+    )
+    repaired = repair_zh_display_fields(finding)
+    if repaired.display is None:
+        return BilingualTextField()
+    return repaired.display.zh
 
 
 def _evidence_ref_response(row: dict) -> ReviewEvidenceRefResponse:

@@ -434,12 +434,8 @@ def repair_zh_display_fields(finding: ReviewFinding) -> ReviewFinding:
     Returns a new ReviewFinding with repaired display.zh fields.
     Does NOT modify the original finding.
     """
-    if finding.display is None:
-        return finding
-
-    zh = finding.display.zh
-    if zh is None:
-        return finding
+    display = finding.display or DisplayFields()
+    zh = display.zh
 
     category = finding.category or ""
 
@@ -459,7 +455,8 @@ def repair_zh_display_fields(finding: ReviewFinding) -> ReviewFinding:
 
     # Check if any field was actually repaired
     changes_made = (
-        repaired_title != zh.title
+        finding.display is None
+        or repaired_title != zh.title
         or repaired_desc != zh.description
         or repaired_rec != zh.recommendation
         or repaired_impact != zh.impact
@@ -483,7 +480,7 @@ def repair_zh_display_fields(finding: ReviewFinding) -> ReviewFinding:
         caveat=repaired_caveat,
     )
     new_display = DisplayFields(
-        en=finding.display.en,
+        en=display.en,
         zh=new_zh,
     )
 
