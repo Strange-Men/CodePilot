@@ -24,9 +24,12 @@ export function MetricsPanel({ agents, findings, language }: MetricsPanelProps) 
   }
 
   const evidenceCount = new Set(findings.flatMap((finding) => finding.evidence_ids)).size;
-  const averageConfidence = findings.length
-    ? findings.reduce((sum, finding) => sum + finding.confidence, 0) / findings.length
-    : 0;
+  const confidenceValues = findings
+    .map((finding) => finding.confidence)
+    .filter((confidence) => typeof confidence === "number" && Number.isFinite(confidence));
+  const averageConfidence = confidenceValues.length
+    ? confidenceValues.reduce((sum, confidence) => sum + confidence, 0) / confidenceValues.length
+    : null;
   const highRisk = findings.filter((finding) =>
     ["critical", "high"].includes(finding.severity.toLowerCase())
   ).length;
@@ -48,7 +51,7 @@ export function MetricsPanel({ agents, findings, language }: MetricsPanelProps) 
         <MetricCard
           icon={BarChart3}
           label={t(language, "metrics.avgConfidence")}
-          value={findings.length ? `${Math.round(averageConfidence * 100)}%` : "n/a"}
+          value={formatConfidence(averageConfidence, language)}
         />
       </div>
 
@@ -102,6 +105,12 @@ function MetricCard({
       <p className="mt-4 font-mono text-2xl font-semibold">{value}</p>
     </div>
   );
+}
+
+function formatConfidence(value: number | null | undefined, language: Language): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${Math.round(value * 100)}%`
+    : t(language, "common.notAvailable");
 }
 
 function severityCounts(findings: ReviewFindingItem[]): Record<string, number> {

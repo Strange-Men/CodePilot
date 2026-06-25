@@ -139,7 +139,7 @@ class ReviewFinding(BaseModel):
         """Generate Chinese-native markdown with proper labels."""
         heading = f"- **{title}：** {description.strip()}"
         if self.category or self.confidence is not None:
-            confidence = f"{self.confidence:.2f}" if self.confidence is not None else "n/a"
+            confidence = f"{self.confidence:.2f}" if self.confidence is not None else "暂无数据"
             heading = f"{heading} 问题类型：{self.category or '通用'}；置信度：{confidence}。"
         if self.files:
             heading = f"{heading} 涉及文件：{', '.join(f'`{path}`' for path in self.files)}。"

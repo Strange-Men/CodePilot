@@ -210,6 +210,23 @@ class TestBannedEnglishLabelsInZh:
         assert "注意事项：" in result
         assert "证据说明：" in result
 
+    def test_structured_review_zh_confidence_missing_uses_chinese_fallback(self) -> None:
+        """Missing confidence in zh markdown should not render n/a."""
+        finding = ReviewFinding(
+            section="Code Smells",
+            title="测试问题",
+            description="需要审查该边界。",
+            category="code_smell",
+            confidence=None,
+            files=["src/flask/app.py"],
+        )
+
+        result = finding.to_localized_markdown("zh")
+
+        assert "置信度：暂无数据" in result
+        assert "n/a" not in result.lower()
+        assert "src/flask/app.py" in result
+
     def test_structured_review_en_unchanged(self) -> None:
         """to_localized_markdown with lang='en' should keep English labels."""
         finding = ReviewFinding(

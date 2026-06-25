@@ -193,6 +193,31 @@ def test_agent_prompt_contains_finding_guidance(sample_context) -> None:
     assert "medium" in source.lower()
 
 
+def test_agent_prompt_requires_simplified_chinese_display_fields(sample_context) -> None:
+    """Real LLM prompts must force Chinese natural-language fields for zh display."""
+    context = context_with_evidence(sample_context)
+    prompt = ArchitectureAgent(MockLLMClient())._render_prompt(context, context.evidence)
+
+    assert "MUST be Simplified Chinese" in prompt
+    assert "MUST NOT contain full English sentences" in prompt
+    assert "Keep code symbols, file paths, commands, evidence IDs untranslated" in prompt
+
+
+def test_grouped_prompt_requires_simplified_chinese_display_fields(sample_context) -> None:
+    """Grouped Real LLM prompt must carry the same Chinese-language constraint."""
+    context = context_with_evidence(sample_context)
+    agent = ArchitectureAgent(MockLLMClient())
+    prompt = EvidenceGroundedAgent.render_grouped_prompt(
+        context,
+        [(agent, context.evidence, agent._retrieval_policy())],
+        token_budget=2000,
+    )
+
+    assert "MUST be Simplified Chinese" in prompt
+    assert "MUST NOT contain full English sentences" in prompt
+    assert "Keep code symbols, file paths, commands, evidence IDs untranslated" in prompt
+
+
 def test_validator_preserves_medium_low_findings(sample_context) -> None:
     """Validator should not reject valid medium or low findings."""
     context = context_with_evidence(sample_context)

@@ -20,6 +20,7 @@ from backend.reviewers.zh_quality import (
     normalize_zh_markdown,
     normalize_zh_text,
     redact_or_replace_raw_evidence_ids,
+    validate_chinese_report_text,
 )
 
 # ---------------------------------------------------------------------------
@@ -342,9 +343,21 @@ class TestV3512FinalZhMetadataCleanup:
         assert "| 失败 | 信息 |" in result
         assert "状态：已完成" in result
         assert "严重性：中" in result
-        assert "置信度 不适用" in result
+        assert "置信度 暂无数据" in result
         assert "已验证符号 `foo`" in result
         assert "暂未发现明确问题" in result
+
+    def test_validate_chinese_report_text_flags_english_prose_but_preserves_code(self):
+        report = """建议：Consider rewriting this logic to reduce maintenance risk.
+影响：src/flask/app.py 中的 `send_static_file` 和 Blueprint 应保留原文。
+验证方式：运行 `pytest tests/test_app.py`，确认行为不变。
+"""
+
+        issues = validate_chinese_report_text(report)
+
+        assert any(issue.startswith("mixed_language_issue") for issue in issues)
+        assert all("src/flask/app.py" not in issue for issue in issues)
+        assert all("send_static_file" not in issue for issue in issues)
 
     def test_mixed_count_phrases(self):
         result = normalize_zh_text("4 medium; 2 medium, 2 low; 1 high, 3 info")

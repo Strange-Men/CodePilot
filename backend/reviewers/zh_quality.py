@@ -357,7 +357,7 @@ _STATUS_REPLACEMENTS: dict[str, str] = {
 }
 
 _TEXT_VALUE_REPLACEMENTS: dict[str, str] = {
-    "n/a": "不适用",
+    "n/a": "暂无数据",
 }
 
 _COUNT_SEVERITY_REPLACEMENTS: dict[str, str] = {
@@ -691,5 +691,28 @@ def assert_no_obvious_zh_leak(markdown: str) -> list[str]:
                 if stripped.startswith(f"{label}:") or stripped.startswith(f"{label}："):
                     issues.append(f"Untranslated label at line start: {label}")
                     break
+
+    return issues
+
+
+def validate_chinese_report_text(report_text: str) -> list[str]:
+    """Validate Chinese report text for mixed-language leakage.
+
+    The check is intentionally lightweight and deterministic. It flags
+    natural-language English fragments and untranslated English labels while
+    preserving code identifiers, paths, commands, and evidence references.
+    """
+    issues: list[str] = []
+
+    for leak in detect_english_natural_language_leak(report_text):
+        issues.append(f"mixed_language_issue: {leak}")
+
+    for issue in assert_no_obvious_zh_leak(report_text):
+        if issue.startswith("English leak:"):
+            continue
+        if issue.startswith("Untranslated"):
+            issues.append(f"mixed_language_issue: {issue}")
+        else:
+            issues.append(issue)
 
     return issues

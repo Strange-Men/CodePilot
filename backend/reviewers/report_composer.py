@@ -42,7 +42,7 @@ class HumanReadableReportComposer:
             self._repository_identity(context),
             self._how_it_works(context),
             self._architecture_map(context),
-            self._agent_summary(agent_states),
+            self._agent_summary(agent_states, lang),
             self._agent_findings(agent_states, findings, display_map),
             self._contract_sections(findings, display_map, lang),
             self._action_plan(context, findings, display_map),
@@ -161,7 +161,8 @@ class HumanReadableReportComposer:
         return "\n".join(lines)
 
     @staticmethod
-    def _agent_summary(agent_states: list[AgentExecutionState]) -> str:
+    def _agent_summary(agent_states: list[AgentExecutionState], lang: str = "en") -> str:
+        unavailable = "暂无数据" if lang == "zh" else "n/a"
         lines = [
             "# Agent Summary",
             "",
@@ -169,7 +170,8 @@ class HumanReadableReportComposer:
             "| --- | --- | ---: | --- | ---: | ---: |",
         ]
         if not agent_states:
-            lines.append("| Not available | not_applicable | 0 | none | n/a | 0 |")
+            label = "暂无数据" if lang == "zh" else "Not available"
+            lines.append(f"| {label} | not_applicable | 0 | none | {unavailable} | 0 |")
             return "\n".join(lines)
         for state in agent_states:
             severity_mix = Counter(
@@ -188,7 +190,7 @@ class HumanReadableReportComposer:
             average_confidence = (
                 f"{sum(confidences) / len(confidences):.2f}"
                 if confidences
-                else "n/a"
+                else unavailable
             )
             evidence_count = len(
                 {

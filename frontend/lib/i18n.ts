@@ -99,6 +99,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "agentCards.evidence": "Evidence",
     "agentCards.avgConfidence": "Avg confidence",
     "agentCards.severity": "Severity",
+    "common.notAvailable": "Not available",
 
     // Findings panel
     "findings.structuredData": "Structured review data",
@@ -313,6 +314,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "agentCards.evidence": "证据",
     "agentCards.avgConfidence": "平均置信度",
     "agentCards.severity": "严重程度",
+    "common.notAvailable": "暂无数据",
 
     // Findings panel
     "findings.structuredData": "结构化审查数据",

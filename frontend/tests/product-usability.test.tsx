@@ -11,6 +11,7 @@ import { AgentStateCards } from "../components/workspace/AgentStateCards";
 import { AgentTimeline } from "../components/workspace/AgentTimeline";
 import { EvidencePanel } from "../components/workspace/EvidencePanel";
 import { FindingsPanel } from "../components/workspace/FindingsPanel";
+import { MetricsPanel } from "../components/workspace/MetricsPanel";
 import { OverviewPanel } from "../components/workspace/OverviewPanel";
 import { applyTheme, nextTheme, ThemeToggle } from "../components/workspace/ThemeToggle";
 import { WorkspaceShell } from "../components/workspace/WorkspaceShell";
@@ -279,6 +280,15 @@ test("AgentStateCards renders Chinese labels", () => {
   assert.match(html, /严重程度/);
 });
 
+test("AgentStateCards uses localized confidence fallback", () => {
+  const htmlZh = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="zh" />);
+  const htmlEn = renderToStaticMarkup(<AgentStateCards agents={structuredAgents} language="en" />);
+
+  assert.match(htmlZh, /暂无数据/);
+  assert.doesNotMatch(htmlZh, /n\/a/i);
+  assert.match(htmlEn, /Not available/);
+});
+
 test("EvidencePanel renders Chinese labels", () => {
   const html = renderToStaticMarkup(
     <EvidencePanel
@@ -310,6 +320,19 @@ test("MetricsPanel renders Chinese labels", () => {
   );
 
   assert.match(html, /置信度/);
+});
+
+test("MetricsPanel uses localized confidence fallback", () => {
+  const htmlZh = renderToStaticMarkup(
+    <MetricsPanel agents={structuredAgents} findings={[]} language="zh" />
+  );
+  const htmlEn = renderToStaticMarkup(
+    <MetricsPanel agents={structuredAgents} findings={[]} language="en" />
+  );
+
+  assert.match(htmlZh, /暂无数据/);
+  assert.doesNotMatch(htmlZh, /n\/a/i);
+  assert.match(htmlEn, /Not available/);
 });
 
 test("switching language does not change evidence IDs", () => {

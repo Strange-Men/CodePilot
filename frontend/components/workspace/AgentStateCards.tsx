@@ -39,7 +39,7 @@ export function AgentStateCards({ agents, language }: { agents: ReviewAgentState
             <Metric label={t(language, "agentCards.evidence")} value={String(agent.evidence_count)} />
             <Metric
               label={t(language, "agentCards.avgConfidence")}
-              value={agent.average_confidence === null ? "n/a" : `${Math.round(agent.average_confidence * 100)}%`}
+              value={formatConfidence(agent.average_confidence, language)}
             />
             <Metric
               label={t(language, "agentCards.severity")}
@@ -66,6 +66,12 @@ function Metric({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 font-mono text-sm font-semibold">{value}</dd>
     </div>
   );
+}
+
+function formatConfidence(value: number | null | undefined, language: Language): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${Math.round(value * 100)}%`
+    : t(language, "common.notAvailable");
 }
 
 function severitySummary(agent: ReviewAgentStateItem, language: Language): string {

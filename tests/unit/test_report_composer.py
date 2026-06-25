@@ -217,6 +217,27 @@ def test_composer_downranks_test_only_actions(sample_context) -> None:
     assert action_plan.index("Production boundary") < action_plan.index("Test helper")
 
 
+def test_zh_composer_agent_summary_uses_chinese_confidence_fallback(sample_context) -> None:
+    agent_states = [
+        AgentExecutionState(
+            agent_id="ArchitectureAgent",
+            status="completed",
+            validation_status="validated",
+            findings=[],
+        )
+    ]
+
+    report = HumanReadableReportComposer().compose(
+        sample_context.to_review_context(),
+        StructuredReviewDraft(findings=[]),
+        agent_states,
+        lang="zh",
+    )
+
+    assert "暂无数据" in report
+    assert "n/a" not in report.lower()
+
+
 def test_table_cell_escapes_pipes_and_normalizes_multiline_whitespace() -> None:
     value = "  foo | bar\nline one\t  line two  "
 

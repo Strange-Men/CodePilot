@@ -2,20 +2,20 @@
 
 > Harness version: v1.2
 > Last updated: 2026-06-25
-> Verified with: `python -m pytest tests/ -q` and frontend tests on 2026-06-25 (V3.8 Real LLM providers)
+> Verified with: `python -m pytest tests/ -q` and frontend tests on 2026-06-25 (V3.9 Chinese report language consistency)
 
 ## Current Test Inventory
 
-`pytest` collected 1013 tests: 1012 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 1018 tests: 1017 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|
-| Unit | 920 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.7 MiMo Chinese report fallback. |
+| Unit | 925 | 49 | Validate contexts, prompts, structured reviews, report composition and quality, evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence retrieval, structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior, storage, task runner, MiMo LLM mode, provider resolution/MiMo key handling, selectable Real LLM providers, llm_mode routing/error visibility, V3.5.12 Chinese quality guard, V3.7 centralized Chinese presentation pipeline, and V3.9 Chinese report language consistency. |
 | Integration | 87 | 4 | Validate FastAPI history/errors, language review pipelines, CLI/CI workflows, MCP wrappers, diff mode, v3 agent-state persistence, useful finding fields, localized report/finding/export API responses, English leakage prevention, V3.5.5 terminology verification, V3.5.7 lazy localization behavior, and V3.5.8 bilingual output. |
 | Metrics | 5 | 1 | Validate quant metrics report data and generated metric contracts. |
 | Regression | 1 | 1 | Lock production bug fixes so they do not recur. |
 | Smoke | 1 script | 1 | Validate live backend clone -> parse -> review -> export pipeline. |
-| Frontend | 106 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, Real LLM provider selection, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, V3.6 UI evidence/status polish, and V3.7 global language switch (browser detection, localStorage persistence, API lang linkage, export lang, localized errors, no DOM auto-translation). |
+| Frontend | 109 | 2 | Validate Markdown, Agent contribution cards, grouped findings, evidence labels, old-report fallbacks, history, URL validation, API errors, reliability fallbacks, LLM mode selector, Real LLM provider selection, bilingual UI, Chinese prose rendering, agent timeline loading states, V3.5.5 terminology verification, V3.5.7 Chinese UX closure, V3.6 UI evidence/status polish, V3.7 global language switch (browser detection, localStorage persistence, API lang linkage, export lang, localized errors, no DOM auto-translation), and V3.9 confidence fallback copy. |
 
 ## Unit Tests
 
