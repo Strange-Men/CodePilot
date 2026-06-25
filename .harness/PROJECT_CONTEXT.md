@@ -140,7 +140,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 
 ## Test State
 
-- `pytest` collected 327 tests on 2026-06-13: 326 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+- `pytest` collected 1012 tests on 2026-06-25: 1011 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 - Unit tests: 303 collected across context compatibility, prompts, structured reviews, report composition and quality,
   evaluation registry/artifacts/comparison/costs, review state, backend services, parsers, sandbox safety, evidence,
   structured LLM agents, multi-agent orchestration, V3 hardening, diff scope, lifecycle, API errors, LLM behavior,
@@ -182,9 +182,16 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on `windows-latest`:
 | `OPENAI_API_KEY` | empty | Required only when `USE_MOCK_LLM=false`. |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible endpoint. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model name. |
+| `REAL_LLM_PROVIDER` | `mimo` | Default Real LLM provider when a request does not pass `llm_provider`. |
 | `MIMO_API_KEY` | empty | Optional MiMo LLM API key. Set in backend `.env` only. |
 | `MIMO_BASE_URL` | `https://token-plan-cn.xiaomimimo.com/v1` | MiMo-compatible endpoint. |
 | `MIMO_MODEL_NAME` | `mimo-v2.5-pro` | MiMo chat model name. |
+| `DOUBAO_API_KEY` | empty | Optional Doubao API key. Set in backend `.env` only. |
+| `DOUBAO_BASE_URL` | empty | Doubao OpenAI-compatible endpoint. |
+| `DOUBAO_MODEL_NAME` | empty | Doubao chat model name. |
+| `DEEPSEEK_API_KEY` | empty | Optional DeepSeek API key. Set in backend `.env` only. |
+| `DEEPSEEK_BASE_URL` | empty | DeepSeek OpenAI-compatible endpoint. |
+| `DEEPSEEK_MODEL_NAME` | empty | DeepSeek chat model name. |
 | `DATABASE_PATH` | `backend/data/codepilot.db` | SQLite database path. |
 | `WORKSPACE_PATH` | `backend/workspace` | Temporary clone workspace. |
 | `REPORTS_PATH` | `reports` | Markdown export directory. |

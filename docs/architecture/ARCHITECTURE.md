@@ -47,7 +47,17 @@ Prompt construction lives in `backend/prompts/`. `ReportGenerator` coordinates r
 
 ## Mock / Real LLM
 
-Mock mode is the default (`USE_MOCK_LLM=true`). It provides deterministic structured output without credentials. Real mode uses an OpenAI-compatible client with exponential backoff retries. Both modes produce the same Pydantic-validated output schema.
+Mock mode is the default (`USE_MOCK_LLM=true`). It provides deterministic structured output without credentials. Real mode uses an OpenAI-compatible client with exponential backoff retries. The selectable Real LLM providers are MiMo (`mimo`), Doubao (`doubao`), and DeepSeek (`deepseek`), with MiMo as the default provider for backward compatibility.
+
+Provider credentials live only in the backend environment:
+
+```text
+MIMO_API_KEY / MIMO_BASE_URL / MIMO_MODEL_NAME
+DOUBAO_API_KEY / DOUBAO_BASE_URL / DOUBAO_MODEL_NAME
+DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL_NAME
+```
+
+The frontend sends the selected provider value to the backend and never stores API keys. Provider availability is exposed through `GET /api/llm/providers` as value, label, and availability only. Both Mock and Real modes produce the same Pydantic-validated output schema.
 
 ## Evaluation
 

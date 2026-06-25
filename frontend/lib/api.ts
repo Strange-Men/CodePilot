@@ -1,5 +1,7 @@
 import type {
   APIErrorPayload,
+  LlmProvider,
+  LlmProviderOption,
   ReviewAgentStatesResponse,
   ReviewFindingsResponse,
   ReviewResponse
@@ -7,15 +9,29 @@ import type {
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
-export async function createReview(repoUrl: string, llmMode: string = "mock"): Promise<{ task_id: string; llm_mode: string }> {
+export async function createReview(
+  repoUrl: string,
+  llmMode: string = "mock",
+  llmProvider: LlmProvider = "mimo"
+): Promise<{ task_id: string; llm_mode: string; llm_provider?: LlmProvider | null }> {
+  const payload: Record<string, string> = { repo_url: repoUrl, llm_mode: llmMode };
+  if (llmMode !== "mock") payload.llm_provider = llmProvider;
+
   const response = await fetch(`${API_BASE}/api/reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repo_url: repoUrl, llm_mode: llmMode })
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) throw await createApiError(response);
-  return (await response.json()) as { task_id: string; llm_mode: string };
+  return (await response.json()) as { task_id: string; llm_mode: string; llm_provider?: LlmProvider | null };
+}
+
+export async function getLlmProviders(): Promise<LlmProviderOption[]> {
+  const response = await fetch(`${API_BASE}/api/llm/providers`);
+
+  if (!response.ok) throw await createApiError(response);
+  return (await response.json()) as LlmProviderOption[];
 }
 
 export async function getReview(taskId: string, opts?: { lang?: string }): Promise<ReviewResponse> {

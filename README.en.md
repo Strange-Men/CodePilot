@@ -42,7 +42,7 @@ CodePilot is an end-to-end AI code review agent. Given a public GitHub repositor
 - **Bilingual Output** — global zh/en language switch with localStorage persistence; all reports, findings, UI labels, and error messages follow the active language
 - **Markdown Export** — one-click export of the full review report with evidence appendix
 - **Mock Demo Mode** — deterministic, credential-free demo path that runs out of the box
-- **Real LLM Mode** — optional MiMo/OpenAI-compatible provider for production use
+- **Real LLM Mode** — optional MiMo, Doubao, or DeepSeek provider for production use
 
 ---
 
@@ -127,10 +127,10 @@ To use a real LLM provider, set:
 ```text
 USE_MOCK_LLM=false
 ENABLE_REAL_LLM=true
-OPENAI_API_KEY=your-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
+REAL_LLM_PROVIDER=mimo
 ```
+
+The frontend sends only the selected provider. API keys stay in the backend `.env`; the frontend never stores provider API keys. The default provider is `mimo`.
 
 For MiMo:
 
@@ -140,7 +140,23 @@ MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
 MIMO_MODEL_NAME=mimo-v2.5-pro
 ```
 
-Real LLM mode depends on provider availability, network, and API key validity. Output quality varies by model. MiMo Chinese output may have occasional unnatural wording.
+For Doubao:
+
+```text
+DOUBAO_API_KEY=your-key
+DOUBAO_BASE_URL=your-openai-compatible-base-url
+DOUBAO_MODEL_NAME=your-model
+```
+
+For DeepSeek:
+
+```text
+DEEPSEEK_API_KEY=your-key
+DEEPSEEK_BASE_URL=your-openai-compatible-base-url
+DEEPSEEK_MODEL_NAME=your-model
+```
+
+Real LLM mode supports MiMo, Doubao, and DeepSeek through backend OpenAI-compatible configuration. Provider availability depends on backend env configuration, network access, and API key validity. Output quality varies by model. MiMo Chinese output may have occasional unnatural wording.
 
 ---
 

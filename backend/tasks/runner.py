@@ -51,12 +51,17 @@ class ReviewTaskRunner:
         self._progress_lock = Lock()
         self._shutdown = False
 
-    def submit(self, repo_url: str, llm_mode: str = "mock") -> str:
+    def submit(
+        self,
+        repo_url: str,
+        llm_mode: str = "mock",
+        llm_provider: str | None = None,
+    ) -> str:
         if self._shutdown:
             raise RuntimeError("Review task runner is shut down.")
         if llm_mode != "mock":
             try:
-                build_llm_client_for_mode(self.settings, llm_mode)
+                build_llm_client_for_mode(self.settings, llm_mode, llm_provider)
             except RuntimeError as exc:
                 raise APIError(
                     400,
@@ -67,11 +72,17 @@ class ReviewTaskRunner:
         task_id = uuid4().hex
         self.store.create_review(task_id, repo_url)
         self._initialize_progress(task_id)
-        self.executor.submit(self._run, task_id, repo_url, llm_mode)
+        self.executor.submit(self._run, task_id, repo_url, llm_mode, llm_provider)
         return task_id
 
-    def _run(self, task_id: str, repo_url: str, llm_mode: str = "mock") -> ReviewPipelineResult:
-        llm_client = build_llm_client_for_mode(self.settings, llm_mode)
+    def _run(
+        self,
+        task_id: str,
+        repo_url: str,
+        llm_mode: str = "mock",
+        llm_provider: str | None = None,
+    ) -> ReviewPipelineResult:
+        llm_client = build_llm_client_for_mode(self.settings, llm_mode, llm_provider)
         pipeline = ReviewPipeline(
             self.settings,
             self.store,

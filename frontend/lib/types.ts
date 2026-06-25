@@ -9,6 +9,16 @@ export type ReviewStatus =
 
 export type AgentProgressStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
+export type LlmMode = "mock" | "mimo";
+
+export type LlmProvider = "mimo" | "doubao" | "deepseek";
+
+export type LlmProviderOption = {
+  value: LlmProvider;
+  label: string;
+  available?: boolean;
+};
+
 export type AgentProgressItem = {
   order: number;
   label: string;

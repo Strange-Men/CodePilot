@@ -36,7 +36,7 @@ CodePilot 是一个面向 GitHub 开源仓库的 **AI 代码审查与仓库理�
 - **证据追踪系统** — 每条审查结论绑定 evidence_id（如 `[E1]`/`[E2]`），关联文件路径、行号和代码片段，降低 LLM 幻觉风险
 - **中英文切换** — 全局 zh/en 语言切换，报告、发现、UI 标签和错误信息均跟随语言设置
 - **Markdown 报告导出** — 一键导出完整审查报告，含证据附录
-- **Mock / 真实 LLM 双模式** — Mock 模式确定性输出、无需凭据；真实 LLM 模式支持 OpenAI 兼容接口和 MiMo
+- **Mock / 真实 LLM 双模式** — Mock 模式确定性输出、无需凭据；真实 LLM 模式可选择 MiMo、豆包 / Doubao、DeepSeek
 
 ---
 
@@ -102,7 +102,7 @@ GitHub URL
 ### 4. Mock / 真实 LLM 双模式
 
 - **Mock 模式**：`MockLLMClient` 返回预构建的双语 findings，确定性输出，无需 API Key，用于稳定演示和 CI 测试
-- **真实 LLM 模式**：支持 OpenAI 兼容接口（如 GPT-4o-mini）和 MiMo，验证真实模型接入能力
+- **真实 LLM 模式**：支持 MiMo、豆包 / Doubao、DeepSeek 的后端 OpenAI-compatible 配置，验证真实模型接入能力
 - 两种模式走同一套报告生成、前端展示和导出链路
 
 ### 5. 中文展示与容错
@@ -167,14 +167,12 @@ MAX_FILE_SIZE_BYTES=204800
 
 ### 真实 LLM 模式配置（可选）
 
-使用 OpenAI 兼容接口：
+Real LLM provider 由前端选择并传给后端。API Key 只存放在后端 `.env`，前端不会保存任何 provider API Key。默认 provider 为 `mimo`。
 
 ```text
 USE_MOCK_LLM=false
 ENABLE_REAL_LLM=true
-OPENAI_API_KEY=your-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
+REAL_LLM_PROVIDER=mimo
 ```
 
 使用 MiMo：
@@ -183,6 +181,22 @@ OPENAI_MODEL=gpt-4o-mini
 MIMO_API_KEY=your-key
 MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
 MIMO_MODEL_NAME=mimo-v2.5-pro
+```
+
+使用豆包 / Doubao：
+
+```text
+DOUBAO_API_KEY=your-key
+DOUBAO_BASE_URL=your-openai-compatible-base-url
+DOUBAO_MODEL_NAME=your-model
+```
+
+使用 DeepSeek：
+
+```text
+DEEPSEEK_API_KEY=your-key
+DEEPSEEK_BASE_URL=your-openai-compatible-base-url
+DEEPSEEK_MODEL_NAME=your-model
 ```
 
 ---

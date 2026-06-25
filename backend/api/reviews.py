@@ -89,8 +89,16 @@ def build_reviews_router(
 
     @router.post("", response_model=ReviewCreateResponse, status_code=202)
     def create_review(payload: ReviewCreateRequest) -> ReviewCreateResponse:
-        task_id = runner.submit(str(payload.repo_url), llm_mode=payload.llm_mode)
-        return ReviewCreateResponse(task_id=task_id, llm_mode=payload.llm_mode)
+        task_id = runner.submit(
+            str(payload.repo_url),
+            llm_mode=payload.llm_mode,
+            llm_provider=payload.llm_provider,
+        )
+        return ReviewCreateResponse(
+            task_id=task_id,
+            llm_mode=payload.llm_mode,
+            llm_provider=payload.llm_provider if payload.llm_mode != "mock" else None,
+        )
 
     @router.get("", response_model=list[ReviewStatusResponse])
     def list_reviews(limit: int = Query(default=50, ge=1, le=100)) -> list[ReviewStatusResponse]:

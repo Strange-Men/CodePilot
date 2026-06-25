@@ -13,7 +13,12 @@ class LifecycleRunner:
     def __init__(self) -> None:
         self.shutdown_calls = 0
 
-    def submit(self, repo_url: str) -> str:
+    def submit(
+        self,
+        repo_url: str,
+        llm_mode: str = "mock",
+        llm_provider: str | None = None,
+    ) -> str:
         return repo_url
 
     def shutdown(self, wait: bool = True) -> None:

@@ -21,7 +21,12 @@ class FakeRunner:
         self.store = store
         self.submissions: list[str] = []
 
-    def submit(self, repo_url: str, llm_mode: str = "mock") -> str:
+    def submit(
+        self,
+        repo_url: str,
+        llm_mode: str = "mock",
+        llm_provider: str | None = None,
+    ) -> str:
         task_id = f"task-{len(self.submissions) + 1}"
         self.submissions.append(repo_url)
         self.store.create_review(task_id, repo_url)

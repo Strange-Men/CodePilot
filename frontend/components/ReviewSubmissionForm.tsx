@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
+import type { LlmMode, LlmProvider, LlmProviderOption } from "@/lib/types";
 
 type ReviewSubmissionFormProps = {
   fieldError: string | null;
   isRunning: boolean;
   language: Language;
-  llmMode: "mock" | "mimo";
-  onLlmModeChange: (mode: "mock" | "mimo") => void;
+  llmMode: LlmMode;
+  llmProvider?: LlmProvider;
+  llmProviders?: LlmProviderOption[];
+  onLlmModeChange: (mode: LlmMode) => void;
+  onLlmProviderChange?: (provider: LlmProvider) => void;
   onRepoUrlChange: (repoUrl: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   repoUrl: string;
@@ -24,12 +28,22 @@ export function ReviewSubmissionForm({
   isRunning,
   language,
   llmMode,
+  llmProvider = "mimo",
+  llmProviders = [
+    { value: "mimo", label: "MiMo" },
+    { value: "doubao", label: "豆包 / Doubao" },
+    { value: "deepseek", label: "DeepSeek" }
+  ],
   onLlmModeChange,
+  onLlmProviderChange = () => undefined,
   onRepoUrlChange,
   onSubmit,
   repoUrl,
   submitting
 }: ReviewSubmissionFormProps) {
+  const selectedProvider = llmProviders.find((provider) => provider.value === llmProvider);
+  const providerUnavailable = llmMode === "mimo" && selectedProvider?.available === false;
+
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       <div className="space-y-2">
@@ -79,15 +93,40 @@ export function ReviewSubmissionForm({
             active={llmMode === "mimo"}
             disabled={submitting || isRunning}
             icon={KeyRound}
-            label={t(language, "form.mimoRealLlm")}
+            label={t(language, "form.realLlm")}
             onClick={() => onLlmModeChange("mimo")}
           />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
           {llmMode === "mock"
             ? t(language, "form.mockDescription")
-            : t(language, "form.mimoDescription")}
+            : t(language, "form.realLlmDescription")}
         </p>
+        {llmMode === "mimo" ? (
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground" htmlFor="llm-provider">
+              {t(language, "form.realLlmProvider")}
+            </label>
+            <select
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={submitting || isRunning}
+              id="llm-provider"
+              onChange={(event) => onLlmProviderChange(event.target.value as LlmProvider)}
+              value={llmProvider}
+            >
+              {llmProviders.map((provider) => (
+                <option key={provider.value} value={provider.value}>
+                  {provider.label}
+                </option>
+              ))}
+            </select>
+            {providerUnavailable ? (
+              <p className="text-xs leading-5 text-muted-foreground" role="status">
+                {t(language, "form.providerUnavailable")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <Button className="w-full" disabled={submitting || isRunning} type="submit">
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

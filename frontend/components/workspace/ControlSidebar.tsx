@@ -9,7 +9,7 @@ import { ReviewHistoryPanel } from "@/components/workspace/ReviewHistoryPanel";
 import { exportReview, CodePilotApiError } from "@/lib/api";
 import type { Language } from "@/lib/i18n";
 import { getLocalizedStatusLabels, t } from "@/lib/i18n";
-import type { ReviewResponse } from "@/lib/types";
+import type { LlmMode, LlmProvider, LlmProviderOption, ReviewResponse } from "@/lib/types";
 
 type ControlSidebarProps = {
   error: string | null;
@@ -19,10 +19,13 @@ type ControlSidebarProps = {
   historyLoading: boolean;
   isRunning: boolean;
   language: Language;
-  llmMode: "mock" | "mimo";
+  llmMode: LlmMode;
+  llmProvider: LlmProvider;
+  llmProviders: LlmProviderOption[];
   onDelete: (taskId: string) => Promise<void>;
   onHistoryRetry: () => void;
-  onLlmModeChange: (mode: "mock" | "mimo") => void;
+  onLlmModeChange: (mode: LlmMode) => void;
+  onLlmProviderChange: (provider: LlmProvider) => void;
   onRepoUrlChange: (repoUrl: string) => void;
   onSelectReview: (review: ReviewResponse) => void;
   onStaleReview: (taskId: string) => void;
@@ -43,9 +46,12 @@ export function ControlSidebar({
   isRunning,
   language,
   llmMode,
+  llmProvider,
+  llmProviders,
   onDelete,
   onHistoryRetry,
   onLlmModeChange,
+  onLlmProviderChange,
   onRepoUrlChange,
   onSelectReview,
   onStaleReview,
@@ -113,7 +119,10 @@ export function ControlSidebar({
           isRunning={isRunning}
           language={language}
           llmMode={llmMode}
+          llmProvider={llmProvider}
+          llmProviders={llmProviders}
           onLlmModeChange={onLlmModeChange}
+          onLlmProviderChange={onLlmProviderChange}
           onRepoUrlChange={onRepoUrlChange}
           onSubmit={onSubmit}
           repoUrl={repoUrl}

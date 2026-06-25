@@ -18,6 +18,7 @@ import {
   CodePilotApiError,
   createReview,
   deleteReview,
+  getLlmProviders,
   getReviewAgentStates,
   getReviewExportUrl,
   getReviewFindings,
@@ -361,7 +362,7 @@ test("renders inline repository URL validation feedback", () => {
   assert.match(html, /Use an HTTPS GitHub repository URL/);
 });
 
-test("Mock and MiMo selector states remain available", () => {
+test("Mock and Real LLM selector states remain available", () => {
   const mockHtml = renderToStaticMarkup(
     <ReviewSubmissionForm
       fieldError={null}
@@ -381,7 +382,14 @@ test("Mock and MiMo selector states remain available", () => {
       isRunning={false}
       language="en"
       llmMode="mimo"
+      llmProvider="mimo"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: true },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
       onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
       onRepoUrlChange={() => undefined}
       onSubmit={() => undefined}
       repoUrl="https://github.com/example/project"
@@ -391,8 +399,40 @@ test("Mock and MiMo selector states remain available", () => {
 
   assert.match(mockHtml, /Mock LLM/);
   assert.match(mockHtml, /No API key required/);
-  assert.match(mimoHtml, /MiMo Real LLM/);
-  assert.match(mimoHtml, /MIMO_API_KEY/);
+  assert.match(mimoHtml, /Real LLM/);
+  assert.doesNotMatch(mimoHtml, /MiMo Real LLM/);
+  assert.match(mimoHtml, /llm-provider/);
+  assert.match(mimoHtml, /MiMo/);
+  assert.match(mimoHtml, /豆包 \/ Doubao/);
+  assert.match(mimoHtml, /DeepSeek/);
+  assert.match(mimoHtml, /backend real LLM configuration/);
+});
+
+test("Real LLM provider dropdown shows unavailable hint", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="en"
+      llmMode="mimo"
+      llmProvider="doubao"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: true },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
+      onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /value="mimo"/);
+  assert.match(html, /value="doubao" selected/);
+  assert.match(html, /This provider requires backend \.env configuration/);
 });
 
 test("ReviewSubmissionForm renders Chinese labels", () => {
@@ -412,7 +452,7 @@ test("ReviewSubmissionForm renders Chinese labels", () => {
 
   assert.match(html, /GitHub 仓库/);
   assert.match(html, /LLM 模式/);
-  assert.match(html, /MiMo 真实 LLM/);
+  assert.match(html, /真实 LLM/);
   assert.match(html, /开始审查/);
   assert.match(html, /仅支持公开的 HTTPS GitHub URL/);
 });
@@ -491,18 +531,47 @@ test("frontend API client handles DELETE 204 without parsing a body", async () =
   }
 });
 
-test("Start review preserves MiMo mode in the request", async () => {
+test("Start review includes selected Real LLM provider in the request", async () => {
   const originalFetch = globalThis.fetch;
   let sentBody: Record<string, unknown> = {};
   globalThis.fetch = async (_url, init) => {
     sentBody = JSON.parse(init?.body as string || "{}");
-    return new Response(JSON.stringify({ task_id: "task-mimo", llm_mode: "mimo" }), { status: 202 });
+    return new Response(
+      JSON.stringify({ task_id: "task-deepseek", llm_mode: "mimo", llm_provider: "deepseek" }),
+      { status: 202 }
+    );
   };
 
   try {
-    const result = await createReview("https://github.com/example/project", "mimo");
+    const result = await createReview("https://github.com/example/project", "mimo", "deepseek");
     assert.equal(result.llm_mode, "mimo");
+    assert.equal(result.llm_provider, "deepseek");
     assert.equal(sentBody.llm_mode, "mimo");
+    assert.equal(sentBody.llm_provider, "deepseek");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("frontend API client loads Real LLM provider status", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(
+      JSON.stringify([
+        { value: "mimo", label: "MiMo", available: true },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ])
+    );
+  };
+
+  try {
+    const providers = await getLlmProviders();
+    assert.match(requestedUrl, /\/api\/llm\/providers$/);
+    assert.equal(providers[0].value, "mimo");
+    assert.equal(providers[1].available, false);
   } finally {
     globalThis.fetch = originalFetch;
   }

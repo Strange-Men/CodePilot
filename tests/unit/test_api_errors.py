@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from backend.api.errors import APIError, install_error_handlers
 from backend.models.review import ReviewCreateRequest
@@ -95,6 +97,26 @@ def test_local_smoke_repo_url_requires_explicit_internal_flag(monkeypatch) -> No
 
     monkeypatch.setenv("CODEPILOT_ALLOW_LOCAL_SMOKE_REPO", "true")
     assert ReviewCreateRequest(repo_url=url).repo_url is not None
+
+
+@pytest.mark.parametrize("provider", ["mimo", "doubao", "deepseek"])
+def test_review_create_request_accepts_real_llm_provider(provider: str) -> None:
+    request = ReviewCreateRequest(
+        repo_url="https://github.com/example/project",
+        llm_mode="mimo",
+        llm_provider=provider,
+    )
+
+    assert request.llm_provider == provider
+
+
+def test_review_create_request_rejects_invalid_real_llm_provider() -> None:
+    with pytest.raises(ValidationError):
+        ReviewCreateRequest(
+            repo_url="https://github.com/example/project",
+            llm_mode="mimo",
+            llm_provider="invalid",
+        )
 
 
 def _request_is_valid(url: str) -> bool:

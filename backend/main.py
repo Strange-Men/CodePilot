@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.errors import install_error_handlers
+from backend.api.llm import build_llm_router
 from backend.api.reviews import build_reviews_router
 from backend.core.config import Settings, get_settings
 from backend.core.logging import get_logger
@@ -55,6 +56,7 @@ def create_app(
     else:
         translator = MockTranslator()
     localization_service = LocalizationService(store, translator)
+    application.include_router(build_llm_router(settings))
     application.include_router(build_reviews_router(store, runner, localization_service))
 
     @application.get("/health")
@@ -69,8 +71,12 @@ logger.info(
     "startup_config provider=%s model=%s review_engine=%s "
     "agent_mode=%s use_mock_llm=%s enable_real_llm=%s "
     "agent_concurrency=%s speed_mode=%s",
-    "mimo" if settings.mimo_api_key else "openai",
-    settings.mimo_model_name if settings.mimo_api_key else settings.openai_model,
+    settings.real_llm_provider,
+    {
+        "mimo": settings.mimo_model_name,
+        "doubao": settings.doubao_model_name,
+        "deepseek": settings.deepseek_model_name,
+    }.get(settings.real_llm_provider, settings.mimo_model_name),
     settings.review_engine,
     settings.review_agent_mode,
     settings.use_mock_llm,

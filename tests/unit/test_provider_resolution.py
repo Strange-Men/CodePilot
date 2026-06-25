@@ -309,7 +309,7 @@ class TestBuildLLMClientForMode:
 
     def test_mimo_mode_missing_key_error(self) -> None:
         settings = _settings(MIMO_API_KEY=None)
-        with pytest.raises(RuntimeError, match="MIMO_API_KEY is missing"):
+        with pytest.raises(RuntimeError, match='Real LLM provider "mimo" is not configured'):
             build_llm_client_for_mode(settings, "mimo")
 
     def test_mimo_mode_missing_key_error_no_openai_mention(self) -> None:

@@ -4,8 +4,8 @@ import os
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Literal, Protocol
 
 import httpx
 
@@ -24,8 +24,63 @@ class ResolvedLLMConfig:
     provider: str
     model: str
     base_url: str
-    api_key: str
+    api_key: str = field(repr=False)
     api_key_env_name: str
+
+
+LLMProvider = Literal["mimo", "doubao", "deepseek"]
+ALLOWED_REAL_LLM_PROVIDERS: tuple[LLMProvider, ...] = ("mimo", "doubao", "deepseek")
+
+
+@dataclass(frozen=True)
+class LLMProviderStatus:
+    value: LLMProvider
+    label: str
+    available: bool
+
+
+@dataclass(frozen=True)
+class ProviderConfigFields:
+    api_key_attr: str
+    api_key_env: str
+    base_url_attr: str
+    base_url_env: str
+    model_attr: str
+    model_env: str
+
+
+PROVIDER_LABELS: dict[LLMProvider, str] = {
+    "mimo": "MiMo",
+    "doubao": "豆包 / Doubao",
+    "deepseek": "DeepSeek",
+}
+
+PROVIDER_CONFIG_FIELDS: dict[LLMProvider, ProviderConfigFields] = {
+    "mimo": ProviderConfigFields(
+        api_key_attr="mimo_api_key",
+        api_key_env="MIMO_API_KEY",
+        base_url_attr="mimo_base_url",
+        base_url_env="MIMO_BASE_URL",
+        model_attr="mimo_model_name",
+        model_env="MIMO_MODEL_NAME",
+    ),
+    "doubao": ProviderConfigFields(
+        api_key_attr="doubao_api_key",
+        api_key_env="DOUBAO_API_KEY",
+        base_url_attr="doubao_base_url",
+        base_url_env="DOUBAO_BASE_URL",
+        model_attr="doubao_model_name",
+        model_env="DOUBAO_MODEL_NAME",
+    ),
+    "deepseek": ProviderConfigFields(
+        api_key_attr="deepseek_api_key",
+        api_key_env="DEEPSEEK_API_KEY",
+        base_url_attr="deepseek_base_url",
+        base_url_env="DEEPSEEK_BASE_URL",
+        model_attr="deepseek_model_name",
+        model_env="DEEPSEEK_MODEL_NAME",
+    ),
+}
 
 
 def resolve_llm_config(settings: Settings) -> ResolvedLLMConfig:
@@ -50,6 +105,70 @@ def resolve_llm_config(settings: Settings) -> ResolvedLLMConfig:
         api_key=openai_key,
         api_key_env_name="OPENAI_API_KEY",
     )
+
+
+def normalize_real_llm_provider(provider: str | None) -> LLMProvider:
+    normalized = (provider or "mimo").strip().lower()
+    if normalized not in ALLOWED_REAL_LLM_PROVIDERS:
+        allowed = ", ".join(ALLOWED_REAL_LLM_PROVIDERS)
+        raise ValueError(f'Unknown Real LLM provider "{provider}". Allowed values: {allowed}.')
+    return normalized  # type: ignore[return-value]
+
+
+def resolve_real_llm_config(settings: Settings, provider: str | None = None) -> ResolvedLLMConfig:
+    selected_provider = normalize_real_llm_provider(
+        provider or settings.real_llm_provider or "mimo"
+    )
+    fields = PROVIDER_CONFIG_FIELDS[selected_provider]
+    api_key = _settings_text(settings, fields.api_key_attr)
+    base_url = _settings_text(settings, fields.base_url_attr)
+    model = _settings_text(settings, fields.model_attr)
+    missing = [
+        env_name
+        for value, env_name in (
+            (api_key, fields.api_key_env),
+            (base_url, fields.base_url_env),
+            (model, fields.model_env),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            f'Real LLM provider "{selected_provider}" is not configured. '
+            f"Please set {', '.join(missing)}."
+        )
+    return ResolvedLLMConfig(
+        provider=selected_provider,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+        api_key_env_name=fields.api_key_env,
+    )
+
+
+def get_llm_provider_statuses(settings: Settings) -> list[LLMProviderStatus]:
+    statuses: list[LLMProviderStatus] = []
+    for provider in ALLOWED_REAL_LLM_PROVIDERS:
+        fields = PROVIDER_CONFIG_FIELDS[provider]
+        available = all(
+            _settings_text(settings, attr)
+            for attr in (fields.api_key_attr, fields.base_url_attr, fields.model_attr)
+        )
+        statuses.append(
+            LLMProviderStatus(
+                value=provider,
+                label=PROVIDER_LABELS[provider],
+                available=available,
+            )
+        )
+    return statuses
+
+
+def _settings_text(settings: Settings, attr: str) -> str:
+    value = getattr(settings, attr)
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 MAX_RETRIES = 3
@@ -531,7 +650,11 @@ def build_llm_client(settings: Settings) -> LLMClient:
         return MockLLMClient()
     if not settings.enable_real_llm:
         raise RuntimeError("ENABLE_REAL_LLM must be true before a real LLM client can be used.")
-    resolved = resolve_llm_config(settings)
+    provider_override = (settings.real_llm_provider or "").strip().lower()
+    if provider_override and provider_override != "mimo":
+        resolved = resolve_real_llm_config(settings, provider_override)
+    else:
+        resolved = resolve_llm_config(settings)
     if not resolved.api_key:
         raise RuntimeError(
             f"{resolved.api_key_env_name} is missing. "
@@ -540,20 +663,14 @@ def build_llm_client(settings: Settings) -> LLMClient:
     return OpenAICompatibleClient(settings, resolved=resolved)
 
 
-def build_llm_client_for_mode(settings: Settings, llm_mode: str) -> LLMClient:
+def build_llm_client_for_mode(
+    settings: Settings,
+    llm_mode: str,
+    llm_provider: str | None = None,
+) -> LLMClient:
     if llm_mode == "mock":
         return MockLLMClient()
     if llm_mode == "mimo":
-        if not settings.mimo_api_key:
-            raise RuntimeError(
-                "MIMO_API_KEY is missing. Set USE_MOCK_LLM=true to run without a real API."
-            )
-        resolved = ResolvedLLMConfig(
-            provider="mimo",
-            model=settings.mimo_model_name,
-            base_url=settings.mimo_base_url,
-            api_key=settings.mimo_api_key,
-            api_key_env_name="MIMO_API_KEY",
-        )
+        resolved = resolve_real_llm_config(settings, llm_provider)
         return OpenAICompatibleClient(settings, resolved=resolved)
     raise ValueError(f"Unknown llm_mode: {llm_mode}")

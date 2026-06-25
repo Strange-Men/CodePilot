@@ -199,7 +199,7 @@ def test_submit_creates_review_and_schedules_task(runner_dependencies: tuple[Set
     row = store.get_review(task_id)
     assert row["status"] == "pending"
     assert row["repo_url"] == "https://github.com/pallets/flask"
-    assert executor.submissions == [(runner._run, (task_id, "https://github.com/pallets/flask", "mock"))]
+    assert executor.submissions == [(runner._run, (task_id, "https://github.com/pallets/flask", "mock", None))]
     app = FastAPI()
     app.include_router(build_reviews_router(store, runner))
     response = TestClient(app).get(f"/api/reviews/{task_id}")

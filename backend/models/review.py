@@ -31,6 +31,10 @@ class ReviewStatus(StrEnum):
 class ReviewCreateRequest(BaseModel):
     repo_url: HttpUrl = Field(description="GitHub repository URL to review")
     llm_mode: str = Field(default="mock", pattern="^(mock|mimo)$", description="LLM mode: mock or mimo")
+    llm_provider: Literal["mimo", "doubao", "deepseek"] | None = Field(
+        default=None,
+        description="Real LLM provider used when llm_mode is mimo",
+    )
 
     @field_validator("repo_url")
     @classmethod
@@ -60,6 +64,7 @@ class ReviewCreateRequest(BaseModel):
 class ReviewCreateResponse(BaseModel):
     task_id: str
     llm_mode: str = "mock"
+    llm_provider: Literal["mimo", "doubao", "deepseek"] | None = None
 
 
 class AgentProgressItem(BaseModel):
@@ -164,4 +169,3 @@ __all__ = [
     "ReviewStatus",
     "ReviewStatusResponse",
 ]
-

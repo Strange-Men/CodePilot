@@ -16,6 +16,7 @@ import {
   CodePilotApiError,
   createReview,
   deleteReview,
+  getLlmProviders,
   getReview,
   getReviewAgentStates,
   getReviewFindings,
@@ -23,8 +24,21 @@ import {
 } from "@/lib/api";
 import { getLocalizedStatusLabels, type Language, t } from "@/lib/i18n";
 import { terminalStatuses } from "@/lib/report";
-import type { ReviewAgentStateItem, ReviewFindingItem, ReviewResponse } from "@/lib/types";
+import type {
+  LlmMode,
+  LlmProvider,
+  LlmProviderOption,
+  ReviewAgentStateItem,
+  ReviewFindingItem,
+  ReviewResponse
+} from "@/lib/types";
 import { validateGitHubRepositoryUrl } from "@/lib/validation";
+
+const FALLBACK_LLM_PROVIDERS: LlmProviderOption[] = [
+  { value: "mimo", label: "MiMo" },
+  { value: "doubao", label: "豆包 / Doubao" },
+  { value: "deepseek", label: "DeepSeek" }
+];
 
 export function WorkspaceShell() {
   const [repoUrl, setRepoUrl] = useState("https://github.com/pallets/flask");
@@ -36,7 +50,9 @@ export function WorkspaceShell() {
   const [history, setHistory] = useState<ReviewResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [llmMode, setLlmMode] = useState<"mock" | "mimo">("mock");
+  const [llmMode, setLlmMode] = useState<LlmMode>("mock");
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("mimo");
+  const [llmProviders, setLlmProviders] = useState<LlmProviderOption[]>(FALLBACK_LLM_PROVIDERS);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [findings, setFindings] = useState<ReviewFindingItem[]>([]);
   const [evidenceDisplayMap, setEvidenceDisplayMap] = useState<Record<string, string>>({});
@@ -68,6 +84,20 @@ export function WorkspaceShell() {
     if (repoFromQuery) setRepoUrl(repoFromQuery);
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getLlmProviders()
+      .then((providers) => {
+        if (!cancelled && providers.length > 0) setLlmProviders(providers);
+      })
+      .catch(() => {
+        if (!cancelled) setLlmProviders(FALLBACK_LLM_PROVIDERS);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleReview = useCallback((data: ReviewResponse) => {
     setReview(data);
@@ -161,7 +191,7 @@ export function WorkspaceShell() {
     setActiveTab("overview");
 
     try {
-      const data = await createReview(repoUrl, llmMode);
+      const data = await createReview(repoUrl, llmMode, llmProvider);
       setTaskId(data.task_id);
       void refreshHistory();
     } catch (err) {
@@ -240,7 +270,9 @@ export function WorkspaceShell() {
           <div className="flex items-center gap-2">
             <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-xs font-semibold sm:px-3">
               <Cpu className="h-3.5 w-3.5 text-primary" />
-              {llmMode === "mimo" ? "MiMo" : "Mock"}
+              {llmMode === "mimo"
+                ? llmProviders.find((provider) => provider.value === llmProvider)?.label || "Real LLM"
+                : "Mock"}
             </span>
             <StatusBadge label={headerStatusLabel} pulse={isRunning} status={headerStatus} />
             <LanguageToggle language={language} onLanguageChange={setLanguage} />
@@ -259,9 +291,12 @@ export function WorkspaceShell() {
           isRunning={isRunning}
           language={language}
           llmMode={llmMode}
+          llmProvider={llmProvider}
+          llmProviders={llmProviders}
           onDelete={removeReview}
           onHistoryRetry={() => void refreshHistory()}
           onLlmModeChange={setLlmMode}
+          onLlmProviderChange={setLlmProvider}
           onRepoUrlChange={changeRepoUrl}
           onSelectReview={selectHistoricalReview}
           onStaleReview={handleStaleReview}
