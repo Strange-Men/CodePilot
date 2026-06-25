@@ -1,0 +1,33 @@
+{
+  "base_url_host": "",
+  "current_report_contract_complete": true,
+  "duration_seconds": 0.71,
+  "evidence_binding_rate": 100.0,
+  "evidence_bound_findings": 4,
+  "evidence_total": 970,
+  "failure_reason_available": false,
+  "failure_stage": null,
+  "findings_by_agent": {
+    "ArchitectureAgent": 1,
+    "CodeSmellAgent": 1,
+    "MaintainabilityAgent": 1,
+    "RefactorAgent": 1
+  },
+  "findings_by_severity": {
+    "medium": 4
+  },
+  "generic_suggestion_rate": 0.0,
+  "invalid_evidence_refs": 0,
+  "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\uvicorn_mock.json",
+  "llm_retry_count": 0,
+  "markdown_export_available": true,
+  "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\uvicorn_mock.md",
+  "mode": "mock",
+  "model": "mock",
+  "raw_internal_id_leak_count": 12,
+  "report_sections_complete": true,
+  "resume_status": "completed",
+  "review_success": true,
+  "total_findings": 4,
+  "zh_en_supported": true
+}

@@ -1,0 +1,13 @@
+{
+  "duration_seconds": 364.77,
+  "error_msg": "The read operation timed out",
+  "failure_reason_available": true,
+  "failure_stage": "baseline_direct_llm",
+  "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.json",
+  "limitations": "One small repo qualitative baseline; failed run is not used for deltas.",
+  "llm_retry_count": 1,
+  "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.md",
+  "mode": "baseline_direct_llm",
+  "resume_status": "failed",
+  "review_success": false
+}

@@ -1,0 +1,38 @@
+{
+  "base_url_host": "token-plan-cn.xiaomimimo.com",
+  "current_report_contract_complete": true,
+  "duration_seconds": 400.02,
+  "evidence_binding_rate": 100.0,
+  "evidence_bound_findings": 7,
+  "evidence_total": 1207,
+  "failure_reason_available": false,
+  "failure_stage": null,
+  "findings_by_agent": {
+    "ArchitectureAgent": 0,
+    "CodeSmellAgent": 3,
+    "MaintainabilityAgent": 1,
+    "RefactorAgent": 3
+  },
+  "findings_by_severity": {
+    "low": 3,
+    "medium": 4
+  },
+  "generic_suggestion_rate": 0.0,
+  "invalid_evidence_refs": 0,
+  "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\real_llm_review_outputs\\httpx_real_llm.json",
+  "llm_retry_count": 1,
+  "markdown_export_available": true,
+  "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\real_llm_review_outputs\\httpx_real_llm.md",
+  "mode": "real_llm",
+  "model": "mimo-v2.5-pro",
+  "raw_internal_id_leak_count": 10,
+  "real_call_token_compression_rate": 88.7,
+  "real_llm_input_tokens": 15212,
+  "real_llm_output_tokens": 16509,
+  "real_llm_total_tokens": 31721,
+  "report_sections_complete": true,
+  "resume_status": "completed",
+  "review_success": true,
+  "total_findings": 7,
+  "zh_en_supported": true
+}

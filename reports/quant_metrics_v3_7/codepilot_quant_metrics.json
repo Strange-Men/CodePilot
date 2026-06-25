@@ -1,0 +1,515 @@
+{
+  "aggregate": {
+    "avg_ast_parse_success_rate": 100.0,
+    "avg_file_noise_reduction_rate": 49.1,
+    "avg_mock_success_rate": 100.0,
+    "avg_real_success_rate": 100.0,
+    "avg_symbol_extraction_coverage": 91.6,
+    "avg_token_compression_rate": 96.8,
+    "repo_count": 3
+  },
+  "baseline": {
+    "attempted": 1,
+    "avg_duration_seconds": null,
+    "avg_evidence_binding_rate": null,
+    "avg_generic_suggestion_rate": null,
+    "limitations": "Baseline runs only one small repo and is qualitative, not a large-scale controlled experiment.",
+    "succeeded": 0,
+    "success_rate": 0.0,
+    "token_usage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    }
+  },
+  "metadata": {
+    "commands": {
+      "baseline": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode baseline --max-repos 1 --output reports/quant_metrics_v3_7",
+      "both": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode both --max-repos 3 --output reports/quant_metrics_v3_7",
+      "real": "python scripts/metrics/run_quant_metrics.py --benchmark evaluation/datasets/repos.json --mode real --max-repos 1 --output reports/quant_metrics_v3_7"
+    },
+    "duration_seconds": 87.44,
+    "generated_at": "2026-06-25T07:33:33.400761+00:00",
+    "mode": "both",
+    "output_dir": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7",
+    "project_root": "D:\\Claude_workfile\\CodePilot",
+    "real_llm_config": {
+      "api_key_env_name": "MIMO_API_KEY",
+      "api_key_present": true,
+      "api_key_preview": "tp-***ue41",
+      "base_url_host": "token-plan-cn.xiaomimimo.com",
+      "enable_real_llm": false,
+      "model": "mimo-v2.5-pro",
+      "provider": "mimo",
+      "use_mock_llm": true
+    },
+    "token_estimation_approximate": false,
+    "token_estimation_method": "tiktoken"
+  },
+  "mock": {
+    "attempted": 3,
+    "avg_duration_seconds": 0.87,
+    "avg_evidence_binding_rate": 100.0,
+    "avg_generic_suggestion_rate": 0.0,
+    "succeeded": 3,
+    "success_rate": 100.0,
+    "token_usage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    }
+  },
+  "quality": {
+    "audit_harness": {
+      "duration_seconds": 6.4,
+      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\audit_harness.log",
+      "returncode": 1,
+      "status": "failed"
+    },
+    "frontend_build": {
+      "reason": "frontend not changed",
+      "status": "skipped"
+    },
+    "frontend_tests": {
+      "reason": "frontend not changed",
+      "status": "skipped"
+    },
+    "pytest_all": {
+      "duration_seconds": 21.58,
+      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\pytest_all.log",
+      "returncode": 0,
+      "status": "passed"
+    },
+    "ruff": {
+      "duration_seconds": 0.04,
+      "log_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\raw_logs\\ruff.log",
+      "returncode": 0,
+      "status": "passed"
+    }
+  },
+  "real": {
+    "attempted": 1,
+    "avg_duration_seconds": 400.02,
+    "avg_evidence_binding_rate": 100.0,
+    "avg_generic_suggestion_rate": 0.0,
+    "succeeded": 1,
+    "success_rate": 100.0,
+    "token_usage": {
+      "input": 15212,
+      "output": 16509,
+      "total": 31721
+    }
+  },
+  "repos": [
+    {
+      "baseline": {
+        "duration_seconds": 364.77,
+        "error_msg": "The read operation timed out",
+        "failure_reason_available": true,
+        "failure_stage": "baseline_direct_llm",
+        "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.json",
+        "limitations": "One small repo qualitative baseline; failed run is not used for deltas.",
+        "llm_retry_count": 1,
+        "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\baseline_direct_llm_outputs\\httpx_baseline_direct_llm.md",
+        "mode": "baseline_direct_llm",
+        "resume_status": "skipped_existing",
+        "review_success": false
+      },
+      "benchmark_threshold": {
+        "label": "upper_limit",
+        "matches": false,
+        "python_files": 60,
+        "target_range": "40-50"
+      },
+      "code_understanding": {
+        "ast_parse_success_rate": 100.0,
+        "circular_dependency_groups": 2,
+        "dependency_edges": 110,
+        "symbol_extraction_coverage": 93.3,
+        "total_classes": 99,
+        "total_code_lines": 17753,
+        "total_functions": 857,
+        "total_imports": 309
+      },
+      "mock": {
+        "base_url_host": "",
+        "current_report_contract_complete": true,
+        "duration_seconds": 0.73,
+        "evidence_binding_rate": 100.0,
+        "evidence_bound_findings": 4,
+        "evidence_total": 1207,
+        "failure_reason_available": false,
+        "failure_stage": null,
+        "findings_by_agent": {
+          "ArchitectureAgent": 1,
+          "CodeSmellAgent": 1,
+          "MaintainabilityAgent": 1,
+          "RefactorAgent": 1
+        },
+        "findings_by_severity": {
+          "medium": 4
+        },
+        "generic_suggestion_rate": 0.0,
+        "invalid_evidence_refs": 0,
+        "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\httpx_mock.json",
+        "llm_retry_count": 0,
+        "markdown_export_available": true,
+        "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\httpx_mock.md",
+        "mode": "mock",
+        "model": "mock",
+        "raw_internal_id_leak_count": 12,
+        "report_sections_complete": true,
+        "resume_status": "skipped_existing",
+        "review_success": true,
+        "total_findings": 4,
+        "zh_en_supported": true
+      },
+      "name": "httpx",
+      "note": "HTTP client with async patterns.",
+      "path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\_work\\httpx\\repo",
+      "performance": {
+        "clone_duration_seconds": 5.09,
+        "context_build_duration_seconds": 2.32,
+        "e2e_duration_seconds": 3.21
+      },
+      "real_llm": {
+        "base_url_host": "token-plan-cn.xiaomimimo.com",
+        "current_report_contract_complete": true,
+        "duration_seconds": 400.02,
+        "evidence_binding_rate": 100.0,
+        "evidence_bound_findings": 7,
+        "evidence_total": 1207,
+        "failure_reason_available": false,
+        "failure_stage": null,
+        "findings_by_agent": {
+          "ArchitectureAgent": 0,
+          "CodeSmellAgent": 3,
+          "MaintainabilityAgent": 1,
+          "RefactorAgent": 3
+        },
+        "findings_by_severity": {
+          "low": 3,
+          "medium": 4
+        },
+        "generic_suggestion_rate": 0.0,
+        "invalid_evidence_refs": 0,
+        "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\real_llm_review_outputs\\httpx_real_llm.json",
+        "llm_retry_count": 1,
+        "markdown_export_available": true,
+        "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\real_llm_review_outputs\\httpx_real_llm.md",
+        "mode": "real_llm",
+        "model": "mimo-v2.5-pro",
+        "raw_internal_id_leak_count": 10,
+        "real_call_token_compression_rate": 88.7,
+        "real_llm_input_tokens": 15212,
+        "real_llm_output_tokens": 16509,
+        "real_llm_total_tokens": 31721,
+        "report_sections_complete": true,
+        "resume_status": "skipped_existing",
+        "review_success": true,
+        "total_findings": 7,
+        "zh_en_supported": true
+      },
+      "scan": {
+        "eligible_files": 60,
+        "file_noise_reduction_rate": 52.0,
+        "js_ts_files": 0,
+        "max_directory_depth": 3,
+        "noise_scope_note": "Primary denominator is git ls-files; raw_total_files is reference only.",
+        "python_files": 60,
+        "raw_file_noise_reduction_rate_reference": 60.5,
+        "raw_total_files": 152,
+        "repo_git_tracked_files": 125,
+        "skipped_large_files": 0,
+        "skipped_unsupported_files": 63,
+        "source_files": 60
+      },
+      "size": "small",
+      "source": "first_clone",
+      "tokens": {
+        "baseline_source_tokens": 134046,
+        "real_call_token_compression_rate": 88.7,
+        "real_llm_input_tokens": 15212,
+        "real_llm_output_tokens": 16509,
+        "real_llm_total_tokens": 31721,
+        "structured_context_tokens": 4157,
+        "token_compression_rate": 96.9,
+        "token_estimation_method": "tiktoken",
+        "token_scope_note": "Both counts use analyzed CodePilot file_summaries scope; source is raw text for those files, context is PromptRenderer output."
+      },
+      "unsupported": [],
+      "url": "https://github.com/encode/httpx.git"
+    },
+    {
+      "baseline_skipped": "Baseline is intentionally limited to the first selected small repo.",
+      "benchmark_threshold": {
+        "label": "upper_limit",
+        "matches": false,
+        "python_files": 63,
+        "target_range": "40-50"
+      },
+      "code_understanding": {
+        "ast_parse_success_rate": 100.0,
+        "circular_dependency_groups": 2,
+        "dependency_edges": 61,
+        "symbol_extraction_coverage": 96.8,
+        "total_classes": 160,
+        "total_code_lines": 26640,
+        "total_functions": 908,
+        "total_imports": 362
+      },
+      "mock": {
+        "base_url_host": "",
+        "current_report_contract_complete": true,
+        "duration_seconds": 1.17,
+        "evidence_binding_rate": 100.0,
+        "evidence_bound_findings": 4,
+        "evidence_total": 1840,
+        "failure_reason_available": false,
+        "failure_stage": null,
+        "findings_by_agent": {
+          "ArchitectureAgent": 1,
+          "CodeSmellAgent": 1,
+          "MaintainabilityAgent": 1,
+          "RefactorAgent": 1
+        },
+        "findings_by_severity": {
+          "medium": 4
+        },
+        "generic_suggestion_rate": 0.0,
+        "invalid_evidence_refs": 0,
+        "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\click_mock.json",
+        "llm_retry_count": 0,
+        "markdown_export_available": true,
+        "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\click_mock.md",
+        "mode": "mock",
+        "model": "mock",
+        "raw_internal_id_leak_count": 12,
+        "report_sections_complete": true,
+        "resume_status": "skipped_existing",
+        "review_success": true,
+        "total_findings": 4,
+        "zh_en_supported": true
+      },
+      "name": "click",
+      "note": "CLI framework with clean structure.",
+      "path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\_work\\click\\repo",
+      "performance": {
+        "clone_duration_seconds": 2.46,
+        "context_build_duration_seconds": 2.79,
+        "e2e_duration_seconds": 3.39
+      },
+      "real_llm_skipped": "Real LLM is limited to the first selected repo in both mode after a prior slow/hung real run.",
+      "scan": {
+        "eligible_files": 63,
+        "file_noise_reduction_rate": 58.0,
+        "js_ts_files": 0,
+        "max_directory_depth": 4,
+        "noise_scope_note": "Primary denominator is git ls-files; raw_total_files is reference only.",
+        "python_files": 63,
+        "raw_file_noise_reduction_rate_reference": 64.4,
+        "raw_total_files": 177,
+        "repo_git_tracked_files": 150,
+        "skipped_large_files": 0,
+        "skipped_unsupported_files": 87,
+        "source_files": 63
+      },
+      "size": "small",
+      "source": "first_clone",
+      "tokens": {
+        "baseline_source_tokens": 206719,
+        "real_call_token_compression_rate": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_input_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_output_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_total_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "structured_context_tokens": 4470,
+        "token_compression_rate": 97.8,
+        "token_estimation_method": "tiktoken",
+        "token_scope_note": "Both counts use analyzed CodePilot file_summaries scope; source is raw text for those files, context is PromptRenderer output."
+      },
+      "unsupported": [],
+      "url": "https://github.com/pallets/click.git"
+    },
+    {
+      "baseline_skipped": "Baseline is intentionally limited to the first selected small repo.",
+      "benchmark_threshold": {
+        "label": "upper_limit",
+        "matches": false,
+        "python_files": 79,
+        "target_range": "40-50"
+      },
+      "code_understanding": {
+        "ast_parse_success_rate": 100.0,
+        "circular_dependency_groups": 3,
+        "dependency_edges": 205,
+        "symbol_extraction_coverage": 84.8,
+        "total_classes": 93,
+        "total_code_lines": 13323,
+        "total_functions": 658,
+        "total_imports": 475
+      },
+      "mock": {
+        "base_url_host": "",
+        "current_report_contract_complete": true,
+        "duration_seconds": 0.71,
+        "evidence_binding_rate": 100.0,
+        "evidence_bound_findings": 4,
+        "evidence_total": 970,
+        "failure_reason_available": false,
+        "failure_stage": null,
+        "findings_by_agent": {
+          "ArchitectureAgent": 1,
+          "CodeSmellAgent": 1,
+          "MaintainabilityAgent": 1,
+          "RefactorAgent": 1
+        },
+        "findings_by_severity": {
+          "medium": 4
+        },
+        "generic_suggestion_rate": 0.0,
+        "invalid_evidence_refs": 0,
+        "json_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\uvicorn_mock.json",
+        "llm_retry_count": 0,
+        "markdown_export_available": true,
+        "markdown_path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\mock_review_outputs\\uvicorn_mock.md",
+        "mode": "mock",
+        "model": "mock",
+        "raw_internal_id_leak_count": 12,
+        "report_sections_complete": true,
+        "resume_status": "skipped_existing",
+        "review_success": true,
+        "total_findings": 4,
+        "zh_en_supported": true
+      },
+      "name": "uvicorn",
+      "note": "ASGI server with async patterns.",
+      "path": "D:\\Claude_workfile\\CodePilot\\reports\\quant_metrics_v3_7\\_work\\uvicorn\\repo",
+      "performance": {
+        "clone_duration_seconds": 2.42,
+        "context_build_duration_seconds": 1.99,
+        "e2e_duration_seconds": 2.49
+      },
+      "real_llm_skipped": "Real LLM is limited to the first selected repo in both mode after a prior slow/hung real run.",
+      "scan": {
+        "eligible_files": 79,
+        "file_noise_reduction_rate": 37.3,
+        "js_ts_files": 0,
+        "max_directory_depth": 3,
+        "noise_scope_note": "Primary denominator is git ls-files; raw_total_files is reference only.",
+        "python_files": 79,
+        "raw_file_noise_reduction_rate_reference": 48.4,
+        "raw_total_files": 153,
+        "repo_git_tracked_files": 126,
+        "skipped_large_files": 0,
+        "skipped_unsupported_files": 45,
+        "source_files": 79
+      },
+      "size": "medium",
+      "source": "first_clone",
+      "tokens": {
+        "baseline_source_tokens": 114429,
+        "real_call_token_compression_rate": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_input_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_output_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "real_llm_total_tokens": {
+          "reason": "real mode not run or provider usage unavailable",
+          "status": "unsupported"
+        },
+        "structured_context_tokens": 4937,
+        "token_compression_rate": 95.7,
+        "token_estimation_method": "tiktoken",
+        "token_scope_note": "Both counts use analyzed CodePilot file_summaries scope; source is raw text for those files, context is PromptRenderer output."
+      },
+      "unsupported": [],
+      "url": "https://github.com/encode/uvicorn.git"
+    }
+  ],
+  "resume_safe": [
+    "Across 3 benchmark repo(s), CodePilot measured 49.1% average file noise reduction and 96.8% structured-context token compression.",
+    "Mock review success rate was 100.0% with 100.0% average evidence binding on successful runs.",
+    "Real LLM produced one successful repo-level validation; no multi-repo Real average is claimed."
+  ],
+  "unsupported": [
+    {
+      "metric": "baseline",
+      "reason": "The read operation timed out",
+      "scope": "httpx"
+    },
+    {
+      "metric": "real_llm_input_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "click"
+    },
+    {
+      "metric": "real_llm_output_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "click"
+    },
+    {
+      "metric": "real_llm_total_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "click"
+    },
+    {
+      "metric": "real_call_token_compression_rate",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "click"
+    },
+    {
+      "metric": "real_llm_input_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "uvicorn"
+    },
+    {
+      "metric": "real_llm_output_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "uvicorn"
+    },
+    {
+      "metric": "real_llm_total_tokens",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "uvicorn"
+    },
+    {
+      "metric": "real_call_token_compression_rate",
+      "reason": "real mode not run or provider usage unavailable",
+      "scope": "uvicorn"
+    },
+    {
+      "metric": "audit_harness",
+      "reason": "failed",
+      "scope": "quality"
+    },
+    {
+      "metric": "frontend_tests",
+      "reason": "frontend not changed",
+      "scope": "quality"
+    },
+    {
+      "metric": "frontend_build",
+      "reason": "frontend not changed",
+      "scope": "quality"
+    }
+  ]
+}
