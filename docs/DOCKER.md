@@ -15,6 +15,11 @@ docker compose version
 ## 快速启动
 
 ```powershell
+# Windows
+Copy-Item .env.example .env
+docker compose up --build
+
+# macOS / Linux
 cp .env.example .env
 docker compose up --build
 ```

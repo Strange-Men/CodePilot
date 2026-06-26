@@ -2,159 +2,138 @@
 
 English version: [README.en.md](README.en.md)
 
-前置静态解析 + 结构化上下文 + 证据绑定，让大模型生成可复查的仓库审查报告。
+CodePilot 是一个面向 Python 仓库的 AI 代码审查与仓库理解系统。它先做工程降噪、结构化上下文构建和证据绑定，再让大模型生成可复查的代码审查报告——而不是把仓库直接丢给 LLM。
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)
-![Pydantic](https://img.shields.io/badge/Pydantic-Data%20Validation-E92063?logo=pydantic)
-![SQLite](https://img.shields.io/badge/SQLite-Persistence-003B57?logo=sqlite)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?logo=tailwindcss)
-![Mock](https://img.shields.io/badge/Mock-Default-orange)
 ![Docker](https://img.shields.io/badge/Docker-Local%20Run-2496ED?logo=docker)
-![Render](https://img.shields.io/badge/Render-Backend-46E3B7?logo=render)
-![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?logo=vercel)
 
-## 🎯 项目背景：为什么做？（Situation）
+## 目录
 
-中小型 GitHub 仓库的理解和审查经常卡在三个现实问题上：
+- [为什么做](#为什么做)
+- [做什么](#做什么)
+- [怎么做](#怎么做)
+- [效果](#效果)
+- [验证案例](#验证案例)
+- [快速开始](#快速开始)
+- [Docker 本地运行](#docker-本地运行)
+- [技术栈](#技术栈)
+- [已知边界与规划](#已知边界与规划)
+- [Contributing](#contributing)
+- [License](#license)
 
-- 人工阅读仓库耗时长、依赖经验，输出稳定性受审查者经验和上下文掌握程度影响。
+## 为什么做
+
+中小型 Python 仓库审查时，常见三个问题：
+
+- 人工阅读仓库成本高，输出稳定性依赖审查者经验。
 - 通用大模型直接问答缺少完整仓库上下文，容易给出泛化建议，难以复查依据。
-- 传统静态分析工具偏语法、规范和安全检查，通常不生成架构级理解报告。
+- 传统静态分析工具偏语法和风格检查，难以生成面向架构与维护性的综合审查报告。
 
-CodePilot 面向中小型 Python 仓库，用“静态解析提取事实 + LLM 生成解释”的方式，先把仓库文件、符号、依赖和规模指标整理成结构化上下文，再输出带证据的代码理解与审查报告。
+CodePilot 面向中小型 Python 仓库，用"静态解析提取事实 + LLM 生成解释"的方式，先把仓库文件、符号、依赖和规模指标整理成结构化上下文，再输出带证据的代码审查报告。
 
-## ✨ 项目定位与核心能力（Task）
+## 做什么
 
-CodePilot 是一个面向中小型 GitHub 仓库的 AI 代码审查 MVP，当前优先支持 Python 仓库。输入公开仓库 URL 后，系统静态读取仓库并输出四区块报告：
+CodePilot 输入公开仓库 URL 后，输出四区块审查报告：
 
-- 架构概览
-- 代码坏味道
-- 可维护性分析
-- 重构建议
+- **架构概览** — 仓库结构与模块关系
+- **代码坏味道** — 可定位的具体问题
+- **可维护性分析** — 基于结构化指标的评估
+- **重构建议** — 带证据引用的改进建议
 
-核心能力：
+### 目标
 
+- 为中小型 Python 仓库生成结构化、可复查、带证据引用的 AI 代码审查报告。
 - 前置静态解析降噪，降低大模型输入规模。
 - 结构化证据绑定，让建议可追溯到文件、函数、类、依赖和指标。
-- `ReportContract` 统一报告结构契约，隔离 LLM 输出波动。
 - Mock / Real LLM 双模式解耦，开发、测试和 CI 稳定可复现。
-- Provider 接口让模型层可插拔，当前支持 Mock Provider 与 OpenAI-compatible Real LLM Provider。
-- SQLite 保存任务状态和历史报告，支持前端轮询展示。
 
-非当前目标：
+### 边界
 
-- 大型 monorepo 不在当前范围内。
-- 不做所有语言全覆盖。
+- 不是替代安全审计，不承诺自动修复。
+- 不承诺覆盖所有语言，当前优先 Python。
 - 不执行用户仓库代码，只做静态分析。
-- 不做自动修复。
 - 不包装成完整商业化代码审查平台。
 
-## 🏗️ 架构与核心实现（Action）
+## 怎么做
 
-整体链路：
-
-```text
-GitHub URL
-→ 仓库克隆（静态读取）
-→ 文件过滤 / 静态解析
-→ 结构化上下文构建
-→ Mock / Real LLM 生成报告
-→ ReportContract 校验
-→ SQLite 持久化
-→ 前端展示
+```mermaid
+flowchart LR
+    A[GitHub URL] --> B[Clone & Filter]
+    B --> C[Static Parsing]
+    C --> D[Structured Context]
+    D --> E[Agents]
+    E --> F[Evidence-bound Findings]
+    F --> G[Review Report]
 ```
 
-### 1. 前置工程降噪
+### 前置工程降噪
 
 CodePilot 不把仓库原始代码直接全部喂给模型，而是在 LLM 之前先做工程降噪：
 
 - 过滤 `.git`、`__pycache__`、`.venv`、`dist`、`build` 等低价值内容。
 - 保留源码、配置文件和 README，保证模型仍能理解仓库结构。
-- 使用 Python AST，并保留 tree-sitter extension-ready 的解析路径，提取函数、类、导入依赖和文件规模。
+- 使用 Python AST 提取函数、类、导入依赖和文件规模，保留 tree-sitter 扩展路径。
 - 用结构化上下文替代原始代码直喂，减少噪声并保留可定位的工程事实。
 
-### 2. 报告质量控制
+### 报告质量控制
 
-报告生成不是自由散文，而是受结构契约约束：
+报告生成受结构契约约束，不是自由散文：
 
 - 固定四区块报告结构：架构概览、代码坏味道、可维护性分析、重构建议。
 - `ReportContract` 统一报告结构，约束 LLM 输出格式，降低模型输出波动对前端和历史记录的影响。
 - 证据字段让 finding 绑定文件路径、函数、类、依赖和指标。
-- 目标是让报告可复查，而不是生成一大段难以追踪依据的主观评价。
+- 目标是让报告可复查，而不是生成难以追踪依据的主观评价。
 
-### 3. 工程稳定性保障
+### 工程稳定性保障
 
 系统把真实模型调用和本地工程验证解耦：
 
 - Mock LLM 用于开发、测试和 CI，输出稳定可复现。
 - Real LLM 用于真实报告生成验证。
-- Provider 接口隔离模型调用层，便于替换 MiMo、Doubao、DeepSeek 等 OpenAI-compatible Provider。
+- Provider 接口隔离模型调用层，便于替换不同 OpenAI-compatible Provider。
 - 任务分阶段记录，失败后可定位到克隆、解析、LLM 或报告合成阶段。
 - `pytest` / `ruff` / `audit_harness` 覆盖测试、静态检查和全链路校验。
 
-## 🛠️ 技术栈
-
-| 层级 | 技术栈 | 说明 |
-|---|---|---|
-| Backend | FastAPI 0.115.6 + Pydantic 2.10.4 + Uvicorn 0.34.0 | 结构化 API、参数校验、异步服务入口 |
-| Frontend | Next.js 15.5.19 + React 19.0.0 + TypeScript 5.7.2 + Tailwind CSS 3.4.17 | 报告工作台、任务状态、证据展示和 Markdown 渲染 |
-| Persistence | SQLite（Python stdlib，WAL 模式） | 任务状态和历史报告持久化 |
-| Parsing | Python AST + tree-sitter 0.24.0 / tree-sitter-language-pack 0.7.0 | Python 优先，保留多语言扩展路径 |
-| Token Counting | tiktoken 0.13.0 | 统一 Token 估算方法 |
-| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock 默认；Real LLM 支持 MiMo / Doubao / DeepSeek 配置 |
-| Deployment | Docker Compose 本地运行；Render 后端、Vercel 前端部署文档 | 见 `docker-compose.yml`、`Dockerfile.*` 和 `docs/setup/` |
-| Quality | pytest + ruff + audit_harness + GitHub Actions | 测试、静态检查、全链路审计和 CI |
-
-## 📊 量化效果（Result）
+## 效果
 
 ### 工程降噪
 
-- 基准仓库：3 个公开 Python 仓库。
-- 仓库规模：60-79 个 Python 源码文件，接近或超出早期 50 文件边界。
-- 平均文件降噪率：49.1%。
-  - 口径：以 `git ls-files` 统计的 Git 跟踪原生业务文件为基线，排除 `.git`、依赖目录、虚拟环境等非业务内容。
-- 结构化上下文平均 Token 压缩率：96.8%。
-  - 口径：对比同范围有效源码的原始代码 Token 与结构化上下文 Token，统一使用 tiktoken 估算。
+| 指标 | 结果 | 口径 |
+|---|---:|---|
+| 平均文件降噪率 | 49.1% | 3 个基准仓库，`git ls-files` 业务文件基线 |
+| 结构化上下文 Token 压缩率 | 96.8% | 同范围有效源码 vs 结构化上下文，tiktoken 估算 |
 
 ### 真实 LLM 单仓验证
 
-- 验证仓库：httpx 单仓。
+- 验证仓库：httpx。
 - 对照组输入 Token：137417。
 - CodePilot 输入 Token：15212。
-- 输入规模降低：约 8.85 倍，约等于近 9 倍。
+- 输入规模降低：约 8.85 倍。
 - 真实 LLM 调用输入 Token 压缩率：88.7%。
-- CodePilot 证据绑定率：100%。
-- 通用大模型直出对照组证据绑定率：0%。
-- 证据绑定率提升：100 个百分点。
 
-说明：
-
-- 这是 httpx 单仓定性验证，不代表大规模统计结论。
-- 这里只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
-- 证据绑定率是 v1.0 规则下的统计结果，不等于报告绝对正确。
+说明：这是 httpx 单仓定性验证，不代表大规模统计结论。只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
 
 ### 工程质量
 
-- `pytest`：1000 passed, 1 skipped。
-- `ruff`：0 问题。
-- `audit_harness`：全链路校验通过。
-- Mock 模式仓库审查成功率：100%。
-
 | 验证维度 | 结果 | 口径 |
-|---|---:|---|
-| 平均文件降噪率 | 49.1% | 3 个基准仓库，`git ls-files` 业务文件基线 |
-| 结构化上下文 Token 压缩率 | 96.8% | 同范围有效源码 vs 结构化上下文 |
-| httpx 真实 LLM 输入 Token 压缩率 | 88.7% | 单仓真实调用，只统计输入 Token |
-| 证据绑定率 | 100% vs 0% | httpx 单仓，CodePilot vs 原始代码直喂 |
-| pytest | 1000 passed, 1 skipped | 测试工具原生输出 |
+|---|---|---|
+| pytest | 1034 passed, 1 skipped | 测试工具原生输出 |
 | ruff | 0 issues | 静态检查 |
 | audit_harness | passed | 全链路审计校验 |
+| Mock 模式审查成功率 | 100% | Mock 契约与证据字段完整性 |
+| Docker 本地运行 | verified | config / build / up 通过 |
 
-## 🚀 快速开始
+## 验证案例
+
+在以下 Python 开源仓库上完成 benchmark 验证：
+
+- [httpx](https://github.com/encode/httpx)
+- [click](https://github.com/pallets/click)
+- [uvicorn](https://github.com/encode/uvicorn)
+
+## 快速开始
 
 ### Windows PowerShell 脚本启动
 
@@ -183,10 +162,10 @@ $env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 
 ### 手动启动
 
-```bash
+```powershell
 # 后端
 python -m venv .venv
-source .venv/bin/activate
+.venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
@@ -196,16 +175,21 @@ npm install
 npm run dev -- --port 3000
 ```
 
-Windows PowerShell 手动启动前端时可显式设置后端地址：
+前端启动时可显式设置后端地址：
 
 ```powershell
 $env:NEXT_PUBLIC_API_BASE = "http://localhost:8000"
 npm run dev -- --port 3000
 ```
 
-### Docker 本地运行
+## Docker 本地运行
 
 ```powershell
+# Windows
+Copy-Item .env.example .env
+docker compose up --build
+
+# macOS / Linux
 cp .env.example .env
 docker compose up --build
 ```
@@ -220,62 +204,43 @@ docker compose up --build
 
 停止与清理：
 
-```bash
+```powershell
 docker compose down        # 停止容器
 docker compose down -v     # 停止并删除 SQLite/workspace/reports volume
 ```
 
-### 测试与质量校验
+## 技术栈
 
-```bash
-# 后端测试与检查
-python -m pytest tests/ -q
-ruff check .
-python scripts/audit_harness.py
+| 层级 | 技术栈 | 说明 |
+|---|---|---|
+| Backend | FastAPI + Pydantic + Uvicorn | 结构化 API、参数校验、异步服务 |
+| Frontend | Next.js + React + TypeScript + Tailwind CSS | 报告工作台、任务状态、证据展示 |
+| Persistence | SQLite（WAL 模式） | 任务状态和历史报告持久化 |
+| Parsing | Python AST + tree-sitter | Python 优先，保留多语言扩展路径 |
+| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock 默认；Real LLM 可配置 |
+| Deployment | Docker Compose | 本地开发与 demo 环境 |
+| Quality | pytest + ruff + audit_harness + GitHub Actions | 测试、静态检查、全链路审计和 CI |
 
-# 前端测试与构建
-cd frontend
-npm test
-npm run build
-```
+## 已知边界与规划
 
-## 📁 目录结构
+### 当前局限
 
-```text
-CodePilot/
-├── backend/          # FastAPI backend, parsers, LLM providers, review pipeline
-├── frontend/         # Next.js / React / TypeScript frontend
-├── contracts/        # Report section contract files
-├── docs/             # Architecture, setup, evaluation and deployment docs
-├── evaluation/       # Evaluation datasets, metrics and comparison scripts
-├── reports/          # Generated metric and validation outputs
-├── scripts/          # Setup, startup, audit and metric scripts
-├── tests/            # Unit, integration, regression and metric tests
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── docker-compose.yml
-├── README.md
-└── README.en.md
-```
-
-## 🛣️ 后续规划
-
-- 增强报告证据链：绑定代码片段、影响范围、重构优先级。
-- 增强真实 LLM 稳定性：schema 校验、自动重试、fallback。
-- 加固外部仓库安全沙箱：目录隔离、文件数量 / 大小限制、超时控制。
-- 扩展多语言支持：优先 JavaScript / TypeScript，基于 tree-sitter。
-- 产品化评估体系：evaluation dashboard。
-
-## ⚠️ 当前局限
-
-- 当前优先支持 Python 仓库。
-- 不执行用户仓库代码，只做静态分析。
-- 真实 LLM 仅完成 httpx 单仓端到端验证。
-- Baseline 对照是单仓定性验证，不代表大规模统计结论。
-- 当前是 MVP，不是完整商业化代码审查平台。
+- 当前主要面向 Python 仓库。
+- Real LLM 成本与可用性依赖 provider 配置。
+- 中文报告已经做了质量闸门，但极端模型输出仍需要继续回归测试。
+- Docker 当前定位是本地 demo / 开发环境，不是生产级部署。
 - JavaScript / TypeScript 已有解析入口和测试覆盖，但当前分析深度弱于 Python。
-- SQLite 历史记录取决于实际存储配置；Render Free 等临时存储环境重启后可能丢失历史。
 
-## 📄 License
+### 规划
+
+- **短期**：继续增强中文/英文报告质量闸门；补充更多真实仓库 benchmark。
+- **中期**：扩展 JavaScript/TypeScript 仓库理解；增强证据链可视化。
+- **长期**：支持更完整的仓库级 Agent 工作流。
+
+## Contributing
+
+欢迎提交 issue / PR。请附上复现步骤、测试命令和变更说明。
+
+## License
 
 MIT License
