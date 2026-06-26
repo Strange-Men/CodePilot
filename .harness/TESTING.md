@@ -6,7 +6,7 @@
 
 ## Current Test Inventory
 
-`pytest` collected 1024 tests: 1023 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
+`pytest` collected 1035 tests: 1034 passed, 1 skipped (`test_sandbox_rejects_paths_outside_repo`).
 
 | Layer | Tests | Files | Purpose |
 |-------|-------|-------|---------|

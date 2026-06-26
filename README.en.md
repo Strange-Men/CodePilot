@@ -205,33 +205,25 @@ npm run dev -- --port 3000
 
 ### Docker Local Run
 
-Mock mode is the Docker default and does not require a real LLM API key:
-
-```bash
+```powershell
+cp .env.example .env
 docker compose up --build
 ```
 
-Stop containers:
+Open:
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- Health: http://localhost:8000/health
+
+Default mode is Mock LLM — no real API key required. To use a real model, configure the provider API key in `.env`. See [Docker local run docs](docs/DOCKER.md) for details.
+
+Stop and clean up:
 
 ```bash
-docker compose down
+docker compose down        # stop containers
+docker compose down -v     # stop and remove SQLite/workspace/reports volumes
 ```
-
-Remove the SQLite, workspace, and reports Docker volumes:
-
-```bash
-docker compose down -v
-```
-
-To use a real model, create a local `.env` from `.env.example`, then set:
-
-```text
-USE_MOCK_LLM=false
-ENABLE_REAL_LLM=true
-REAL_LLM_PROVIDER=mimo
-```
-
-Fill `MIMO_API_KEY`, `DOUBAO_API_KEY`, or `DEEPSEEK_API_KEY` for the selected provider. See [Docker local run docs](docs/DOCKER.md) for details.
 
 ### Tests and Quality Checks
 

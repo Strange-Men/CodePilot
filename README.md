@@ -205,33 +205,25 @@ npm run dev -- --port 3000
 
 ### Docker 本地运行
 
-Mock 模式是 Docker 默认模式，不需要真实 LLM API Key：
-
-```bash
+```powershell
+cp .env.example .env
 docker compose up --build
 ```
 
-停止容器：
+启动后访问：
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- Health: http://localhost:8000/health
+
+默认使用 Mock LLM 模式，不需要真实 API Key。使用真实模型需在 `.env` 中配置对应 provider 的 API Key，详见 [Docker 本地运行文档](docs/DOCKER.md)。
+
+停止与清理：
 
 ```bash
-docker compose down
+docker compose down        # 停止容器
+docker compose down -v     # 停止并删除 SQLite/workspace/reports volume
 ```
-
-清理 SQLite、workspace 和 reports 对应的 Docker volume：
-
-```bash
-docker compose down -v
-```
-
-真实模型模式需要先从 `.env.example` 创建本地 `.env`，再设置：
-
-```text
-USE_MOCK_LLM=false
-ENABLE_REAL_LLM=true
-REAL_LLM_PROVIDER=mimo
-```
-
-按所选 provider 填写 `MIMO_API_KEY`、`DOUBAO_API_KEY` 或 `DEEPSEEK_API_KEY`。更多说明见 [Docker 本地运行文档](docs/DOCKER.md)。
 
 ### 测试与质量校验
 
