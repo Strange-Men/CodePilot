@@ -47,7 +47,7 @@ CodePilot targets small-to-medium Python repositories with a "static facts first
 Given a public repository URL, CodePilot produces a four-section review report:
 
 - **Architecture overview** — repository structure and module relationships
-- **Code smells** — locatable, specific issues
+- **Code Quality Issues** — locatable, specific issues
 - **Maintainability analysis** — assessment based on structured metrics
 - **Refactoring suggestions** — improvement suggestions with evidence citations
 
@@ -82,7 +82,7 @@ CodePilot does not send the entire raw repository directly to the model. It firs
 
 Report generation is constrained by structured findings, evidence citations, Chinese/English quality gates, and Mock/Real LLM dual mode — ensuring reports are reviewable:
 
-- The report always uses four sections: architecture overview, code smells, maintainability analysis, and refactoring suggestions.
+- The report always uses four sections: architecture overview, code quality issues, maintainability analysis, and refactoring suggestions.
 - `ReportContract` standardizes the report structure and reduces the impact of LLM output variation on the frontend and stored history.
 - Evidence fields bind each finding to file paths, functions, classes, dependencies, and metrics.
 - Chinese reports pass through a localization quality gate to block English prose leakage.
@@ -127,7 +127,7 @@ Based on the httpx single-repository real call record, input tokens are signific
 - Input size reduction: about **8.85x**
 - Real LLM call input token compression: **88.7%** ≈ 1 − 15,212 / 137,417
 
-> Note: This is a qualitative single-repository validation on httpx, not a large-scale statistical conclusion. Only input tokens are counted; output tokens are excluded, so this must not be described as total cost reduction.
+> Note: This compression rate measures the reduction from the effective source-code baseline to the structured context input. It does not claim end-to-end cost reduction and does not include non-core inputs such as configuration or documentation files. This is a qualitative single-repository validation on httpx, not a large-scale statistical conclusion. Only input tokens are counted; output tokens are excluded, so this must not be described as total cost reduction.
 
 ### Engineering Quality
 
@@ -191,6 +191,23 @@ python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
 ```powershell
 # Frontend (new terminal)
+cd frontend
+npm install
+npm run dev -- --port 3000
+```
+
+For macOS / Linux users:
+
+```bash
+# Backend (macOS / Linux)
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
+# Frontend (macOS / Linux, new terminal)
 cd frontend
 npm install
 npm run dev -- --port 3000

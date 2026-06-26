@@ -47,7 +47,7 @@ CodePilot 面向中小型 Python 仓库，用"静态解析提取事实 + LLM 生
 CodePilot 输入公开仓库 URL 后，输出四区块审查报告：
 
 - **架构概览** — 仓库结构与模块关系
-- **代码坏味道** — 可定位的具体问题
+- **代码质量问题** — 可定位的具体问题
 - **可维护性分析** — 基于结构化指标的评估
 - **重构建议** — 带证据引用的改进建议
 
@@ -82,7 +82,7 @@ CodePilot 输入公开仓库 URL 后，输出四区块审查报告：
 
 通过结构化 finding、证据引用、中英文报告质量闸门、Mock/Real LLM 双模式，保证报告可复查：
 
-- 固定四区块报告结构：架构概览、代码坏味道、可维护性分析、重构建议。
+- 固定四区块报告结构：架构概览、代码质量问题、可维护性分析、重构建议。
 - `ReportContract` 统一报告结构，约束 LLM 输出格式，降低模型输出波动对前端和历史记录的影响。
 - 证据字段让 finding 绑定文件路径、函数、类、依赖和指标。
 - 中文报告经过本地化质量闸门，避免英文自然语言泄漏。
@@ -100,12 +100,12 @@ CodePilot 输入公开仓库 URL 后，输出四区块审查报告：
 
 ```mermaid
 flowchart LR
-    A[GitHub URL] --> B[Clone & Filter]
-    B --> C[Static Parsing]
-    C --> D[Structured Context]
-    D --> E[Agents]
-    E --> F[Evidence-bound Findings]
-    F --> G[Review Report]
+    A[GitHub 仓库 URL] --> B[克隆与文件过滤]
+    B --> C[静态解析]
+    C --> D[结构化上下文]
+    D --> E[多 Agent 审查]
+    E --> F[证据绑定问题发现]
+    F --> G[审查报告]
 ```
 
 ## 量化结果
@@ -127,7 +127,7 @@ flowchart LR
 - 输入规模降低：约 **8.85 倍**
 - 真实 LLM 调用输入 Token 压缩率：**88.7%** ≈ 1 − 15,212 / 137,417
 
-> 说明：这是 httpx 单仓定性验证，不代表大规模统计结论。只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
+> 说明：该 Token 压缩率仅用于衡量有效源码输入从原始源码基线到结构化上下文的缩减，不代表端到端总成本下降，也不包含配置/文档等非核心输入。这是 httpx 单仓定性验证，不代表大规模统计结论。只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
 
 ### 工程质量
 
@@ -191,6 +191,23 @@ python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
 ```powershell
 # 前端（新终端）
+cd frontend
+npm install
+npm run dev -- --port 3000
+```
+
+macOS / Linux 用户可使用以下命令：
+
+```bash
+# 后端（macOS / Linux）
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
+# 前端（macOS / Linux，新终端）
 cd frontend
 npm install
 npm run dev -- --port 3000
