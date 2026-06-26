@@ -14,12 +14,21 @@ CodePilot 是一个面向 Python 仓库的 AI 代码审查与仓库理解系统�
 - [为什么做](#为什么做)
 - [做什么](#做什么)
 - [怎么做](#怎么做)
-- [效果](#效果)
+  - [前置工程降噪](#前置工程降噪)
+  - [报告质量控制](#报告质量控制)
+  - [工程稳定性保障](#工程稳定性保障)
+- [架构流程](#架构流程)
+- [量化结果](#量化结果)
 - [验证案例](#验证案例)
 - [快速开始](#快速开始)
-- [Docker 本地运行](#docker-本地运行)
+  - [PowerShell 脚本启动](#powershell-脚本启动)
+  - [手动启动](#手动启动)
+  - [Docker 本地运行](#docker-本地运行)
 - [技术栈](#技术栈)
+- [系统依赖](#系统依赖)
+- [常见问题](#常见问题)
 - [已知边界与规划](#已知边界与规划)
+- [术语对照](#术语对照)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -51,12 +60,43 @@ CodePilot 输入公开仓库 URL 后，输出四区块审查报告：
 
 ### 边界
 
-- 不是替代安全审计，不承诺自动修复。
+当前项目聚焦代码审查与仓库理解，不包含安全审计、自动代码修复、生产级代码合并或多语言全覆盖能力。
+
+- 不替代安全审计，不承诺自动修复代码。
 - 不承诺覆盖所有语言，当前优先 Python。
 - 不执行用户仓库代码，只做静态分析。
 - 不包装成完整商业化代码审查平台。
 
 ## 怎么做
+
+### 前置工程降噪
+
+通过 git-tracked 文件基线、文件过滤、静态解析和结构化上下文，避免把整个仓库粗暴丢给 LLM：
+
+- 过滤 `.git`、`__pycache__`、`.venv`、`dist`、`build` 等低价值内容。
+- 保留源码、配置文件和 README，保证模型仍能理解仓库结构。
+- 使用 Python AST 提取函数、类、导入依赖和文件规模，保留 tree-sitter 扩展路径。
+- 用结构化上下文替代原始代码直喂，减少噪声并保留可定位的工程事实。
+
+### 报告质量控制
+
+通过结构化 finding、证据引用、中英文报告质量闸门、Mock/Real LLM 双模式，保证报告可复查：
+
+- 固定四区块报告结构：架构概览、代码坏味道、可维护性分析、重构建议。
+- `ReportContract` 统一报告结构，约束 LLM 输出格式，降低模型输出波动对前端和历史记录的影响。
+- 证据字段让 finding 绑定文件路径、函数、类、依赖和指标。
+- 中文报告经过本地化质量闸门，避免英文自然语言泄漏。
+
+### 工程稳定性保障
+
+通过 pytest、ruff、frontend test/build、audit_harness、Docker compose 验证，保证功能变更可回归：
+
+- Mock LLM 用于开发、测试和 CI，输出稳定可复现。
+- Real LLM 用于真实报告生成验证。
+- Provider 接口隔离模型调用层，便于替换不同 OpenAI-compatible Provider。
+- 任务分阶段记录，失败后可定位到克隆、解析、LLM 或报告合成阶段。
+
+## 架构流程
 
 ```mermaid
 flowchart LR
@@ -68,58 +108,32 @@ flowchart LR
     F --> G[Review Report]
 ```
 
-### 前置工程降噪
-
-CodePilot 不把仓库原始代码直接全部喂给模型，而是在 LLM 之前先做工程降噪：
-
-- 过滤 `.git`、`__pycache__`、`.venv`、`dist`、`build` 等低价值内容。
-- 保留源码、配置文件和 README，保证模型仍能理解仓库结构。
-- 使用 Python AST 提取函数、类、导入依赖和文件规模，保留 tree-sitter 扩展路径。
-- 用结构化上下文替代原始代码直喂，减少噪声并保留可定位的工程事实。
-
-### 报告质量控制
-
-报告生成受结构契约约束，不是自由散文：
-
-- 固定四区块报告结构：架构概览、代码坏味道、可维护性分析、重构建议。
-- `ReportContract` 统一报告结构，约束 LLM 输出格式，降低模型输出波动对前端和历史记录的影响。
-- 证据字段让 finding 绑定文件路径、函数、类、依赖和指标。
-- 目标是让报告可复查，而不是生成难以追踪依据的主观评价。
-
-### 工程稳定性保障
-
-系统把真实模型调用和本地工程验证解耦：
-
-- Mock LLM 用于开发、测试和 CI，输出稳定可复现。
-- Real LLM 用于真实报告生成验证。
-- Provider 接口隔离模型调用层，便于替换不同 OpenAI-compatible Provider。
-- 任务分阶段记录，失败后可定位到克隆、解析、LLM 或报告合成阶段。
-- `pytest` / `ruff` / `audit_harness` 覆盖测试、静态检查和全链路校验。
-
-## 效果
+## 量化结果
 
 ### 工程降噪
 
 | 指标 | 结果 | 口径 |
 |---|---:|---|
-| 平均文件降噪率 | 49.1% | 3 个基准仓库，`git ls-files` 业务文件基线 |
-| 结构化上下文 Token 压缩率 | 96.8% | 同范围有效源码 vs 结构化上下文，tiktoken 估算 |
+| 平均文件降噪率 | **49.1%** | 3 个基准仓库（httpx / click / uvicorn），以 `git ls-files` 统计仓库中被版本控制追踪的文件为基线，避免把 `.git`、`node_modules`、缓存目录等噪声算入 |
+| 结构化上下文 Token 压缩率 | **96.8%** | 同范围有效源码 Token 数 vs 结构化上下文 Token 数，tiktoken 估算 |
 
 ### 真实 LLM 单仓验证
 
-- 验证仓库：httpx。
-- 对照组输入 Token：137417。
-- CodePilot 输入 Token：15212。
-- 输入规模降低：约 8.85 倍。
-- 真实 LLM 调用输入 Token 压缩率：88.7%。
+以 httpx 单仓真实调用记录为准，输入 Token 相比原始源码基线显著降低：
 
-说明：这是 httpx 单仓定性验证，不代表大规模统计结论。只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
+- 验证仓库：httpx
+- 对照组输入 Token：137,417（原始源码直喂 LLM）
+- CodePilot 输入 Token：15,212（结构化上下文）
+- 输入规模降低：约 **8.85 倍**
+- 真实 LLM 调用输入 Token 压缩率：**88.7%** ≈ 1 − 15,212 / 137,417
+
+> 说明：这是 httpx 单仓定性验证，不代表大规模统计结论。只统计输入 Token，不包含输出 Token，不能表述为总成本降低。
 
 ### 工程质量
 
 | 验证维度 | 结果 | 口径 |
 |---|---|---|
-| pytest | 1034 passed, 1 skipped | 测试工具原生输出 |
+| pytest | **1034 passed, 1 skipped** | 测试工具原生输出 |
 | ruff | 0 issues | 静态检查 |
 | audit_harness | passed | 全链路审计校验 |
 | Mock 模式审查成功率 | 100% | Mock 契约与证据字段完整性 |
@@ -133,9 +147,11 @@ CodePilot 不把仓库原始代码直接全部喂给模型，而是在 LLM 之�
 - [click](https://github.com/pallets/click)
 - [uvicorn](https://github.com/encode/uvicorn)
 
+这些仓库用于验证文件过滤、结构化上下文压缩、Mock 审查链路和报告契约稳定性。降噪率范围为 37.3%–58.0%，Token 压缩率范围为 95.7%–97.8%。
+
 ## 快速开始
 
-### Windows PowerShell 脚本启动
+### PowerShell 脚本启动
 
 仓库提供了 Windows PowerShell 脚本，会创建 `codepilot` conda 环境、安装依赖并启动前后端：
 
@@ -160,6 +176,9 @@ $env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 .\scripts\setup.ps1
 ```
 
+> 如果 `Set-ExecutionPolicy` 失败，请以管理员身份打开 PowerShell，或改用手动启动方式。
+> 如果 conda 环境创建失败，请先确认 Conda 已加入 PATH，或直接使用 Python 3.11+ 虚拟环境。
+
 ### 手动启动
 
 ```powershell
@@ -168,7 +187,9 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
 
+```powershell
 # 前端（新终端）
 cd frontend
 npm install
@@ -182,13 +203,15 @@ $env:NEXT_PUBLIC_API_BASE = "http://localhost:8000"
 npm run dev -- --port 3000
 ```
 
-## Docker 本地运行
+### Docker 本地运行
 
 ```powershell
-# Windows
+# Windows PowerShell
 Copy-Item .env.example .env
 docker compose up --build
+```
 
+```bash
 # macOS / Linux
 cp .env.example .env
 docker compose up --build
@@ -200,7 +223,13 @@ docker compose up --build
 - Backend: http://localhost:8000
 - Health: http://localhost:8000/health
 
-默认使用 Mock LLM 模式，不需要真实 API Key。使用真实模型需在 `.env` 中配置对应 provider 的 API Key，详见 [Docker 本地运行文档](docs/DOCKER.md)。
+核心配置项：
+
+| 配置项 | 说明 |
+|---|---|
+| `USE_MOCK_LLM=true` | 默认 Mock 模式，不需要 API Key |
+| `REAL_LLM_PROVIDER=mimo\|doubao\|deepseek` | 真实模型服务商 |
+| `MIMO_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` | 只填写在后端 `.env`，不放前端 |
 
 停止与清理：
 
@@ -209,17 +238,51 @@ docker compose down        # 停止容器
 docker compose down -v     # 停止并删除 SQLite/workspace/reports volume
 ```
 
+详细配置和故障排查见 [Docker 本地运行文档](docs/DOCKER.md)。
+
 ## 技术栈
 
 | 层级 | 技术栈 | 说明 |
 |---|---|---|
-| Backend | FastAPI + Pydantic + Uvicorn | 结构化 API、参数校验、异步服务 |
-| Frontend | Next.js + React + TypeScript + Tailwind CSS | 报告工作台、任务状态、证据展示 |
-| Persistence | SQLite（WAL 模式） | 任务状态和历史报告持久化 |
+| Backend | FastAPI + Pydantic + Uvicorn | FastAPI 搭建结构化 API，Pydantic 做请求/响应校验，Uvicorn 作为 ASGI 运行服务 |
+| Frontend | Next.js + React + TypeScript + Tailwind CSS | 构建报告工作台、审查状态、Agent 卡片、问题发现和报告展示页面 |
+| Persistence | SQLite（WAL 模式） | 本地轻量化历史记录和报告元数据存储，适合 MVP 与 demo 场景，无需额外数据库服务 |
 | Parsing | Python AST + tree-sitter | Python 优先，保留多语言扩展路径 |
-| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock 默认；Real LLM 可配置 |
-| Deployment | Docker Compose | 本地开发与 demo 环境 |
+| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock 默认；Real LLM 可配置 mimo / doubao / deepseek |
+| Deployment | Docker Compose | 提供本地一键启动前后端的 demo / 开发环境 |
 | Quality | pytest + ruff + audit_harness + GitHub Actions | 测试、静态检查、全链路审计和 CI |
+
+## 系统依赖
+
+| 依赖 | 说明 |
+|---|---|
+| Python 3.11+ | 后端运行环境（已验证版本：3.11.11） |
+| Node.js 20+ | 前端构建环境（Dockerfile.frontend 使用 `node:20-alpine`） |
+| Docker Desktop + Docker Compose | 用于 Docker 本地运行 |
+| Git | 用于克隆和分析目标仓库 |
+| Conda（可选） | PowerShell 脚本启动方式使用；也可用 Python venv 替代 |
+
+## 常见问题
+
+**启动失败怎么办？**
+
+先确认 Python 3.11+ 和 Node.js 已安装，`pip install` 和 `npm install` 无报错。如果使用 PowerShell 脚本，请确认 Conda 已加入 PATH 或使用手动启动方式。
+
+**LLM 调用报错怎么办？**
+
+Mock 模式不需要 API Key。Real LLM 需要在后端 `.env` 中配置对应 provider 的 Key、Base URL 和模型名称，然后重启后端服务。
+
+**仓库克隆失败怎么办？**
+
+先确认 GitHub URL 可访问、网络代理正常、仓库不是私有仓库，或改用公开仓库测试。
+
+**Docker 前端连不上后端怎么办？**
+
+确认后端容器运行中（`docker compose ps`），检查 `http://localhost:8000/health` 是否可达。前端通过 `NEXT_PUBLIC_API_BASE` 连接后端，默认 `http://localhost:8000`。详见 [docs/DOCKER.md](docs/DOCKER.md) 故障排查章节。
+
+**中文报告为什么仍建议做回归测试？**
+
+中文报告已通过本地化质量闸门过滤英文泄漏，但极端模型输出仍可能触发边界情况，建议版本更新后跑一次回归测试确认。
 
 ## 已知边界与规划
 
@@ -233,9 +296,22 @@ docker compose down -v     # 停止并删除 SQLite/workspace/reports volume
 
 ### 规划
 
-- **短期**：继续增强中文/英文报告质量闸门；补充更多真实仓库 benchmark。
-- **中期**：扩展 JavaScript/TypeScript 仓库理解；增强证据链可视化。
-- **长期**：支持更完整的仓库级 Agent 工作流。
+- **短期（1-2 个月）**：继续增强中文/英文报告质量闸门；补充更多真实仓库 benchmark。
+- **中期（3-6 个月）**：扩展 JavaScript/TypeScript 仓库理解；增强证据链可视化。
+- **长期（6 个月+）**：探索更完整的仓库级 Agent 工作流和团队协作审查流程。
+
+## 术语对照
+
+| 中文 | English |
+|---|---|
+| 工程降噪 | Engineering Noise Reduction |
+| 结构化上下文 | Structured Context |
+| 证据绑定 | Evidence Binding |
+| 质量闸门 | Quality Gate |
+| 仓库理解 | Repository Understanding |
+| 问题发现 | Findings |
+
+支持中文 / 英文报告展示；中文模式会经过中文质量闸门，避免英文自然语言泄漏。
 
 ## Contributing
 

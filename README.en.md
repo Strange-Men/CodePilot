@@ -14,12 +14,21 @@ CodePilot is an AI code review and repository understanding system for Python re
 - [Why CodePilot](#why-codepilot)
 - [What It Does](#what-it-does)
 - [How It Works](#how-it-works)
+  - [Upfront Engineering Noise Reduction](#upfront-engineering-noise-reduction)
+  - [Report Quality Control](#report-quality-control)
+  - [Engineering Stability](#engineering-stability)
+- [Architecture Flow](#architecture-flow)
 - [Results](#results)
 - [Verification](#verification)
 - [Quick Start](#quick-start)
-- [Docker Local Run](#docker-local-run)
+  - [PowerShell Script Startup](#powershell-script-startup)
+  - [Manual Startup](#manual-startup)
+  - [Docker Local Run](#docker-local-run)
 - [Tech Stack](#tech-stack)
+- [Requirements](#requirements)
+- [FAQ](#faq)
 - [Limits & Roadmap](#limits--roadmap)
+- [Terminology](#terminology)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -51,12 +60,43 @@ Given a public repository URL, CodePilot produces a four-section review report:
 
 ### Boundaries
 
+This project focuses on code review and repository understanding. It does not include security auditing, automatic code repair, production-grade code merging, or full multi-language coverage.
+
 - Not a replacement for security auditing; no automatic fix commitment.
 - No commitment to full language coverage; Python is the current priority.
 - User repository code is not executed; analysis is static only.
 - Not packaged as a full commercial code review platform.
 
 ## How It Works
+
+### Upfront Engineering Noise Reduction
+
+CodePilot does not send the entire raw repository directly to the model. It first reduces engineering noise through git-tracked file baselines, file filtering, static parsing, and structured context:
+
+- Filters low-value content such as `.git`, `__pycache__`, `.venv`, `dist`, and `build`.
+- Keeps source files, configuration files, and README so the model can still understand repository structure.
+- Uses Python AST to extract functions, classes, imports, dependencies, and file-scale metrics, with a tree-sitter extension-ready path.
+- Replaces raw-code direct prompting with structured context, reducing noise while preserving locatable engineering facts.
+
+### Report Quality Control
+
+Report generation is constrained by structured findings, evidence citations, Chinese/English quality gates, and Mock/Real LLM dual mode — ensuring reports are reviewable:
+
+- The report always uses four sections: architecture overview, code smells, maintainability analysis, and refactoring suggestions.
+- `ReportContract` standardizes the report structure and reduces the impact of LLM output variation on the frontend and stored history.
+- Evidence fields bind each finding to file paths, functions, classes, dependencies, and metrics.
+- Chinese reports pass through a localization quality gate to block English prose leakage.
+
+### Engineering Stability
+
+The system ensures functional changes can be regression-tested through pytest, ruff, frontend test/build, audit_harness, and Docker Compose validation:
+
+- Mock LLM is used for development, testing, and CI with reproducible output.
+- Real LLM is used for actual report generation validation.
+- Provider interfaces isolate the model invocation layer, making it possible to switch between different OpenAI-compatible providers.
+- Tasks are recorded by phase, so failures can be located to clone, parsing, LLM, or report composition stages.
+
+## Architecture Flow
 
 ```mermaid
 flowchart LR
@@ -68,58 +108,32 @@ flowchart LR
     F --> G[Review Report]
 ```
 
-### Upfront Engineering Noise Reduction
-
-CodePilot does not send the entire raw repository directly to the model. It first reduces engineering noise before LLM generation:
-
-- Filters low-value content such as `.git`, `__pycache__`, `.venv`, `dist`, and `build`.
-- Keeps source files, configuration files, and README so the model can still understand repository structure.
-- Uses Python AST to extract functions, classes, imports, dependencies, and file-scale metrics, with a tree-sitter extension-ready path.
-- Replaces raw-code direct prompting with structured context, reducing noise while preserving locatable engineering facts.
-
-### Report Quality Control
-
-Report generation is constrained by a schema, not free-form prose:
-
-- The report always uses four sections: architecture overview, code smells, maintainability analysis, and refactoring suggestions.
-- `ReportContract` standardizes the report structure and reduces the impact of LLM output variation on the frontend and stored history.
-- Evidence fields bind each finding to file paths, functions, classes, dependencies, and metrics.
-- The goal is to make reports reviewable, not to produce a long subjective assessment without traceable evidence.
-
-### Engineering Stability
-
-The system separates real model calls from local engineering verification:
-
-- Mock LLM is used for development, testing, and CI with reproducible output.
-- Real LLM is used for actual report generation validation.
-- Provider interfaces isolate the model invocation layer, making it possible to switch between different OpenAI-compatible providers.
-- Tasks are recorded by phase, so failures can be located to clone, parsing, LLM, or report composition stages.
-- `pytest` / `ruff` / `audit_harness` cover tests, static checks, and full-chain validation.
-
 ## Results
 
 ### Engineering Noise Reduction
 
 | Metric | Result | Method |
 |---|---:|---|
-| Average file noise reduction | 49.1% | 3 benchmark repos, `git ls-files` business-file baseline |
-| Structured-context token compression | 96.8% | Same valid source scope vs structured context, tiktoken estimation |
+| Average file noise reduction | **49.1%** | 3 benchmark repos (httpx / click / uvicorn); baseline counted via `git ls-files` to exclude `.git`, `node_modules`, and cache directories |
+| Structured-context token compression | **96.8%** | Same valid source scope token count vs structured context token count, tiktoken estimation |
 
 ### Real LLM Single-Repository Validation
 
-- Validation repository: httpx.
-- Baseline input tokens: 137,417.
-- CodePilot input tokens: 15,212.
-- Input size reduction: about 8.85x.
-- Real LLM call input token compression: 88.7%.
+Based on the httpx single-repository real call record, input tokens are significantly lower than the raw source baseline:
 
-Note: This is a qualitative single-repository validation on httpx, not a large-scale statistical conclusion. Only input tokens are counted; output tokens are excluded, so this must not be described as total cost reduction.
+- Validation repository: httpx
+- Baseline input tokens: 137,417 (raw source fed directly to LLM)
+- CodePilot input tokens: 15,212 (structured context)
+- Input size reduction: about **8.85x**
+- Real LLM call input token compression: **88.7%** ≈ 1 − 15,212 / 137,417
+
+> Note: This is a qualitative single-repository validation on httpx, not a large-scale statistical conclusion. Only input tokens are counted; output tokens are excluded, so this must not be described as total cost reduction.
 
 ### Engineering Quality
 
 | Validation Dimension | Result | Method |
 |---|---|---|
-| pytest | 1034 passed, 1 skipped | Native test output |
+| pytest | **1034 passed, 1 skipped** | Native test output |
 | ruff | 0 issues | Static check |
 | audit_harness | passed | Full-chain audit validation |
 | Mock-mode review success rate | 100% | Mock contract and evidence field completeness |
@@ -133,9 +147,11 @@ Benchmark verification completed on the following Python open-source repositorie
 - [click](https://github.com/pallets/click)
 - [uvicorn](https://github.com/encode/uvicorn)
 
+These repositories are used to validate file filtering, structured context compression, Mock review pipeline, and report contract stability. Noise reduction ranges from 37.3%–58.0%; token compression ranges from 95.7%–97.8%.
+
 ## Quick Start
 
-### Windows PowerShell Script Startup
+### PowerShell Script Startup
 
 The repository includes Windows PowerShell scripts that create the `codepilot` conda environment, install dependencies, and start both services:
 
@@ -160,6 +176,9 @@ $env:CODEPILOT_CONDA = "path\to\your\conda.exe"
 .\scripts\setup.ps1
 ```
 
+> If `Set-ExecutionPolicy` fails, open PowerShell as Administrator, or switch to manual startup.
+> If conda environment creation fails, confirm Conda is on PATH, or use a Python 3.11+ virtual environment directly.
+
 ### Manual Startup
 
 ```powershell
@@ -168,7 +187,9 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
 
+```powershell
 # Frontend (new terminal)
 cd frontend
 npm install
@@ -182,13 +203,15 @@ $env:NEXT_PUBLIC_API_BASE = "http://localhost:8000"
 npm run dev -- --port 3000
 ```
 
-## Docker Local Run
+### Docker Local Run
 
 ```powershell
-# Windows
+# Windows PowerShell
 Copy-Item .env.example .env
 docker compose up --build
+```
 
+```bash
 # macOS / Linux
 cp .env.example .env
 docker compose up --build
@@ -200,7 +223,13 @@ Open:
 - Backend: http://localhost:8000
 - Health: http://localhost:8000/health
 
-Default mode is Mock LLM — no real API key required. To use a real model, configure the provider API key in `.env`. See [Docker local run docs](docs/DOCKER.md) for details.
+Core configuration:
+
+| Setting | Description |
+|---|---|
+| `USE_MOCK_LLM=true` | Default Mock mode, no API key needed |
+| `REAL_LLM_PROVIDER=mimo\|doubao\|deepseek` | Real model provider |
+| `MIMO_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` | Backend `.env` only; never in frontend |
 
 Stop and clean up:
 
@@ -209,17 +238,51 @@ docker compose down        # stop containers
 docker compose down -v     # stop and remove SQLite/workspace/reports volumes
 ```
 
+See [Docker local run docs](docs/DOCKER.md) for detailed configuration and troubleshooting.
+
 ## Tech Stack
 
 | Layer | Stack | Notes |
 |---|---|---|
-| Backend | FastAPI + Pydantic + Uvicorn | Structured API, parameter validation, async service |
-| Frontend | Next.js + React + TypeScript + Tailwind CSS | Review workspace, task state, evidence display |
-| Persistence | SQLite (WAL mode) | Task state and historical report persistence |
+| Backend | FastAPI + Pydantic + Uvicorn | FastAPI builds structured APIs, Pydantic validates requests/responses, Uvicorn runs the ASGI server |
+| Frontend | Next.js + React + TypeScript + Tailwind CSS | Review workspace, task status, agent cards, findings display, and report presentation |
+| Persistence | SQLite (WAL mode) | Lightweight local history and report metadata storage for MVP and demo; no external database needed |
 | Parsing | Python AST + tree-sitter | Python-first, with a path for multi-language expansion |
-| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock by default; Real LLM configurable |
-| Deployment | Docker Compose | Local development and demo environment |
+| LLM | Mock Provider + OpenAI-compatible Real LLM Provider | Mock by default; Real LLM configurable for mimo / doubao / deepseek |
+| Deployment | Docker Compose | One-command local startup for frontend and backend demo / development |
 | Quality | pytest + ruff + audit_harness + GitHub Actions | Tests, static checks, full-chain audit, and CI |
+
+## Requirements
+
+| Dependency | Notes |
+|---|---|
+| Python 3.11+ | Backend runtime (verified version: 3.11.11) |
+| Node.js 20+ | Frontend build (Dockerfile.frontend uses `node:20-alpine`) |
+| Docker Desktop + Docker Compose | For Docker local run |
+| Git | For cloning and analyzing target repositories |
+| Conda (optional) | Used by PowerShell script startup; Python venv works as alternative |
+
+## FAQ
+
+**Startup fails?**
+
+Confirm Python 3.11+ and Node.js are installed, and `pip install` / `npm install` completed without errors. If using the PowerShell script, confirm Conda is on PATH or switch to manual startup.
+
+**LLM call errors?**
+
+Mock mode needs no API key. Real LLM requires configuring the provider's Key, Base URL, and model name in the backend `.env`, then restarting the backend.
+
+**Repository clone fails?**
+
+Confirm the GitHub URL is accessible, your network proxy is working, and the repository is not private — or test with a public repository.
+
+**Docker frontend cannot connect to backend?**
+
+Confirm the backend container is running (`docker compose ps`), and check `http://localhost:8000/health`. The frontend connects via `NEXT_PUBLIC_API_BASE`, defaulting to `http://localhost:8000`. See the troubleshooting section in [docs/DOCKER.md](docs/DOCKER.md).
+
+**Why still regression-test Chinese reports?**
+
+Chinese reports pass through a localization quality gate to filter English leakage, but extreme model outputs may still trigger edge cases. Run a regression test after version updates.
 
 ## Limits & Roadmap
 
@@ -233,9 +296,22 @@ docker compose down -v     # stop and remove SQLite/workspace/reports volumes
 
 ### Roadmap
 
-- **Short-term**: Continue strengthening Chinese/English report quality gates; add more real-repository benchmarks.
-- **Mid-term**: Expand JavaScript/TypeScript repository understanding; enhance evidence chain visualization.
-- **Long-term**: Support more complete repository-level agent workflows.
+- **Short-term (1-2 months)**: Continue strengthening Chinese/English report quality gates; add more real-repository benchmarks.
+- **Mid-term (3-6 months)**: Expand JavaScript/TypeScript repository understanding; enhance evidence chain visualization.
+- **Long-term (6+ months)**: Explore more complete repository-level agent workflows and team collaboration review processes.
+
+## Terminology
+
+| 中文 | English |
+|---|---|
+| 工程降噪 | Engineering Noise Reduction |
+| 结构化上下文 | Structured Context |
+| 证据绑定 | Evidence Binding |
+| 质量闸门 | Quality Gate |
+| 仓库理解 | Repository Understanding |
+| 问题发现 | Findings |
+
+The UI and reports support Chinese and English output. Chinese reports pass through a localization quality gate.
 
 ## Contributing
 
