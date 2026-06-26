@@ -208,6 +208,27 @@ _MIMO_ENGLISH_SENTENCE_STARTERS: tuple[str, ...] = (
     "Going forward",
     "For example",
     "For instance",
+    # V3.10 MiMo English prose starters
+    "This is a long-standing",
+    "This is a public API",
+    "Should be done carefully",
+    "Run tests for",
+    "the path manipulation",
+    "creates inconsistent",
+    "makes the code harder",
+    "changing the discovery",
+    "that might break",
+    "that don't inherit",
+    "session implementations",
+    "inherit from ABC",
+    "pathlib.PurePath",
+    "os.path APIs",
+    "the discovery mechanism",
+    "existing applications",
+    "backward compatibility",
+    "request processing",
+    "API usage",
+    "code harder",
 )
 
 
@@ -318,8 +339,8 @@ def is_english_leakage(text: str | None) -> bool:
 
     # --- Path 1: pure English (no Chinese chars) ---
     if not _has_chinese(stripped):
-        # File path (contains separator)
-        if "/" in stripped or "\\" in stripped:
+        # File path (contains separator) — only if the entire text looks like a path
+        if ("/" in stripped or "\\" in stripped) and len(stripped.split()) <= 4:
             return False
 
         # Code symbol (snake_case, camelCase, PascalCase, UPPER_SNAKE)

@@ -1,0 +1,9 @@
+{
+  "rendered_zh_has_chinese": true,
+  "banned_phrases_found": [],
+  "banned_phrases_count": 0,
+  "allowed_terms_preserved": [
+    "src/flask/sansio/scaffold.py"
+  ],
+  "quality_pass": true
+}

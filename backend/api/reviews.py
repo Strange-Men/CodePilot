@@ -21,7 +21,6 @@ from backend.models.review import (
 from backend.models.structured_review import BilingualTextField, DisplayFields, ReviewFinding
 from backend.reviewers.localization import Language, normalize_language
 from backend.reviewers.localized_report_renderer import (
-    render_localized_finding_text,
     render_localized_report,
 )
 from backend.reviewers.zh_presentation import finalize_zh_report, repair_zh_display_fields, repair_zh_findings
@@ -142,53 +141,45 @@ def build_reviews_router(
             _display_map = _EDM.from_findings(_finding_objs)
 
             if normalized_lang == "zh":
-                if _all_findings_bilingual(raw_findings):
-                    # New bilingual reviews: render zh report from stored display fields
-                    from backend.models.structured_review import DisplayFields, ReviewFinding
+                # Always build findings with display fields for zh rendering
+                from backend.models.structured_review import DisplayFields, ReviewFinding
 
-                    findings_with_display = []
-                    for f in raw_findings:
-                        display_data = f.get("display")
-                        display = DisplayFields.model_validate(display_data) if display_data else None
-                        finding = ReviewFinding(
-                            section=f["section"],
-                            description=f["description"],
-                            title=f.get("title"),
-                            severity=f.get("severity", "informational"),
-                            category=f.get("category"),
-                            confidence=f.get("confidence"),
-                            files=f.get("files", []),
-                            recommendation=f.get("recommendation"),
-                            evidence_ids=f.get("evidence_ids", []),
-                            evidence=f.get("evidence", []),
-                            impact=f.get("impact"),
-                            first_step=f.get("first_step"),
-                            validation_tests=f.get("validation_tests", []),
-                            confidence_rationale=f.get("confidence_rationale"),
-                            caveat=f.get("caveat"),
-                            display=display,
-                        )
-                        findings_with_display.append(finding)
-                    # Repair display.zh fields before rendering (centralized zh pipeline)
-                    findings_with_display = repair_zh_findings(findings_with_display)
-                    from backend.models.structured_review import StructuredReviewDraft
+                findings_with_display = []
+                for f in raw_findings:
+                    display_data = f.get("display")
+                    display = DisplayFields.model_validate(display_data) if display_data else None
+                    finding = ReviewFinding(
+                        section=f["section"],
+                        description=f["description"],
+                        title=f.get("title"),
+                        severity=f.get("severity", "informational"),
+                        category=f.get("category"),
+                        confidence=f.get("confidence"),
+                        files=f.get("files", []),
+                        recommendation=f.get("recommendation"),
+                        evidence_ids=f.get("evidence_ids", []),
+                        evidence=f.get("evidence", []),
+                        impact=f.get("impact"),
+                        first_step=f.get("first_step"),
+                        validation_tests=f.get("validation_tests", []),
+                        confidence_rationale=f.get("confidence_rationale"),
+                        caveat=f.get("caveat"),
+                        display=display,
+                    )
+                    findings_with_display.append(finding)
+                # Always repair display.zh fields — prevents English leakage
+                findings_with_display = repair_zh_findings(findings_with_display)
+                from backend.models.structured_review import StructuredReviewDraft
 
-                    draft = StructuredReviewDraft(findings=findings_with_display)
-                    report_markdown = render_localized_report(
-                        report_markdown, normalized_lang, findings=findings_with_display,
-                    )
-                    # Replace English finding prose with zh display fields in the report
-                    report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
-                    # Final quality guard: metadata repair + normalize remaining English leakage
-                    report_markdown = finalize_zh_report(report_markdown)
-                elif localization_service is not None:
-                    # Legacy reviews: use localization service as fallback
-                    source_updated_at = row.get("updated_at", "")
-                    report_markdown = localization_service.get_localized_report(
-                        task_id, normalized_lang, source_updated_at, report_markdown, raw_findings,
-                    )
-                else:
-                    report_markdown = render_localized_report(report_markdown, normalized_lang)
+                draft = StructuredReviewDraft(findings=findings_with_display)
+                # Replace English finding prose BEFORE rendering to avoid
+                # partial translations breaking exact-match replacement
+                report_markdown = _render_bilingual_report(report_markdown, draft, normalized_lang)
+                report_markdown = render_localized_report(
+                    report_markdown, normalized_lang, findings=findings_with_display,
+                )
+                # Final quality guard: metadata repair + normalize remaining English leakage
+                report_markdown = finalize_zh_report(report_markdown)
             else:
                 # English view: replace raw ev_* with [E1]/[E2]
                 report_markdown = _display_map.replace_in_text(report_markdown)
@@ -313,53 +304,47 @@ def build_reviews_router(
         _display_map = _EDM.from_findings(_finding_objs)
 
         if normalized_lang == "zh":
-            if _all_findings_bilingual(raw_findings):
-                # New bilingual reviews: render from stored display fields
-                from backend.models.structured_review import DisplayFields, ReviewFinding
+            # Always build findings with display fields for zh rendering
+            from backend.models.structured_review import DisplayFields, ReviewFinding
 
-                findings_with_display = []
-                for f in raw_findings:
-                    display_data = f.get("display")
-                    display = DisplayFields.model_validate(display_data) if display_data else None
-                    finding = ReviewFinding(
-                        section=f["section"],
-                        description=f["description"],
-                        title=f.get("title"),
-                        severity=f.get("severity", "informational"),
-                        category=f.get("category"),
-                        confidence=f.get("confidence"),
-                        files=f.get("files", []),
-                        recommendation=f.get("recommendation"),
-                        evidence_ids=f.get("evidence_ids", []),
-                        evidence=f.get("evidence", []),
-                        impact=f.get("impact"),
-                        first_step=f.get("first_step"),
-                        validation_tests=f.get("validation_tests", []),
-                        confidence_rationale=f.get("confidence_rationale"),
-                        caveat=f.get("caveat"),
-                        display=display,
-                    )
-                    findings_with_display.append(finding)
-                # Repair display.zh fields before rendering (centralized zh pipeline)
-                findings_with_display = repair_zh_findings(findings_with_display)
-                from backend.models.structured_review import StructuredReviewDraft
+            findings_with_display = []
+            for f in raw_findings:
+                display_data = f.get("display")
+                display = DisplayFields.model_validate(display_data) if display_data else None
+                finding = ReviewFinding(
+                    section=f["section"],
+                    description=f["description"],
+                    title=f.get("title"),
+                    severity=f.get("severity", "informational"),
+                    category=f.get("category"),
+                    confidence=f.get("confidence"),
+                    files=f.get("files", []),
+                    recommendation=f.get("recommendation"),
+                    evidence_ids=f.get("evidence_ids", []),
+                    evidence=f.get("evidence", []),
+                    impact=f.get("impact"),
+                    first_step=f.get("first_step"),
+                    validation_tests=f.get("validation_tests", []),
+                    confidence_rationale=f.get("confidence_rationale"),
+                    caveat=f.get("caveat"),
+                    display=display,
+                )
+                findings_with_display.append(finding)
+            # Always repair display.zh fields — prevents English leakage
+            findings_with_display = repair_zh_findings(findings_with_display)
+            from backend.models.structured_review import StructuredReviewDraft
 
-                draft = StructuredReviewDraft(findings=findings_with_display)
-                content = render_localized_report(
-                    content, normalized_lang, findings=findings_with_display,
-                )
-                content = _render_bilingual_report(content, draft, normalized_lang)
-                # Final quality guard: metadata repair + normalize remaining English leakage
-                content = finalize_zh_report(content)
-                # Replace raw ev_* IDs with [E1]/[E2] display refs
-                content = _display_map.replace_in_text(content)
-            elif localization_service is not None:
-                source_updated_at = row.get("updated_at", "")
-                content = localization_service.get_localized_report(
-                    task_id, normalized_lang, source_updated_at, content, raw_findings,
-                )
-            else:
-                content = render_localized_report(content, normalized_lang)
+            draft = StructuredReviewDraft(findings=findings_with_display)
+            # Replace English finding prose BEFORE rendering to avoid
+            # partial translations breaking exact-match replacement
+            content = _render_bilingual_report(content, draft, normalized_lang)
+            content = render_localized_report(
+                content, normalized_lang, findings=findings_with_display,
+            )
+            # Final quality guard: metadata repair + normalize remaining English leakage
+            content = finalize_zh_report(content)
+            # Replace raw ev_* IDs with [E1]/[E2] display refs
+            content = _display_map.replace_in_text(content)
         else:
             # English export: replace raw ev_* with [E1]/[E2]
             content = _display_map.replace_in_text(content)
@@ -434,46 +419,20 @@ def _finding_response(
     confidence_rationale = row.get("confidence_rationale")
     validation_tests = row.get("validation_tests") or []
 
-    # Check for bilingual display fields (new reviews)
-    display = row.get("display")
+    # Always use repaired zh display fields for zh mode
     response_display = _display_for_response(row)
-    if lang == "zh" and display and isinstance(display, dict):
+    if lang == "zh":
+        # Always use repaired zh display fields — never fall back to English prose
         zh = response_display.zh
-        title = normalize_zh_text(zh.title or title)
-        description = normalize_zh_text(zh.description or description)
-        recommendation = normalize_zh_text(zh.recommendation or recommendation)
-        impact = normalize_zh_text(zh.impact or impact)
-        first_step = normalize_zh_text(zh.first_step or first_step)
-        caveat = normalize_zh_text(zh.caveat or caveat)
-        confidence_rationale = normalize_zh_text(zh.confidence_rationale or confidence_rationale)
+        title = normalize_zh_text(zh.title) or title
+        description = normalize_zh_text(zh.description) or description
+        recommendation = normalize_zh_text(zh.recommendation)
+        impact = normalize_zh_text(zh.impact)
+        first_step = normalize_zh_text(zh.first_step)
+        caveat = normalize_zh_text(zh.caveat)
+        confidence_rationale = normalize_zh_text(zh.confidence_rationale)
         if zh.validation_tests:
             validation_tests = [normalize_zh_text(t) for t in zh.validation_tests]
-    elif lang == "zh":
-        # Legacy fallback: use *_zh keys from localization service
-        safe_zh = response_display.zh
-
-        def _zh_legacy(field: str, fallback: str | None, default: str = "") -> str:
-            raw = (
-                row.get(f"{field}_zh")
-                or getattr(safe_zh, field, None)
-                or render_localized_finding_text(fallback, lang)
-            )
-            return normalize_zh_text(raw or default)
-
-        title = _zh_legacy("title", title, title)
-        description = _zh_legacy("description", description, description)
-        recommendation = _zh_legacy("recommendation", recommendation)
-        impact = _zh_legacy("impact", impact)
-        first_step = _zh_legacy("first_step", first_step)
-        caveat = _zh_legacy("caveat", caveat)
-        confidence_rationale = normalize_zh_text(
-            row.get("confidence_rationale_zh") or confidence_rationale or "",
-        )
-        zh_tests = row.get("validation_tests_zh")
-        if isinstance(zh_tests, list) and len(zh_tests) == len(validation_tests):
-            validation_tests = [normalize_zh_text(t) for t in zh_tests]
-        elif safe_zh.validation_tests:
-            validation_tests = [normalize_zh_text(t) for t in safe_zh.validation_tests]
 
     return ReviewFindingResponse(
         finding_id=str(row["id"]),
@@ -644,16 +603,23 @@ def _render_bilingual_report(
             if not en_value:
                 continue
             zh_value = finding._display_field(field_name, lang)
-            if zh_value and zh_value != en_value:
+            if zh_value and zh_value.strip() != en_value.strip():
                 replacements[en_value] = zh_value
+                # Also add stripped version for matching
+                stripped = en_value.strip()
+                if stripped != en_value:
+                    replacements[stripped] = zh_value
 
         # Handle validation_tests
         en_tests = finding.validation_tests
         zh_tests = finding._display_validation_tests(lang)
         if en_tests and zh_tests and len(en_tests) == len(zh_tests):
             for en_test, zh_test in zip(en_tests, zh_tests, strict=False):
-                if en_test and zh_test and en_test != zh_test:
+                if en_test and zh_test and en_test.strip() != zh_test.strip():
                     replacements[en_test] = zh_test
+                    stripped = en_test.strip()
+                    if stripped != en_test:
+                        replacements[stripped] = zh_test
 
     # Apply replacements longest-first to avoid partial matches
     for en, zh in sorted(replacements.items(), key=lambda x: -len(x[0])):

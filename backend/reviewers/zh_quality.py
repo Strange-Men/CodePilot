@@ -316,6 +316,26 @@ _PHRASE_REPLACEMENTS: dict[str, str] = {
         "公共 API 向后兼容性",
     "backward compatibility": "向后兼容性",
     "public API": "公共 API",
+    # V3.10 MiMo English prose in zh fields
+    "This is a long-standing feature": "这是一个长期存在的特性",
+    "changing the discovery mechanism could break": "修改发现机制可能影响",
+    "for existing applications": "现有应用的兼容性",
+    "This is a public API change": "这是一个公共 API 变更",
+    "that might break existing third-party": "可能影响现有的第三方",
+    "session implementations": "会话实现",
+    "Should be done carefully with": "需要谨慎处理",
+    "backward compatibility consideration": "向后兼容性问题",
+    "the path manipulation function uses both": "路径操作函数同时使用了",
+    "APIs inconsistently": "API，用法不一致",
+    "creates inconsistent API usage": "导致 API 用法不一致",
+    "makes the code harder to maintain": "增加代码维护难度",
+    "Run tests for blueprints and request processing": "运行 Blueprint 和请求处理相关测试",
+    "changing the discovery mechanism": "修改发现机制",
+    "could break backward compatibility": "可能破坏向后兼容性",
+    "that don't inherit from ABC": "未继承自 ABC 的实现",
+    "inherit from ABC": "继承自 ABC",
+    "pathlib.PurePath": "pathlib.PurePath",
+    "os.path": "os.path",
 }
 
 # English label → Chinese label replacements (for inline text, not bold labels)

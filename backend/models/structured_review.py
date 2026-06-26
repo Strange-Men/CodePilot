@@ -1,11 +1,35 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from backend.reviewers.evidence_display import EvidenceDisplayMap
+
+# Chinese character detection for zh fallback safety
+_ZH_CHAR_RE = re.compile(r'[一-鿿]')
+
+# Command prefixes for validation test detection
+_TEST_COMMAND_PREFIXES = (
+    "pytest", "npm", "python", "pip", "git", "docker", "make", "cargo",
+    "go ", "yarn", "pnpm", "npx", "node", "deno", "bun", "curl", "wget",
+    "chmod", "mkdir", "rm ", "mv ", "cp ", "ls ", "cat ", "grep", "sed",
+    "awk", "find", "powershell", "cmd", "bash", "sh ",
+)
+
+
+def _is_zh_or_command_test(text: str) -> bool:
+    """Check if a validation test entry is Chinese or a command/path."""
+    if _ZH_CHAR_RE.search(text):
+        return True
+    lower = text.strip().lower()
+    if any(lower.startswith(prefix) for prefix in _TEST_COMMAND_PREFIXES):
+        return True
+    if "/" in text or "\\" in text:
+        return True
+    return False
 
 
 class BilingualTextField(BaseModel):
@@ -67,22 +91,47 @@ class ReviewFinding(BaseModel):
     display: DisplayFields | None = None
 
     def _display_field(self, field: str, lang: str = "en") -> str | None:
-        """Get a display field value for the given language, falling back to English."""
+        """Get a display field value for the given language.
+
+        For lang='en', falls back to the canonical English field.
+        For lang='zh', returns the zh display value if available; falls back
+        to the canonical field only if it contains Chinese characters.
+        """
         if self.display is not None:
-            lang_fields = getattr(self.display, lang, None) or self.display.en
-            value = getattr(lang_fields, field, None)
-            if value is not None:
-                return value
-        # Fallback to canonical English field
-        return getattr(self, field, None)
+            lang_fields = getattr(self.display, lang, None)
+            if lang_fields is not None:
+                value = getattr(lang_fields, field, None)
+                if value is not None:
+                    return value
+        # For English, fall back to canonical field
+        if lang == "en":
+            return getattr(self, field, None)
+        # For zh, fall back to canonical field only if it's Chinese
+        canonical = getattr(self, field, None)
+        if canonical and _ZH_CHAR_RE.search(canonical):
+            return canonical
+        return None
 
     def _display_validation_tests(self, lang: str = "en") -> list[str]:
-        """Get validation_tests for the given language, falling back to English."""
+        """Get validation_tests for the given language.
+
+        For lang='en', falls back to the canonical English field.
+        For lang='zh', returns the zh display value if available; falls back
+        to the canonical field only if entries are Chinese or look like commands.
+        """
         if self.display is not None:
-            lang_fields = getattr(self.display, lang, None) or self.display.en
-            if lang_fields.validation_tests:
+            lang_fields = getattr(self.display, lang, None)
+            if lang_fields is not None and lang_fields.validation_tests:
                 return lang_fields.validation_tests
-        return self.validation_tests
+        # For English, fall back to canonical field
+        if lang == "en":
+            return self.validation_tests
+        # For zh, fall back to canonical field if entries are Chinese or commands
+        if self.validation_tests and all(
+            _is_zh_or_command_test(t) for t in self.validation_tests
+        ):
+            return self.validation_tests
+        return []
 
     def _format_evidence_ids(self, display_map: EvidenceDisplayMap | None = None) -> str:
         """Format evidence IDs using display map if available."""
@@ -125,14 +174,19 @@ class ReviewFinding(BaseModel):
         For lang='zh', uses display.zh fields and Chinese labels.
         Code symbols, file paths, evidence IDs are never translated.
         """
+        if lang == "zh":
+            # For zh, use display.zh fields only — never fall back to English
+            title = self._display_field("title", "zh") or self.title
+            description = self._display_field("description", "zh") or self.description
+            if title is None:
+                return (description or "").strip()
+            return self._to_zh_markdown(title, description or "", display_map=display_map)
+
+        # For en, fall back to canonical fields
         title = self._display_field("title", lang) or self.title
         description = self._display_field("description", lang) or self.description
         if title is None:
             return (description or "").strip()
-
-        # Use Chinese labels for zh, English for en
-        if lang == "zh":
-            return self._to_zh_markdown(title, description or "", display_map=display_map)
         return self._to_en_localized_markdown(title, description or "", lang, display_map=display_map)
 
     def _to_zh_markdown(self, title: str, description: str, *, display_map: EvidenceDisplayMap | None = None) -> str:

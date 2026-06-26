@@ -1025,14 +1025,17 @@ def test_findings_lang_zh_returns_chinese_prose(
 
     assert response.status_code == 200
     finding = response.json()["findings"][0]
-    # Title should be concrete (file-based or symbol-based) and Chinese
+    # V3.10: Title should be Chinese (from zh template repair)
     assert finding["title"] is not None
     title = finding["title"]
-    assert "架构" in title or "build_reviews_router" in title or "backend/api/reviews.py" in title
+    assert "一" <= title[0] <= "鿿"  # Chinese character
     # No bad terms
     assert "代码坏味道" not in finding["title"]
-    assert "结构性问题" in finding["description"]
-    assert "契约测试" in finding["recommendation"]
+    # V3.10: Description and recommendation are Chinese templates
+    assert finding["description"] is not None
+    assert "一" <= finding["description"][0] <= "鿿"  # Chinese character
+    assert finding["recommendation"] is not None
+    assert "一" <= finding["recommendation"][0] <= "鿿"  # Chinese character
 
 
 def test_findings_lang_zh_preserves_evidence_ids(
@@ -1127,8 +1130,9 @@ def test_findings_lang_zh_with_failing_translator(
 
     assert response.status_code == 200
     finding = response.json()["findings"][0]
-    # Falls back to English prose
-    assert finding["title"] == "Evidence-grounded architecture boundary"
+    # V3.10: zh fields are repaired with Chinese templates, even when translator fails
+    assert finding["title"] != "Evidence-grounded architecture boundary"
+    assert "一" <= finding["title"][0] <= "鿿"  # Chinese character
     assert finding["severity"] == "high"
 
 
@@ -1372,8 +1376,9 @@ def test_get_review_lang_zh_report_cache_hit(
     assert response2.status_code == 200
     # Both should return the same Chinese report
     assert response1.json()["report_markdown"] == response2.json()["report_markdown"]
-    # Report should contain Chinese prose
-    assert "依赖方" in response1.json()["report_markdown"]
+    # Report should contain Chinese prose (from zh template repair)
+    report = response1.json()["report_markdown"]
+    assert "该问题可能影响" in report or "该边界变更可能影响" in report
 
 
 def test_get_review_lang_en_unchanged_with_localization(
@@ -1447,8 +1452,8 @@ def test_export_lang_zh_with_failing_translator(
     assert response.status_code == 200
     # Headings should still be translated
     assert "# 执行摘要" in response.text
-    # English prose preserved (translator failed)
-    assert "Changes to this boundary" in response.text
+    # V3.10: English prose is replaced with Chinese templates, even when translator fails
+    assert "Changes to this boundary" not in response.text
 
 
 # --- V3.5.5 terminology and English leakage tests ---

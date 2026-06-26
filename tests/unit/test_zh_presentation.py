@@ -1702,3 +1702,148 @@ print('hello')
 """
         leaks = assert_no_english_natural_language_zh(md)
         assert leaks == []
+
+
+# ---------------------------------------------------------------------------
+# Tests: V3.10 regression — exact failing phrases from real report
+# ---------------------------------------------------------------------------
+
+# Exact failing phrases from the V3.10 report
+V310_FAILING_CAVEAT_1 = (
+    "This is a long-standing feature in Flask; changing the discovery mechanism "
+    "could break backward compatibility for existing applications."
+)
+V310_FAILING_VALIDATION_1 = (
+    "Run tests for blueprints and request processing, e.g., "
+    "pytest tests/test_blueprints.py tests/test_basic.py"
+)
+V310_FAILING_CAVEAT_2 = (
+    "This is a public API change that might break existing third-party "
+    "session implementations that don't inherit from ABC. "
+    "Should be done carefully with backward compatibility consideration."
+)
+V310_FAILING_DESCRIPTION_1 = (
+    "src/flask/sansio/scaffold.py, the path manipulation function uses both "
+    "pathlib.PurePath and os.path APIs."
+)
+
+
+class TestV310Regression:
+    """Regression tests using exact failing phrases from the V3.10 report."""
+
+    def test_failing_caveat_1_detected(self):
+        """'This is a long-standing feature in Flask...' should be detected."""
+        assert is_english_leakage(V310_FAILING_CAVEAT_1) is True
+
+    def test_failing_validation_1_detected(self):
+        """'Run tests for blueprints...' should be detected."""
+        assert is_english_leakage(V310_FAILING_VALIDATION_1) is True
+
+    def test_failing_caveat_2_detected(self):
+        """'This is a public API change...' should be detected."""
+        assert is_english_leakage(V310_FAILING_CAVEAT_2) is True
+
+    def test_failing_description_1_detected(self):
+        """'src/flask/sansio/scaffold.py, the path manipulation...' should be detected."""
+        assert is_english_leakage(V310_FAILING_DESCRIPTION_1) is True
+
+    def test_failing_caveat_1_repaired(self):
+        """V3.10 caveat 1 should be repaired to Chinese template."""
+        result = repair_zh_field(V310_FAILING_CAVEAT_1, "caveat", "")
+        assert "This is a long-standing" not in result
+        assert "backward compatibility" not in result
+        assert any('一' <= c <= '鿿' for c in result)
+
+    def test_failing_validation_1_repaired(self):
+        """V3.10 validation 1 should be repaired — command preserved, prose replaced."""
+        result = repair_zh_validation_tests([V310_FAILING_VALIDATION_1], "")
+        assert len(result) == 1
+        # The command part (pytest ...) should be preserved
+        # but the English prose "Run tests for blueprints..." should be replaced
+        assert "Run tests for blueprints" not in result[0]
+
+    def test_failing_caveat_2_repaired(self):
+        """V3.10 caveat 2 should be repaired to Chinese template."""
+        result = repair_zh_field(V310_FAILING_CAVEAT_2, "caveat", "")
+        assert "This is a public API" not in result
+        assert "Should be done carefully" not in result
+        assert any('一' <= c <= '鿿' for c in result)
+
+    def test_failing_description_1_repaired(self):
+        """V3.10 description 1 should be repaired to Chinese template."""
+        result = repair_zh_field(V310_FAILING_DESCRIPTION_1, "description", "")
+        assert "the path manipulation function" not in result
+        assert any('一' <= c <= '鿿' for c in result)
+
+    def test_failing_phrases_not_in_zh_report(self):
+        """Full zh report should not contain the failing English phrases."""
+        findings = [
+            ReviewFinding(
+                section="Code Smells",
+                title="Test",
+                description="Desc",
+                severity="high",
+                confidence=0.85,
+                category="code_smell",
+                files=["src/flask/sansio/scaffold.py"],
+                evidence_ids=["ev_001"],
+                display=DisplayFields(
+                    en=BilingualTextField(),
+                    zh=BilingualTextField(
+                        caveat=V310_FAILING_CAVEAT_1,
+                        description=V310_FAILING_DESCRIPTION_1,
+                    ),
+                ),
+            ),
+            ReviewFinding(
+                section="Maintainability Issues",
+                title="Test 2",
+                description="Desc 2",
+                severity="medium",
+                confidence=0.72,
+                category="maintainability",
+                files=["src/flask/blueprints.py"],
+                evidence_ids=["ev_002"],
+                display=DisplayFields(
+                    en=BilingualTextField(),
+                    zh=BilingualTextField(
+                        caveat=V310_FAILING_CAVEAT_2,
+                        validation_tests=[V310_FAILING_VALIDATION_1],
+                    ),
+                ),
+            ),
+        ]
+
+        repaired, _ = prepare_zh_report(findings, "")
+
+        # Verify all English prose is gone from zh fields
+        for f in repaired:
+            zh = f.display.zh
+            if zh.caveat:
+                assert "This is a long-standing" not in zh.caveat
+                assert "This is a public API" not in zh.caveat
+                assert "Should be done carefully" not in zh.caveat
+            if zh.description:
+                assert "the path manipulation function" not in zh.description
+            for test in zh.validation_tests or []:
+                assert "Run tests for blueprints" not in test
+
+    def test_allowed_technical_terms_preserved(self):
+        """Technical terms like pytest, pathlib, os.path should be preserved."""
+        assert is_english_leakage("pytest tests/test_blueprints.py") is False
+        assert is_english_leakage("pathlib.PurePath") is False
+        assert is_english_leakage("os.path") is False
+        assert is_english_leakage("abc.ABC") is False
+        assert is_english_leakage("@abstractmethod") is False
+        assert is_english_leakage("SessionInterface") is False
+        assert is_english_leakage("NotImplementedError") is False
+
+    def test_gate_catches_v310_failing_phrases(self):
+        """The final gate should catch all V3.10 failing phrases."""
+        for phrase in [
+            V310_FAILING_CAVEAT_1,
+            V310_FAILING_CAVEAT_2,
+            V310_FAILING_DESCRIPTION_1,
+        ]:
+            leaks = assert_no_english_natural_language_zh(phrase)
+            assert len(leaks) > 0, f"Gate should catch: {phrase[:60]}..."

@@ -64,11 +64,30 @@ def assign_priority(finding: ReviewFinding) -> str:
     return "P3"
 
 
+def _localized_title(finding: ReviewFinding) -> str:
+    """Get the localized title for a finding.
+
+    Uses zh display field if available to prevent English leakage.
+    """
+    if finding.display and finding.display.zh and finding.display.zh.title:
+        return finding.display.zh.title
+    return finding.title or finding.description or "未命名问题"
+
+
 def _why_important(finding: ReviewFinding) -> str:
-    """Generate a natural Chinese explanation of why this finding matters."""
+    """Generate a natural Chinese explanation of why this finding matters.
+
+    Uses zh display fields if available to prevent English leakage.
+    """
+    # Try zh display field first
+    if finding.display and finding.display.zh and finding.display.zh.impact:
+        return finding.display.zh.impact.strip()
     impact = (finding.impact or "").strip()
     if impact:
         return impact
+    # Try zh display description
+    if finding.display and finding.display.zh and finding.display.zh.description:
+        return finding.display.zh.description.strip()
     description = (finding.description or "").strip()
     if description:
         return description
@@ -76,10 +95,19 @@ def _why_important(finding: ReviewFinding) -> str:
 
 
 def _suggested_first_action(finding: ReviewFinding) -> str:
-    """Generate a natural Chinese first action suggestion."""
+    """Generate a natural Chinese first action suggestion.
+
+    Uses zh display fields if available to prevent English leakage.
+    """
+    # Try zh display field first
+    if finding.display and finding.display.zh and finding.display.zh.first_step:
+        return finding.display.zh.first_step.strip()
     first_step = (finding.first_step or "").strip()
     if first_step:
         return first_step
+    # Try zh display recommendation
+    if finding.display and finding.display.zh and finding.display.zh.recommendation:
+        return finding.display.zh.recommendation.strip()
     recommendation = (finding.recommendation or "").strip()
     if recommendation:
         return recommendation
@@ -139,7 +167,7 @@ def generate_priority_section(
         lines.append("")
         lines.append("## P1：建议优先处理")
         for finding, _ in grouped["P1"][:5]:
-            title = finding.title or finding.description or "未命名问题"
+            title = _localized_title(finding)
             lines.append("")
             lines.append(f"* **{title}**")
             lines.append(f"  * 为什么重要：{_why_important(finding)}")
@@ -155,7 +183,7 @@ def generate_priority_section(
         lines.append("")
         lines.append("## P2：建议排期优化")
         for finding, _ in grouped["P2"][:5]:
-            title = finding.title or finding.description or "未命名问题"
+            title = _localized_title(finding)
             lines.append("")
             lines.append(f"* **{title}**")
             lines.append(f"  * 为什么重要：{_why_important(finding)}")
@@ -168,7 +196,7 @@ def generate_priority_section(
         lines.append("")
         lines.append("## P3：低风险改进")
         for finding, _ in grouped["P3"][:3]:
-            title = finding.title or finding.description or "未命名问题"
+            title = _localized_title(finding)
             lines.append("")
             lines.append(f"* **{title}**")
             lines.append(f"  * 为什么重要：{_why_important(finding)}")
