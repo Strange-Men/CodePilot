@@ -11,23 +11,30 @@ type FindingTextField =
   | "caveat"
   | "confidence_rationale";
 
-const commonEnglishWords = new Set([
-  "a", "an", "and", "are", "as", "be", "before", "by", "can", "check",
-  "code", "common", "continue", "could", "differences", "document", "existing",
-  "examine", "for", "functionality", "impact", "implementation", "improves", "in",
-  "is", "may", "not", "of", "or", "protocols", "recommendation", "run", "rules",
-  "should", "tests", "the", "this", "to", "using", "validation", "with", "without"
-]);
+const zhSafeText: Record<FindingTextField, string> = {
+  title: "问题需要进一步确认",
+  description: "建议结合相关代码位置进一步确认该问题，并在修改前补充必要测试。",
+  recommendation: "建议结合相关代码位置进一步确认该问题，并在修改前补充必要测试。",
+  impact: "该问题可能增加维护成本或引入行为不一致风险。",
+  first_step: "建议先运行相关测试，并确认受影响模块的当前行为。",
+  caveat: "修改前请确认该逻辑是否存在兼容性约束。",
+  confidence_rationale: "该判断基于当前结构化证据和报告上下文。"
+};
+
+const zhSafeValidationTest = "建议运行相关测试，并重点检查受影响模块的边界行为。";
 
 export function getLocalizedFindingText(
   finding: ReviewFindingItem,
   field: FindingTextField,
   language: Language
 ): string | null {
-  const value = finding[field];
-  if (!value) return null;
-  if (language !== "zh") return value;
-  return isEnglishProse(value) ? t(language, "common.notAvailable") : value;
+  if (language === "zh") {
+    const value = finding.display?.zh?.[field] || finding[field];
+    if (isUsableZhText(value)) return value;
+    return zhSafeText[field] || t(language, "common.notAvailable");
+  }
+
+  return finding.display?.en?.[field] || finding[field] || null;
 }
 
 export function getLocalizedFindingTitle(finding: ReviewFindingItem, language: Language): string {
@@ -39,9 +46,15 @@ export function getLocalizedFindingTitle(finding: ReviewFindingItem, language: L
 }
 
 export function getLocalizedValidationTests(finding: ReviewFindingItem, language: Language): string[] {
-  if (language !== "zh") return finding.validation_tests;
-  return finding.validation_tests.map((item) =>
-    isCommandOrPath(item) || !isEnglishProse(item) ? item : t(language, "common.notAvailable")
+  if (language !== "zh") return finding.display?.en?.validation_tests?.length ? finding.display.en.validation_tests : finding.validation_tests;
+
+  const tests = finding.display?.zh?.validation_tests?.length
+    ? finding.display.zh.validation_tests
+    : finding.validation_tests;
+  if (!tests.length) return [];
+
+  return tests.map((item) =>
+    isCommandOrPath(item) || isUsableZhText(item) ? item : zhSafeValidationTest
   );
 }
 
@@ -49,6 +62,10 @@ export function localizedAgentError(error: string | null, language: Language): s
   if (!error) return null;
   if (language !== "zh") return error;
   return isEnglishProse(error) ? t(language, "error.generic") : error;
+}
+
+function isUsableZhText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !isEnglishProse(value);
 }
 
 function isEnglishProse(text: string): boolean {
@@ -59,13 +76,14 @@ function isEnglishProse(text: string): boolean {
   if (/^\[E\d+\]$/.test(trimmed)) return false;
 
   const words = trimmed.match(/[A-Za-z]+/g) || [];
-  if (words.length >= 2 && words.every((word) => word.length > 1)) return true;
+  if (!/[\u4e00-\u9fff]/.test(trimmed) && words.length >= 2) return true;
+  if (words.length > 8) return true;
 
   let consecutive = 0;
   for (const word of words) {
     if (commonEnglishWords.has(word.toLowerCase())) {
       consecutive += 1;
-      if (consecutive >= 2) return true;
+      if (consecutive > 8) return true;
     } else {
       consecutive = 0;
     }
@@ -81,3 +99,11 @@ function isCommandOrPath(text: string): boolean {
   if (/^\$|^>\s/.test(trimmed)) return true;
   return false;
 }
+
+const commonEnglishWords = new Set([
+  "a", "an", "and", "are", "as", "be", "before", "by", "can", "check",
+  "code", "common", "continue", "could", "differences", "document", "existing",
+  "examine", "for", "functionality", "impact", "implementation", "improves", "in",
+  "is", "may", "not", "of", "or", "protocols", "recommendation", "run", "rules",
+  "should", "tests", "the", "this", "to", "using", "validation", "with", "without"
+]);

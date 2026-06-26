@@ -55,6 +55,22 @@ export type ReviewEvidenceRefItem = {
   end_line: number;
 };
 
+export type ReviewFindingDisplayText = {
+  title?: string | null;
+  description?: string | null;
+  recommendation?: string | null;
+  impact?: string | null;
+  first_step?: string | null;
+  validation_tests?: string[];
+  confidence_rationale?: string | null;
+  caveat?: string | null;
+};
+
+export type ReviewFindingDisplay = {
+  en?: ReviewFindingDisplayText | null;
+  zh?: ReviewFindingDisplayText | null;
+};
+
 export type ReviewFindingItem = {
   finding_id: string;
   finding_index: number;
@@ -74,6 +90,7 @@ export type ReviewFindingItem = {
   validation_tests: string[];
   confidence_rationale: string | null;
   caveat: string | null;
+  display?: ReviewFindingDisplay | null;
 };
 
 export type ReviewFindingsResponse = {

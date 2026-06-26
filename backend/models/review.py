@@ -103,6 +103,22 @@ class ReviewEvidenceRefResponse(BaseModel):
     end_line: int
 
 
+class ReviewFindingDisplayText(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    recommendation: str | None = None
+    impact: str | None = None
+    first_step: str | None = None
+    validation_tests: list[str] = Field(default_factory=list)
+    confidence_rationale: str | None = None
+    caveat: str | None = None
+
+
+class ReviewFindingDisplay(BaseModel):
+    en: ReviewFindingDisplayText = Field(default_factory=ReviewFindingDisplayText)
+    zh: ReviewFindingDisplayText = Field(default_factory=ReviewFindingDisplayText)
+
+
 class ReviewFindingResponse(BaseModel):
     finding_id: str
     finding_index: int
@@ -122,6 +138,7 @@ class ReviewFindingResponse(BaseModel):
     validation_tests: list[str] = Field(default_factory=list)
     confidence_rationale: str | None = None
     caveat: str | None = None
+    display: ReviewFindingDisplay | None = None
 
 
 class ReviewFindingsResponse(BaseModel):
@@ -163,6 +180,8 @@ __all__ = [
     "ReviewCreateRequest",
     "ReviewCreateResponse",
     "ReviewEvidenceRefResponse",
+    "ReviewFindingDisplay",
+    "ReviewFindingDisplayText",
     "ReviewFindingResponse",
     "ReviewFindingsResponse",
     "ReviewProgressSnapshot",

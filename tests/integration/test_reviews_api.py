@@ -272,36 +272,31 @@ def test_get_review_findings_returns_structured_findings_and_evidence_refs(
     assert response.status_code == 200
     body = response.json()
     assert body["task_id"] == "task-1"
-    assert body["findings"] == [
+    assert len(body["findings"]) == 1
+    finding = body["findings"][0]
+    assert finding["finding_id"] == "1"
+    assert finding["section"] == "Architecture Summary"
+    assert finding["title"] == "Boundary risk"
+    assert finding["description"] == "The API boundary has mixed responsibilities."
+    assert finding["severity"] == "high"
+    assert finding["category"] == "architecture"
+    assert finding["confidence"] == 0.91
+    assert finding["recommendation"] == "Separate transport and domain responsibilities."
+    assert finding["files"] == ["backend/api/reviews.py"]
+    assert finding["evidence_ids"] == ["ev_safe"]
+    assert finding["evidence_refs"] == [
         {
-            "finding_id": "1",
-            "finding_index": 0,
-            "section": "Architecture Summary",
-            "title": "Boundary risk",
-            "description": "The API boundary has mixed responsibilities.",
-            "severity": "high",
-            "category": "architecture",
-            "confidence": 0.91,
-            "recommendation": "Separate transport and domain responsibilities.",
-            "files": ["backend/api/reviews.py"],
-            "evidence_ids": ["ev_safe"],
-            "evidence_refs": [
-                {
-                    "evidence_id": "ev_safe",
-                    "file_path": "backend/api/reviews.py",
-                    "symbol_name": "build_reviews_router",
-                    "start_line": 10,
-                    "end_line": 20,
-                }
-            ],
-            "validation_status": "validated",
-            "impact": None,
-            "first_step": None,
-            "validation_tests": [],
-            "confidence_rationale": None,
-            "caveat": None,
+            "evidence_id": "ev_safe",
+            "file_path": "backend/api/reviews.py",
+            "symbol_name": "build_reviews_router",
+            "start_line": 10,
+            "end_line": 20,
         }
     ]
+    assert finding["validation_status"] == "validated"
+    assert "display" in finding
+    assert "en" in finding["display"]
+    assert "zh" in finding["display"]
     assert "super-secret" not in response.text
     assert "snippet" not in response.text
     assert "agent_id" not in response.text
@@ -1829,6 +1824,9 @@ def test_bilingual_findings_zh_uses_stored_display(
     assert finding["first_step"] == "先添加表征测试。"
     assert finding["caveat"] == "必须保留公共 API 兼容性。"
     assert "变更前后运行完整测试套件" in finding["validation_tests"][0]
+    assert finding["display"]["zh"]["title"] == "API 层存在边界风险"
+    assert finding["display"]["zh"]["recommendation"] == "分离传输层和领域层职责。"
+    assert finding["display"]["en"]["title"] == "Boundary risk in API layer"
 
 
 def test_zh_findings_fill_missing_display_fields_with_safe_chinese(
@@ -1899,6 +1897,10 @@ def test_zh_findings_fill_missing_display_fields_with_safe_chinese(
         assert banned not in rendered
     assert finding["evidence_ids"] == ["ev_safe"]
     assert finding["files"] == ["src/markupsafe/_typing.py"]
+    assert finding["display"]["zh"]["title"] == "协议类型标注需要保持一致"
+    assert finding["display"]["zh"]["recommendation"]
+    assert "Continue using protocols" not in finding["display"]["zh"]["recommendation"]
+    assert "Check for any differences" not in "\n".join(finding["display"]["zh"]["validation_tests"])
 
 
 def test_bilingual_findings_en_uses_english_display(
@@ -1914,6 +1916,8 @@ def test_bilingual_findings_en_uses_english_display(
     finding = response.json()["findings"][0]
     assert finding["title"] == "Boundary risk in API layer"
     assert finding["description"] == "The API boundary has mixed responsibilities."
+    assert finding["display"]["en"]["title"] == "Boundary risk in API layer"
+    assert finding["display"]["zh"]["title"] == "API 层存在边界风险"
 
 
 def test_bilingual_findings_preserves_evidence_ids(

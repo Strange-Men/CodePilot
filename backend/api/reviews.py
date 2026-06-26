@@ -11,13 +11,14 @@ from backend.models.review import (
     ReviewCreateRequest,
     ReviewCreateResponse,
     ReviewEvidenceRefResponse,
+    ReviewFindingDisplay,
     ReviewFindingResponse,
     ReviewFindingsResponse,
     ReviewProgressSnapshot,
     ReviewStatus,
     ReviewStatusResponse,
 )
-from backend.models.structured_review import BilingualTextField
+from backend.models.structured_review import BilingualTextField, DisplayFields, ReviewFinding
 from backend.reviewers.localization import Language, normalize_language
 from backend.reviewers.localized_report_renderer import (
     render_localized_finding_text,
@@ -435,8 +436,9 @@ def _finding_response(
 
     # Check for bilingual display fields (new reviews)
     display = row.get("display")
+    response_display = _display_for_response(row)
     if lang == "zh" and display and isinstance(display, dict):
-        zh = _repaired_zh_display_for_response(row)
+        zh = response_display.zh
         title = normalize_zh_text(zh.title or title)
         description = normalize_zh_text(zh.description or description)
         recommendation = normalize_zh_text(zh.recommendation or recommendation)
@@ -448,7 +450,7 @@ def _finding_response(
             validation_tests = [normalize_zh_text(t) for t in zh.validation_tests]
     elif lang == "zh":
         # Legacy fallback: use *_zh keys from localization service
-        safe_zh = _repaired_zh_display_for_response(row)
+        safe_zh = response_display.zh
 
         def _zh_legacy(field: str, fallback: str | None, default: str = "") -> str:
             raw = (
@@ -492,15 +494,47 @@ def _finding_response(
         validation_tests=validation_tests,
         confidence_rationale=confidence_rationale,
         caveat=caveat,
+        display=ReviewFindingDisplay.model_validate(response_display.model_dump()),
     )
 
 
-def _repaired_zh_display_for_response(row: dict) -> BilingualTextField:
-    from backend.models.structured_review import DisplayFields, ReviewFinding
-
+def _display_for_response(row: dict):
     display_data = row.get("display")
     display = DisplayFields.model_validate(display_data) if display_data else None
-    finding = ReviewFinding(
+    finding = _finding_from_row(row, display)
+    repaired = repair_zh_display_fields(finding)
+    response_display = repaired.display or DisplayFields()
+    if not any(
+        getattr(response_display.en, field)
+        for field in (
+            "title",
+            "description",
+            "recommendation",
+            "impact",
+            "first_step",
+            "confidence_rationale",
+            "caveat",
+        )
+    ) and not response_display.en.validation_tests:
+        response_display = response_display.model_copy(
+            update={
+                "en": BilingualTextField(
+                    title=row.get("title"),
+                    description=row.get("description"),
+                    recommendation=row.get("recommendation"),
+                    impact=row.get("impact"),
+                    first_step=row.get("first_step"),
+                    validation_tests=row.get("validation_tests") or [],
+                    confidence_rationale=row.get("confidence_rationale"),
+                    caveat=row.get("caveat"),
+                )
+            },
+        )
+    return response_display
+
+
+def _finding_from_row(row: dict, display: DisplayFields | None = None) -> ReviewFinding:
+    return ReviewFinding(
         section=row["section"],
         description=row["description"],
         title=row.get("title"),
@@ -518,10 +552,6 @@ def _repaired_zh_display_for_response(row: dict) -> BilingualTextField:
         caveat=row.get("caveat"),
         display=display,
     )
-    repaired = repair_zh_display_fields(finding)
-    if repaired.display is None:
-        return BilingualTextField()
-    return repaired.display.zh
 
 
 def _evidence_ref_response(row: dict) -> ReviewEvidenceRefResponse:

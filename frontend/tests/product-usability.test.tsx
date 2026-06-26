@@ -156,6 +156,53 @@ const leakyStructuredFindings: ReviewFindingItem[] = [
   }
 ];
 
+const bilingualDisplayFinding: ReviewFindingItem = {
+  ...structuredFindings[0],
+  finding_id: "finding-display",
+  title: "Boundary risk from canonical English",
+  description: "The API boundary has mixed responsibilities.",
+  recommendation: "Separate transport and domain responsibilities.",
+  impact: "Changes may affect multiple consumers.",
+  first_step: "Add characterization tests first.",
+  validation_tests: ["Run the full test suite before and after."],
+  caveat: "Public API compatibility must be preserved.",
+  display: {
+    en: {
+      title: "Boundary risk from display",
+      description: "The API boundary has mixed responsibilities.",
+      recommendation: "Separate transport and domain responsibilities.",
+      impact: "Changes may affect multiple consumers.",
+      first_step: "Add characterization tests first.",
+      validation_tests: ["Run the full test suite before and after."],
+      caveat: "Public API compatibility must be preserved."
+    },
+    zh: {
+      title: "API 层存在边界风险",
+      description: "API 边界混合了多种职责。",
+      recommendation: "分离传输层和领域层职责。",
+      impact: "变更可能影响多个依赖方。",
+      first_step: "先添加表征测试。",
+      validation_tests: ["在变更前后运行完整测试套件。"],
+      caveat: "必须保留公共 API 兼容性。"
+    }
+  }
+};
+
+const partialDisplayFinding: ReviewFindingItem = {
+  ...leakyStructuredFindings[0],
+  finding_id: "finding-partial-display",
+  display: {
+    en: {
+      title: "Protocol consistency",
+      description: "Protocol use is inconsistent.",
+      recommendation: "Continue using protocols for new type hints to maintain consistency."
+    },
+    zh: {
+      title: "协议类型标注需要保持一致"
+    }
+  }
+};
+
 test("validates canonical GitHub repository URLs", () => {
   assert.equal(validateGitHubRepositoryUrl("https://github.com/example/project"), null);
   assert.equal(validateGitHubRepositoryUrl("https://github.com/example/project.git"), null);
@@ -376,7 +423,7 @@ test("switching language does not change findings count", () => {
   // Both should show the same finding
   assert.match(htmlEn, /Boundary risk/);
   assert.doesNotMatch(htmlZh, /Boundary risk/);
-  assert.match(htmlZh, new RegExp(t("zh", "common.notAvailable")));
+  assert.match(htmlZh, /问题需要进一步确认/);
   assert.match(htmlEn, /data-finding-id="finding-1"/);
   assert.match(htmlZh, /data-finding-id="finding-1"/);
 });
@@ -1051,6 +1098,64 @@ test("Chinese findings render localized prose when API returns it", () => {
   assert.match(html, /data-severity="high"/);
 });
 
+test("findings panel selects display fields by language", () => {
+  const htmlZh = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={[bilingualDisplayFinding]}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+  const htmlEn = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={[bilingualDisplayFinding]}
+      language="en"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  assert.match(htmlZh, /API 层存在边界风险/);
+  assert.match(htmlZh, /分离传输层和领域层职责/);
+  assert.doesNotMatch(htmlZh, /Boundary risk from display/);
+  assert.doesNotMatch(htmlZh, /Separate transport/);
+  assert.match(htmlEn, /Boundary risk from display/);
+  assert.match(htmlEn, /Separate transport and domain responsibilities/);
+  assert.doesNotMatch(htmlEn, /API 层存在边界风险/);
+});
+
+test("partial display.zh falls back to safe Chinese templates instead of English prose", () => {
+  const html = renderToStaticMarkup(
+    <FindingsPanel
+      error={null}
+      findings={[partialDisplayFinding]}
+      language="zh"
+      loading={false}
+      onRetry={() => undefined}
+    />
+  );
+
+  for (const phrase of [
+    "Protocol use is inconsistent",
+    "Continue using protocols",
+    "Improves code maintainability",
+    "Run existing tests",
+    "Check for any differences",
+    "Protocols are for static type checking",
+    "Not available",
+    "n/a"
+  ]) {
+    assert.doesNotMatch(html, new RegExp(phrase, "i"));
+  }
+  assert.match(html, /协议类型标注需要保持一致/);
+  assert.match(html, /建议结合相关代码位置进一步确认该问题/);
+  assert.match(html, /该问题可能增加维护成本或引入行为不一致风险/);
+  assert.match(html, /建议运行相关测试，并重点检查受影响模块的边界行为/);
+});
+
 test("Chinese findings preserve evidence IDs regardless of prose language", () => {
   const htmlEn = renderToStaticMarkup(
     <FindingsPanel error={null} findings={structuredFindings} language="en" loading={false} onRetry={() => undefined} />
@@ -1297,7 +1402,8 @@ test("Chinese workspace surfaces do not render English finding prose fallbacks",
   ]) {
     assert.doesNotMatch(html, new RegExp(phrase, "i"));
   }
-  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
+  assert.match(html, /问题需要进一步确认/);
+  assert.match(html, /建议结合相关代码位置进一步确认该问题/);
 });
 
 // --- V3.5.6 Chinese localization closure tests ---
@@ -1379,7 +1485,7 @@ test("zh EvidencePanel groups evidence by finding", () => {
   assert.match(html, /E123/);
   // English finding prose should not leak into the Chinese evidence group
   assert.doesNotMatch(html, /Boundary risk/);
-  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
+  assert.match(html, /问题需要进一步确认/);
 });
 
 test("zh AgentStateCards shows localized severity", () => {
@@ -1510,7 +1616,7 @@ test("zh EvidencePanel shows chain title and Chinese labels", () => {
   assert.match(html, /E124/);
   // English finding prose should not leak into the Chinese evidence group
   assert.doesNotMatch(html, /Boundary risk/);
-  assert.match(html, new RegExp(t("zh", "common.notAvailable")));
+  assert.match(html, /问题需要进一步确认/);
 });
 
 test("zh MetricsPanel shows localized labels", () => {

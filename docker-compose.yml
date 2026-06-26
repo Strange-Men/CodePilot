@@ -4,33 +4,63 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     environment:
-      USE_MOCK_LLM: "true"
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.11.11}
+      USE_MOCK_LLM: ${USE_MOCK_LLM:-true}
+      ENABLE_REAL_LLM: ${ENABLE_REAL_LLM:-false}
+      REVIEW_ENGINE: ${REVIEW_ENGINE:-v3_multi_agent}
+      REAL_LLM_PROVIDER: ${REAL_LLM_PROVIDER:-mimo}
+      MIMO_API_KEY: ${MIMO_API_KEY:-}
+      MIMO_BASE_URL: ${MIMO_BASE_URL:-https://token-plan-cn.xiaomimimo.com/v1}
+      MIMO_MODEL_NAME: ${MIMO_MODEL_NAME:-mimo-v2.5-pro}
+      DOUBAO_API_KEY: ${DOUBAO_API_KEY:-}
+      DOUBAO_BASE_URL: ${DOUBAO_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      DOUBAO_MODEL_NAME: ${DOUBAO_MODEL_NAME:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL_NAME: ${DEEPSEEK_MODEL_NAME:-deepseek-chat}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       DATABASE_PATH: /app/backend/data/codepilot.db
       WORKSPACE_PATH: /app/backend/workspace
       REPORTS_PATH: /app/reports
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ALLOW_ORIGIN_REGEX: ${CORS_ALLOW_ORIGIN_REGEX:-https?://(localhost|127\.0\.0\.1):\d+}
+      MAX_FILES: ${MAX_FILES:-300}
+      MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-204800}
+      LARGE_REPO_THRESHOLD: ${LARGE_REPO_THRESHOLD:-300}
+      FINAL_PROMPT_TOKEN_BUDGET: ${FINAL_PROMPT_TOKEN_BUDGET:-5000}
+      REVIEW_AGENT_MODE: ${REVIEW_AGENT_MODE:-separate}
+      REVIEW_AGENT_CONCURRENCY: ${REVIEW_AGENT_CONCURRENCY:-2}
+      REVIEW_SPEED_MODE: ${REVIEW_SPEED_MODE:-balanced}
+      ENABLE_LLM_TRANSLATION: ${ENABLE_LLM_TRANSLATION:-false}
     ports:
       - "8000:8000"
     volumes:
       - backend-data:/app/backend/data
+      - backend-workspace:/app/backend/workspace
       - reports:/app/reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        NEXT_PUBLIC_API_BASE: http://localhost:8000
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
     environment:
-      NEXT_PUBLIC_API_BASE: http://localhost:8000
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
     ports:
       - "3000:3000"
     depends_on:
-      - backend
-
-  # worker:
-  # graph-service:
-  # agent-service:
+      backend:
+        condition: service_healthy
 
 volumes:
   backend-data:
+  backend-workspace:
   reports:
