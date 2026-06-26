@@ -35,7 +35,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "form.mockDescription": "Uses deterministic mock output. No API key required.",
     "form.realLlmDescription": "Uses backend real LLM configuration. Select a provider configured in backend .env.",
     "form.realLlmProvider": "Real LLM provider",
-    "form.providerUnavailable": "This provider requires backend .env configuration.",
+    "form.providerUnavailable": "{provider} requires backend .env configuration.",
     "form.startReview": "Start review",
     "form.reviewInProgress": "Review in progress",
 
@@ -187,7 +187,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.title": "CodePilot could not render this page",
     "error.description": "Your review data is safe. Retry the page, or reload a previous report from history.",
     "error.retry": "Retry",
-    "error.providerAuth": "MiMo authentication is not ready. Check the backend API key configuration, then re-run the review.",
+    "error.providerAuth": "{provider} is not configured. Please set the corresponding API key, base URL, and model name in backend .env, then run the review again.",
     "error.providerNetwork": "The provider or network timed out. The workspace is still usable; wait a moment and re-run the review.",
     "error.providerRateLimit": "The provider rate limit was reached. Please wait a moment before trying again.",
     "error.reviewNoLongerAvailable": "This review is no longer available on the server. It may have been cleared after a restart; re-run the repository review.",
@@ -251,7 +251,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "form.mockDescription": "使用确定性 Mock 输出，无需 API Key。",
     "form.realLlmDescription": "使用后端真实模型配置，请选择已配置的模型服务商。",
     "form.realLlmProvider": "模型服务商",
-    "form.providerUnavailable": "该模型服务商尚未配置，请在后端 .env 中补充对应 Key、Base URL 和模型名称。",
+    "form.providerUnavailable": "{provider} 尚未配置，请在后端 .env 中补充对应 Key、Base URL 和模型名称。",
     "form.startReview": "开始审查",
     "form.reviewInProgress": "审查中",
 
@@ -403,7 +403,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     "error.title": "CodePilot 无法渲染此页面",
     "error.description": "您的审查数据是安全的。请重试页面，或从历史记录中重新加载之前的报告。",
     "error.retry": "重试",
-    "error.providerAuth": "MiMo 尚未配置完成。请检查后端模型 Key 配置，然后重新运行审查。",
+    "error.providerAuth": "{provider} 尚未配置完成。请在后端 .env 中补充对应 Key、Base URL 和模型名称，然后重新运行审查。",
     "error.providerNetwork": "模型服务或网络请求超时。工作台仍可继续使用，请稍后重新运行审查。",
     "error.providerRateLimit": "模型服务触发限流。请稍候再试。",
     "error.reviewNoLongerAvailable": "该审查已不在服务器上，可能在重启后被清理。请重新运行仓库审查。",
@@ -438,6 +438,21 @@ export function t(language: Language, key: string): string {
   const value = dictionaries[language]?.[key];
   if (value !== undefined) return value;
   return dictionaries.en[key] ?? key;
+}
+
+/**
+ * Translate a key and replace `{param}` placeholders with values from `params`.
+ *
+ * Example:
+ *   tp("zh", "error.providerAuth", { provider: "DeepSeek" })
+ *   // → "DeepSeek 尚未配置完成。…"
+ */
+export function tp(language: Language, key: string, params: Record<string, string>): string {
+  let result = t(language, key);
+  for (const [name, value] of Object.entries(params)) {
+    result = result.replaceAll(`{${name}}`, value);
+  }
+  return result;
 }
 
 const STATUS_KEYS: Record<string, string> = {

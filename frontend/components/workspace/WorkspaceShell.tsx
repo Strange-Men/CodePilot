@@ -22,7 +22,7 @@ import {
   getReviewFindings,
   listReviews
 } from "@/lib/api";
-import { getLocalizedStatusLabels, type Language, t } from "@/lib/i18n";
+import { getLocalizedStatusLabels, type Language, t, tp } from "@/lib/i18n";
 import { terminalStatuses } from "@/lib/report";
 import type {
   LlmMode,
@@ -66,6 +66,7 @@ export function WorkspaceShell() {
   const isRunning = Boolean(review && !terminalStatuses.includes(review.status));
   const headerStatus = review?.status || (taskId ? "queued" : "idle");
   const headerStatusLabel = review ? statusLabels[review.status] : taskId ? t(language, "header.queued") : t(language, "header.idle");
+  const selectedProviderLabel = llmProviders.find((p) => p.value === llmProvider)?.label ?? llmProvider;
 
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -105,8 +106,8 @@ export function WorkspaceShell() {
   }, [refreshHistory]);
 
   const handlePollingError = useCallback((message: string) => {
-    setError(message ? friendlyErrorMessage(message, language) : null);
-  }, [language]);
+    setError(message ? friendlyErrorMessage(message, language, undefined, selectedProviderLabel) : null);
+  }, [language, selectedProviderLabel]);
 
   useReviewPolling({ taskId, onReview: handleReview, onError: handlePollingError });
 
@@ -195,7 +196,7 @@ export function WorkspaceShell() {
       setTaskId(data.task_id);
       void refreshHistory();
     } catch (err) {
-      setError(friendlyErrorMessage(err, language, t(language, "error.startReviewFailed")));
+      setError(friendlyErrorMessage(err, language, t(language, "error.startReviewFailed"), selectedProviderLabel));
     } finally {
       setSubmitting(false);
     }
@@ -325,7 +326,7 @@ export function WorkspaceShell() {
   );
 }
 
-function friendlyErrorMessage(error: unknown, language: Language, fallback?: string): string {
+function friendlyErrorMessage(error: unknown, language: Language, fallback?: string, providerLabel?: string): string {
   const code = error instanceof CodePilotApiError ? error.code : undefined;
   const raw = error instanceof Error ? error.message : typeof error === "string" ? error : fallback || "";
   const lower = raw.toLowerCase();
@@ -333,7 +334,7 @@ function friendlyErrorMessage(error: unknown, language: Language, fallback?: str
   if (code === "review_not_found") return t(language, "error.reviewNoLongerAvailable");
   if (code === "review_not_ready") return t(language, "export.notReady");
   if (code === "llm_config_error" || lower.includes("api key") || lower.includes("unauthorized")) {
-    return t(language, "error.providerAuth");
+    return tp(language, "error.providerAuth", { provider: providerLabel || "MiMo" });
   }
   if (lower.includes("timeout") || lower.includes("network") || lower.includes("econnrefused")) {
     return t(language, "error.providerNetwork");

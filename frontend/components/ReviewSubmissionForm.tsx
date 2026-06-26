@@ -5,7 +5,7 @@ import { FlaskConical, Github, KeyRound, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Language } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
+import { t, tp } from "@/lib/i18n";
 import type { LlmMode, LlmProvider, LlmProviderOption } from "@/lib/types";
 
 type ReviewSubmissionFormProps = {
@@ -122,7 +122,7 @@ export function ReviewSubmissionForm({
             </select>
             {providerUnavailable ? (
               <p className="text-xs leading-5 text-muted-foreground" role="status">
-                {t(language, "form.providerUnavailable")}
+                {tp(language, "form.providerUnavailable", { provider: selectedProvider?.label ?? llmProvider })}
               </p>
             ) : null}
           </div>

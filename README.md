@@ -340,6 +340,10 @@ Python AST 解析器成熟且为标准库自带，适合 MVP 快速验证完整�
 
 仓库克隆到本地后进行静态分析。只有结构化上下文（非原始源码）会发送给 LLM。Mock 模式下不会有任何数据离开本地。
 
+### 7. 真实 LLM 的 API Key 如何配置？
+
+真实 API Key 只填写在后端 `.env`，前端不会保存或暴露任何模型密钥。支持 MiMo、豆包 / Doubao、DeepSeek 三个服务商，通过 `REAL_LLM_PROVIDER` 切换。豆包的模型名称通常填写火山方舟 Endpoint ID。参见 `.env.example` 中的完整模板。
+
 ## 🤝 贡献指南
 
 欢迎提交 Issue 或 PR，建议遵守以下原则：

@@ -26,7 +26,7 @@ import {
   getReviewFindings,
   listReviews
 } from "../lib/api";
-import { t, getLocalizedStatusLabels, getLocalizedSeverity, getLocalizedCategory } from "../lib/i18n";
+import { t, tp, getLocalizedStatusLabels, getLocalizedSeverity, getLocalizedCategory } from "../lib/i18n";
 import type {
   ReviewAgentStateItem,
   ReviewFindingItem,
@@ -474,7 +474,7 @@ test("Real LLM provider dropdown shows unavailable hint", () => {
 
   assert.match(html, /value="mimo"/);
   assert.match(html, /value="doubao" selected/);
-  assert.match(html, /This provider requires backend \.env configuration/);
+  assert.match(html, /豆包 \/ Doubao requires backend \.env configuration/);
 });
 
 test("ReviewSubmissionForm renders Chinese labels", () => {
@@ -529,6 +529,7 @@ test("Chinese Real LLM provider copy is localized without changing dropdown opti
   assert.match(html, /MiMo/);
   assert.match(html, /豆包 \/ Doubao/);
   assert.match(html, /DeepSeek/);
+  assert.match(html, /豆包 \/ Doubao 尚未配置/);
   assert.match(html, /后端 \.env/);
   assert.match(html, /Key、Base URL 和模型名称/);
   assert.doesNotMatch(html, /真实 LLM provider/);
@@ -1826,9 +1827,108 @@ test("network export error is localized in Chinese", () => {
   assert.ok(networkError.includes("请检查网络"), "Chinese network error should be localized");
 });
 
-test("provider auth error is localized in Chinese", () => {
-  const authError = t("zh", "error.providerAuth");
-  assert.ok(authError.includes("模型 Key"), "Chinese auth error should mention the model key");
+test("provider auth error is localized in Chinese with provider name", () => {
+  const mimoError = tp("zh", "error.providerAuth", { provider: "MiMo" });
+  assert.ok(mimoError.includes("MiMo"), "Chinese auth error should mention MiMo");
+  assert.ok(mimoError.includes("尚未配置完成"), "Chinese auth error should be localized");
+
+  const doubaoError = tp("zh", "error.providerAuth", { provider: "豆包 / Doubao" });
+  assert.ok(doubaoError.includes("豆包 / Doubao"), "Chinese auth error should mention Doubao");
+  assert.ok(doubaoError.includes("尚未配置完成"), "Chinese auth error should be localized");
+
+  const deepseekError = tp("zh", "error.providerAuth", { provider: "DeepSeek" });
+  assert.ok(deepseekError.includes("DeepSeek"), "Chinese auth error should mention DeepSeek");
+  assert.ok(deepseekError.includes("尚未配置完成"), "Chinese auth error should be localized");
+});
+
+test("English provider auth error includes provider name for all providers", () => {
+  const mimoEn = tp("en", "error.providerAuth", { provider: "MiMo" });
+  assert.ok(mimoEn.includes("MiMo"), "English MiMo error should mention MiMo");
+  assert.ok(mimoEn.includes("not configured"), "English MiMo error should say not configured");
+
+  const doubaoEn = tp("en", "error.providerAuth", { provider: "Doubao" });
+  assert.ok(doubaoEn.includes("Doubao"), "English Doubao error should mention Doubao");
+  assert.ok(doubaoEn.includes("not configured"), "English Doubao error should say not configured");
+
+  const deepseekEn = tp("en", "error.providerAuth", { provider: "DeepSeek" });
+  assert.ok(deepseekEn.includes("DeepSeek"), "English DeepSeek error should mention DeepSeek");
+  assert.ok(deepseekEn.includes("not configured"), "English DeepSeek error should say not configured");
+});
+
+test("provider unavailable hint shows MiMo name when MiMo is selected and unavailable", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="en"
+      llmMode="mimo"
+      llmProvider="mimo"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: false },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
+      onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /MiMo requires backend \.env configuration/);
+});
+
+test("provider unavailable hint shows DeepSeek name when DeepSeek is selected and unavailable", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="en"
+      llmMode="mimo"
+      llmProvider="deepseek"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: true },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
+      onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.match(html, /DeepSeek requires backend \.env configuration/);
+});
+
+test("provider unavailable hint does not show for Mock LLM mode", () => {
+  const html = renderToStaticMarkup(
+    <ReviewSubmissionForm
+      fieldError={null}
+      isRunning={false}
+      language="en"
+      llmMode="mock"
+      llmProvider="mimo"
+      llmProviders={[
+        { value: "mimo", label: "MiMo", available: false },
+        { value: "doubao", label: "豆包 / Doubao", available: false },
+        { value: "deepseek", label: "DeepSeek", available: false }
+      ]}
+      onLlmModeChange={() => undefined}
+      onLlmProviderChange={() => undefined}
+      onRepoUrlChange={() => undefined}
+      onSubmit={() => undefined}
+      repoUrl="https://github.com/example/project"
+      submitting={false}
+    />
+  );
+
+  assert.doesNotMatch(html, /requires backend \.env configuration/);
+  assert.doesNotMatch(html, /尚未配置/);
 });
 
 test("[E1]/[E2] evidence references are preserved in both languages", () => {

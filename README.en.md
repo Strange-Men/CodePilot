@@ -340,6 +340,10 @@ Check the API configuration in `.env`, network connectivity, and model response 
 
 The repository is cloned locally for static analysis. Only structured context (not raw source code) is sent to the LLM. In Mock mode, no data leaves your machine.
 
+### 7. How do I configure a real LLM API key?
+
+API keys are only stored in backend `.env`; the frontend never sees or stores any model secrets. MiMo, Doubao, and DeepSeek are supported — switch via `REAL_LLM_PROVIDER`. For Doubao, the model name is typically your Volcengine Ark endpoint ID. See `.env.example` for the full template.
+
 ## 🤝 Contributing
 
 Issues and PRs are welcome. Please follow these guidelines:
